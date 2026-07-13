@@ -1,0 +1,30 @@
+## Xcode
+
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+## Build generated
+build/
+DerivedData/
+
+## Various settings
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+## Other
+*.moved-aside
+*.xcuserstate
+
+## Obj-C/Swift specific
+*.hmap
+
+## Swift Package Manager
+.swiftpm/
+.build/
+
+## macOS
+.DS_Store
