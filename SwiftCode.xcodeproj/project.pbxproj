@@ -13,7 +13,7 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* SwiftCode */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SwiftCode;
+			path = Main;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
