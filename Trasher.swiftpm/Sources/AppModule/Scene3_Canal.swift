@@ -7,7 +7,7 @@ import UIKit
 struct CanalScene: View {
     @EnvironmentObject var game: GameState
 
-    private enum Stage { case floating, fork, resolving }
+    private enum Stage { case floating, macro, fork, resolving }
 
     @State private var stage: Stage = .floating
     @State private var sceneStart = Date()
@@ -17,7 +17,8 @@ struct CanalScene: View {
     @State private var idleTask: Task<Void, Never>? = nil
 
     private var reduceMotion: Bool { game.reduceMotion }
-    private let introDuration: Double = 12
+    private let introDuration: Double = 9
+    private let macroDuration: Double = 5.5
 
     var body: some View {
         GeometryReader { geo in
@@ -25,9 +26,13 @@ struct CanalScene: View {
 
             TimelineView(.animation(minimumInterval: reduceMotion ? 0.3 : 1.0 / 30)) { context in
                 let elapsed = context.date.timeIntervalSince(sceneStart)
-                let darkness = stage == .floating
-                    ? min(1, elapsed / introDuration) * 0.7
-                    : 0.75
+                let darkness: Double = {
+                    switch stage {
+                    case .floating: return min(1, elapsed / introDuration) * 0.7
+                    case .macro: return 0.85
+                    case .fork, .resolving: return 0.75
+                    }
+                }()
 
                 ZStack {
                     waterBackground(darkness: darkness)
@@ -44,24 +49,63 @@ struct CanalScene: View {
                             )
                     }
 
-                    if stage != .floating {
+                    if stage == .macro {
+                        macroView(size: size, macroElapsed: elapsed - introDuration)
+                    }
+
+                    if stage == .fork || stage == .resolving {
                         forkView(size: size)
                     }
 
-                    Vignette(strength: 0.5)
+                    Vignette(strength: stage == .macro ? 0.35 : 0.5)
                 }
                 .onChange(of: elapsed) { _, newValue in
                     if stage == .floating && newValue > introDuration {
+                        enterMacro()
+                    } else if stage == .macro && newValue > introDuration + macroDuration {
                         enterFork()
                     }
                 }
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(stage == .floating
-            ? "Canal scene. The water is growing darker."
-            : "A fork in the canal. Swipe left toward the sea, or swipe right toward the bright recycling point.")
+        .accessibilityLabel(stage == .fork || stage == .resolving
+            ? "A fork in the canal. Swipe left toward the sea, or swipe right toward the bright recycling point."
+            : "Canal scene. The water is growing darker.")
         .onAppear(perform: setup)
+    }
+
+    private func macroView(size: CGSize, macroElapsed: Double) -> some View {
+        let zoomIn = min(1, macroElapsed / 1.2)
+        let zoomOut = min(1, max(0, (macroDuration - macroElapsed) / 1.2))
+        let envelope = min(zoomIn, zoomOut)
+        let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+
+        return ZStack {
+            FlakeField(
+                count: 16, scatterCenter: center, scatterRadius: 90,
+                target: Array(repeating: center, count: 16),
+                mix: 1 - envelope, color: Theme.cleanWhite.opacity(0.85), opacity: envelope * 0.8
+            )
+
+            BottleView(
+                vibrancy: game.vibrancy, dirt: game.grime, showEyes: envelope > 0.6,
+                width: 60, height: 148
+            )
+            .position(center)
+            .scaleEffect(1 + envelope * 2.1)
+
+            if envelope > 0.35 {
+                Text("Some of it never comes back.")
+                    .font(Theme.line(21))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .opacity(min(1, (envelope - 0.35) / 0.3))
+                    .position(x: size.width * 0.5, y: size.height * 0.84)
+            }
+        }
     }
 
     private func waterBackground(darkness: Double) -> some View {
@@ -81,16 +125,16 @@ struct CanalScene: View {
 
         return ZStack {
             // Sea path (left)
-            pathIndicator(
+            PathChoiceIndicator(
                 systemImage: "water.waves",
-                tint: seaBlocked ? .gray : Theme.murkGreen,
-                bright: !seaBlocked && leaning < -0.15
+                tint: seaBlocked ? .gray : Theme.mutedSeaTeal,
+                bright: !seaBlocked && leaning < -0.15,
+                dim: seaBlocked
             )
-            .opacity(seaBlocked ? 0.25 : 1)
             .position(x: size.width * 0.18, y: size.height * 0.42)
 
             // Recycling path (right)
-            pathIndicator(
+            PathChoiceIndicator(
                 systemImage: "arrow.3.trianglepath",
                 tint: Theme.cleanCyan,
                 bright: leaning > 0.15 || seaBlocked
@@ -121,20 +165,6 @@ struct CanalScene: View {
         )
     }
 
-    private func pathIndicator(systemImage: String, tint: Color, bright: Bool) -> some View {
-        ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [tint.opacity(bright ? 0.55 : 0.2), .clear], center: .center, startRadius: 0, endRadius: 80))
-                .frame(width: 150, height: 150)
-            Image(systemName: systemImage)
-                .font(.system(size: 30, weight: .medium))
-                .foregroundStyle(tint.opacity(bright ? 1 : 0.55))
-        }
-        .glow(tint, radius: bright ? 14 : 4, opacity: bright ? 0.6 : 0.15)
-        .scaleEffect(bright ? 1.08 : 1)
-        .animation(.easeInOut(duration: 0.4), value: bright)
-    }
-
     private func setup() {
         sceneStart = Date()
         choiceMade = false
@@ -148,10 +178,16 @@ struct CanalScene: View {
         }
     }
 
-    private func enterFork() {
+    private func enterMacro() {
         guard stage == .floating else { return }
+        stage = .macro
+        game.sound.motif()
+    }
+
+    private func enterFork() {
+        guard stage == .floating || stage == .macro else { return }
         stage = .fork
-        armIdleAutoAdvance(delay: 9)
+        armIdleAutoAdvance(delay: 7)
     }
 
     private func armIdleAutoAdvance(delay: Double) {

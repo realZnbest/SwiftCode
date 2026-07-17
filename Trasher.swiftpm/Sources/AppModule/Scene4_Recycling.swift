@@ -318,6 +318,23 @@ struct FlakeField: View {
     }
 }
 
+private struct RectSpec {
+    let x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat
+}
+
+/// A wide, front-on park-bench silhouette: a full-width backrest plank up
+/// top, two end posts carrying it down to a wider seat plank, and two
+/// legs. Read front-on and clearly multi-person-wide, this doesn't get
+/// mistaken for a single chair the way a narrower profile view did.
+private let benchRectSpecs: [RectSpec] = [
+    RectSpec(x: 0.06, y: 0.10, w: 0.88, h: 0.11),  // backrest
+    RectSpec(x: 0.06, y: 0.21, w: 0.09, h: 0.37),  // back post, left
+    RectSpec(x: 0.85, y: 0.21, w: 0.09, h: 0.37),  // back post, right
+    RectSpec(x: 0.0, y: 0.58, w: 1.0, h: 0.11),    // seat
+    RectSpec(x: 0.09, y: 0.69, w: 0.09, h: 0.29),  // leg, left
+    RectSpec(x: 0.82, y: 0.69, w: 0.09, h: 0.29)   // leg, right
+]
+
 /// A simple, stylized park-bench silhouette used both at the end of the
 /// recycling scene and again in the closing park scene.
 struct BenchView: View {
@@ -326,10 +343,9 @@ struct BenchView: View {
 
     var body: some View {
         ZStack {
-            benchShape(RectSpec(x: 0.0, y: 0.5, w: 1.0, h: 0.1))
-            benchShape(RectSpec(x: 0.72, y: 0.06, w: 0.10, h: 0.46))
-            benchShape(RectSpec(x: 0.06, y: 0.6, w: 0.08, h: 0.35))
-            benchShape(RectSpec(x: 0.80, y: 0.6, w: 0.08, h: 0.35))
+            ForEach(0..<benchRectSpecs.count, id: \.self) { i in
+                benchShape(benchRectSpecs[i])
+            }
         }
         .frame(width: width, height: height)
     }
@@ -345,17 +361,8 @@ struct BenchView: View {
     }
 }
 
-private struct RectSpec {
-    let x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat
-}
-
 func benchTargetPoints(count: Int, width: CGFloat, height: CGFloat, origin: CGPoint) -> [CGPoint] {
-    let rects: [RectSpec] = [
-        RectSpec(x: 0.0, y: 0.5, w: 1.0, h: 0.1),
-        RectSpec(x: 0.72, y: 0.06, w: 0.10, h: 0.46),
-        RectSpec(x: 0.06, y: 0.6, w: 0.08, h: 0.35),
-        RectSpec(x: 0.80, y: 0.6, w: 0.08, h: 0.35)
-    ]
+    let rects = benchRectSpecs
     let areas = rects.map { $0.w * $0.h }
     let total = areas.reduce(0, +)
     var cumulative: [CGFloat] = []

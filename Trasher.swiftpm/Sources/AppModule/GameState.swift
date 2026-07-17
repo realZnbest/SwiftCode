@@ -12,35 +12,44 @@ import Combine
 final class GameState: ObservableObject {
 
     enum Phase: Int, Equatable, Hashable {
+        case title
         case opening
         case streetToDrain
+        case landfillFailure
         case canal
         case seaFailure
         case recycling
+        case montage
         case ending
     }
 
-    @Published private(set) var phase: Phase = .opening
+    @Published private(set) var phase: Phase = .title
     @Published private(set) var grime: Double = 0          // 0 clean ... 1 filthy
     @Published private(set) var vibrancy: Double = 1        // 1 vivid ... 0.4 dull
     @Published private(set) var seaAttempts: Int = 0
+    @Published private(set) var landfillAttempts: Int = 0
     @Published private(set) var binMisses: Int = 0
     @Published var journeyReplayToken: Int = 0
     @Published var reduceMotion: Bool = false
 
     let sound = SoundEngine()
 
-    /// After the player has already seen the fork once (chose the sea),
-    /// the story gently insists on recycling next time so the game can't
-    /// loop forever.
+    /// After the player has already seen the canal fork once (chose the
+    /// sea), the story gently insists on recycling next time so the game
+    /// can't loop forever.
     var mustRouteToRecycling: Bool { seaAttempts >= 1 }
+
+    /// Same idea for the earlier drain fork: after one landfill detour,
+    /// the second visit routes to the drain.
+    var mustRouteToDrain: Bool { landfillAttempts >= 1 }
 
     func begin() {
         grime = 0
         vibrancy = 1
         seaAttempts = 0
+        landfillAttempts = 0
         binMisses = 0
-        goTo(.opening)
+        goTo(.title)
     }
 
     func goTo(_ next: Phase) {
@@ -57,17 +66,30 @@ final class GameState: ObservableObject {
         Haptics.collision()
     }
 
+    func advanceFromTitle() {
+        goTo(.opening)
+    }
+
     func advanceFromOpening() {
         goTo(.streetToDrain)
     }
 
-    func advanceFromStreet() {
+    func chooseDrain() {
         goTo(.canal)
+    }
+
+    func chooseLandfill() {
+        landfillAttempts += 1
+        Haptics.warning()
+        goTo(.landfillFailure)
+    }
+
+    func returnToForkFromLandfill() {
+        goTo(.streetToDrain)
     }
 
     func chooseSea() {
         seaAttempts += 1
-        sound.muffle()
         Haptics.warning()
         goTo(.seaFailure)
     }
@@ -90,6 +112,10 @@ final class GameState: ObservableObject {
         vibrancy = 1
         sound.success()
         Haptics.success()
+        goTo(.montage)
+    }
+
+    func advanceFromMontage() {
         goTo(.ending)
     }
 

@@ -3,16 +3,19 @@ import UIKit
 
 /// Every sound in Trasher is synthesized at launch — no bundled audio
 /// files — so the whole game stays tiny and fully offline. Ambient layers
-/// crossfade as the story moves through city -> drain -> canal -> facility
-/// -> park; a couple of one-shot buffers cover impacts and success.
+/// crossfade as the story moves through title -> city -> drain -> canal ->
+/// facility -> montage -> park, a soft arpeggio motif ties the emotional
+/// beats together, and a shared reverb send gives everything a sense of
+/// space instead of sounding like dry synthesizer test tones.
 @MainActor
 final class SoundEngine {
 
     private enum Layer: CaseIterable {
-        case city, rain, water, machinery, sparkle
+        case city, rain, water, machinery, sparkle, arp
     }
 
     private let engine = AVAudioEngine()
+    private let reverb = AVAudioUnitReverb()
     private let sampleRate: Double = 24_000
 
     private var loopPlayers: [Layer: AVAudioPlayerNode] = [:]
@@ -22,9 +25,13 @@ final class SoundEngine {
     private let impactPlayers = [AVAudioPlayerNode(), AVAudioPlayerNode(), AVAudioPlayerNode()]
     private var nextImpactIndex = 0
     private let successPlayer = AVAudioPlayerNode()
+    private let motifPlayer = AVAudioPlayerNode()
+    private let thunderPlayer = AVAudioPlayerNode()
 
     private var impactSample: AVAudioPCMBuffer!
     private var successSample: AVAudioPCMBuffer!
+    private var motifSample: AVAudioPCMBuffer!
+    private var thunderSample: AVAudioPCMBuffer!
 
     init() {
         configureSession()
@@ -98,8 +105,24 @@ final class SoundEngine {
             return Float((a + b) * trem)
         }
 
+        // A soft, hopeful four-note arpeggio that loops with breathing room
+        // between phrases. Used sparingly (recycling, montage, ending) as
+        // the story's musical "hope" motif.
+        let arpNotes: [Double] = [392.00, 440.00, 587.33, 659.25]
+        let arpNoteDuration = 0.46
+        let arp = makeBuffer(duration: 4.4, fadeEdges: true) { t in
+            let phraseLength = Double(arpNotes.count) * arpNoteDuration
+            guard t < phraseLength else { return 0 }
+            let idx = min(arpNotes.count - 1, Int(t / arpNoteDuration))
+            let freq = arpNotes[idx]
+            let localT = t - Double(idx) * arpNoteDuration
+            let attack = min(1, localT / 0.04)
+            let decay = exp(-localT * 2.4)
+            return Float(sin(2 * .pi * freq * t)) * Float(attack * decay) * 0.16
+        }
+
         let buffers: [Layer: AVAudioPCMBuffer] = [
-            .city: city, .rain: rain, .water: water, .machinery: machinery, .sparkle: sparkle
+            .city: city, .rain: rain, .water: water, .machinery: machinery, .sparkle: sparkle, .arp: arp
         ]
 
         for layer in Layer.allCases {
@@ -130,12 +153,51 @@ final class SoundEngine {
             return Float(sin(2 * .pi * freq * t) * env) * 0.5
         }
 
+        // A gentle rising bell phrase for emotional beats (title, "I still
+        // have a purpose", the macro beat, the ending reveal).
+        let motifNotes: [Double] = [440.0, 587.33, 880.0]
+        let motifNoteDuration = 0.34
+        motifSample = makeBuffer(duration: motifNoteDuration * Double(motifNotes.count) + 0.4) { t in
+            let phraseLength = Double(motifNotes.count) * motifNoteDuration
+            guard t < phraseLength else { return 0 }
+            let idx = min(motifNotes.count - 1, Int(t / motifNoteDuration))
+            let freq = motifNotes[idx]
+            let localT = t - Double(idx) * motifNoteDuration
+            let env = Float(min(1, localT / 0.015)) * Float(exp(-localT * 3.6))
+            let fundamental = sin(2 * .pi * freq * t)
+            let overtone = sin(2 * .pi * freq * 2 * t) * 0.22
+            return Float(fundamental + overtone) * env * 0.42
+        }
+
+        // A distant, low thunder rumble for the storm's occasional lightning.
+        var thunderLP: Float = 0
+        thunderSample = makeBuffer(duration: 1.4) { t in
+            let n = Float.random(in: -1...1)
+            thunderLP = thunderLP * 0.975 + n * 0.025
+            let env = Float(min(1, t / 0.08)) * Float(exp(-t * 1.6))
+            let rumble = sin(2 * .pi * 42 * t) * 0.3
+            return (thunderLP * 1.6 + Float(rumble)) * env * 0.8
+        }
+
         for node in impactPlayers {
             engine.attach(node)
             engine.connect(node, to: engine.mainMixerNode, format: monoFormat())
         }
         engine.attach(successPlayer)
         engine.connect(successPlayer, to: engine.mainMixerNode, format: monoFormat())
+        engine.attach(motifPlayer)
+        engine.connect(motifPlayer, to: engine.mainMixerNode, format: monoFormat())
+        engine.attach(thunderPlayer)
+        engine.connect(thunderPlayer, to: engine.mainMixerNode, format: monoFormat())
+
+        // Shared reverb send: routes the whole mix through a bright plate
+        // reverb before it reaches the speakers, so city, water, and the
+        // musical motif all feel like they're in the same wide, glossy space.
+        engine.attach(reverb)
+        reverb.loadFactoryPreset(.plate)
+        reverb.wetDryMix = 24
+        engine.connect(engine.mainMixerNode, to: reverb, format: nil)
+        engine.connect(reverb, to: engine.outputNode, format: nil)
 
         engine.prepare()
         try? engine.start()
@@ -153,19 +215,26 @@ final class SoundEngine {
         var masterVolume: Float = 1.0
 
         switch phase {
+        case .title:
+            target = [.city: 0.28, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.08, .arp: 0.05]
         case .opening:
-            target = [.city: 0.45, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.05]
+            target = [.city: 0.45, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.05, .arp: 0]
         case .streetToDrain:
-            target = [.city: 0.22, .rain: 0.55, .water: 0.12, .machinery: 0, .sparkle: 0]
+            target = [.city: 0.22, .rain: 0.55, .water: 0.12, .machinery: 0, .sparkle: 0, .arp: 0]
+        case .landfillFailure:
+            target = [.city: 0, .rain: 0.04, .water: 0.04, .machinery: 0.18, .sparkle: 0, .arp: 0]
+            masterVolume = 0.5
         case .canal:
-            target = [.city: 0.05, .rain: 0.12, .water: 0.5, .machinery: 0, .sparkle: 0]
+            target = [.city: 0.05, .rain: 0.12, .water: 0.5, .machinery: 0, .sparkle: 0, .arp: 0]
         case .seaFailure:
-            target = [.city: 0, .rain: 0.05, .water: 0.25, .machinery: 0, .sparkle: 0]
+            target = [.city: 0, .rain: 0.05, .water: 0.25, .machinery: 0, .sparkle: 0, .arp: 0]
             masterVolume = 0.5
         case .recycling:
-            target = [.city: 0, .rain: 0, .water: 0.08, .machinery: 0.5, .sparkle: 0.15]
+            target = [.city: 0, .rain: 0, .water: 0.08, .machinery: 0.5, .sparkle: 0.15, .arp: 0.1]
+        case .montage:
+            target = [.city: 0.1, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.3, .arp: 0.32]
         case .ending:
-            target = [.city: 0.08, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.45]
+            target = [.city: 0.08, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.45, .arp: 0.18]
         }
 
         rampVolumes(to: target, master: masterVolume, duration: 1.4)
@@ -209,8 +278,25 @@ final class SoundEngine {
         successPlayer.play()
     }
 
+    /// A distant rumble timed to the street scene's occasional lightning
+    /// flash, for a bit of storm drama.
+    func thunder() {
+        thunderPlayer.stop()
+        thunderPlayer.scheduleBuffer(thunderSample, at: nil)
+        thunderPlayer.play()
+    }
+
+    /// A soft rising bell phrase played at emotional beats: the title card,
+    /// "I still have a purpose", the canal's macro close-up, and the ending
+    /// reveal. Kept rare so it stays meaningful.
+    func motif() {
+        motifPlayer.stop()
+        motifPlayer.scheduleBuffer(motifSample, at: nil)
+        motifPlayer.play()
+    }
+
     func muffle() {
-        // Reserved for future use; sea-route hush is handled by transition(to:).
+        // Reserved for future use; failure-route hush is handled by transition(to:).
     }
 }
 

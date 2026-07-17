@@ -28,6 +28,9 @@ enum Theme {
     static let murkGreen = Color(red: 0.18, green: 0.26, blue: 0.16)
     static let murkBrown = Color(red: 0.22, green: 0.17, blue: 0.10)
     static let smokeOrange = Color(red: 0.55, green: 0.32, blue: 0.14)
+    /// A muted teal used for the sea-route icon — dimmer than recycling's
+    /// cyan, but still visible against the canal's dark green water.
+    static let mutedSeaTeal = Color(red: 0.4, green: 0.62, blue: 0.58)
 
     // MARK: Recycling
 

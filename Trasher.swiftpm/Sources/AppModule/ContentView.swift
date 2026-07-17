@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Switches on the current story phase. Each scene is fully remounted on
-/// phase change (`.id`) so its local @State always starts clean, and the
-/// crossfade transition doubles as the reduced-motion-friendly scene change.
 struct RootView: View {
     @EnvironmentObject var game: GameState
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
@@ -13,16 +10,22 @@ struct RootView: View {
 
             Group {
                 switch game.phase {
+                case .title:
+                    TitleScene()
                 case .opening:
                     OpeningScene()
                 case .streetToDrain:
                     StreetToDrainScene()
+                case .landfillFailure:
+                    LandfillFailureScene()
                 case .canal:
                     CanalScene()
                 case .seaFailure:
                     SeaFailureScene()
                 case .recycling:
                     RecyclingScene()
+                case .montage:
+                    MontageScene()
                 case .ending:
                     EndingScene()
                 }

@@ -187,6 +187,38 @@ struct Vignette: View {
     }
 }
 
+/// A glowing waypoint icon used at every branching choice in the game
+/// (the canal fork, the drain fork). `bright` marks the side the player is
+/// currently leaning/dragging toward; `dim` marks a route the story has
+/// temporarily closed off (e.g. after one detour already used).
+struct PathChoiceIndicator: View {
+    var systemImage: String
+    var tint: Color
+    var bright: Bool
+    var dim: Bool = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(RadialGradient(colors: [tint.opacity(bright ? 0.55 : 0.28), .clear],
+                                     center: .center, startRadius: 0, endRadius: 80))
+                .frame(width: 150, height: 150)
+            // A faint neutral ring keeps the icon legible even when its
+            // tint is close in hue to a murky/dark background.
+            Circle()
+                .strokeBorder(Color.white.opacity(bright ? 0.3 : 0.16), lineWidth: 1.5)
+                .frame(width: 62, height: 62)
+            Image(systemName: systemImage)
+                .font(.system(size: 30, weight: .medium))
+                .foregroundStyle(tint.opacity(bright ? 1 : 0.7))
+        }
+        .opacity(dim ? 0.25 : 1)
+        .glow(tint, radius: bright ? 14 : 4, opacity: bright ? 0.6 : 0.15)
+        .scaleEffect(bright ? 1.08 : 1)
+        .animation(.easeInOut(duration: 0.4), value: bright)
+    }
+}
+
 struct GlowOrb: View {
     var color: Color
     var size: CGFloat
