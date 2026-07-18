@@ -90,70 +90,108 @@ struct BottleView: View {
 
     var body: some View {
         ZStack {
-            BottleShape()
-                .fill(Theme.bottleBlue.opacity(0.3 + glow * 0.3))
-                .frame(width: width, height: height)
-                .blur(radius: 22 + glow * 12)
-                .opacity(0.45 + glow * 0.35)
+            // Contact shadow: stays grounded regardless of how the bottle
+            // itself tilts, the way a real shadow would.
+            Ellipse()
+                .fill(RadialGradient(colors: [Color.black.opacity(0.4), .clear],
+                                     center: .center, startRadius: 0, endRadius: width * 0.62))
+                .frame(width: width * 1.35, height: width * 0.36)
+                .offset(y: height * 0.52)
+                .blur(radius: 2)
 
             ZStack {
                 BottleShape()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Theme.bottleBlueDeep.opacity(0.55 * vibrancy + 0.15),
-                                Theme.bottleBlue.opacity(0.42 * vibrancy + 0.15),
-                                Theme.bottleBlueDeep.opacity(0.5 * vibrancy + 0.15)
-                            ],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                    .saturation(0.35 + vibrancy * 0.65)
-
-                Capsule()
-                    .fill(
-                        LinearGradient(colors: [.white.opacity(0.5), Theme.bottleBlueDeep.opacity(0.9 * vibrancy + 0.2)],
-                                       startPoint: .top, endPoint: .bottom)
-                    )
-                    .frame(width: width * 0.22, height: height * 0.075)
-                    .offset(y: -height * 0.46)
-
-                HStack(spacing: width * 0.24) {
-                    Capsule()
-                        .fill(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0)],
-                                             startPoint: .top, endPoint: .bottom))
-                        .frame(width: width * 0.09, height: height * 0.5)
-                    Capsule()
-                        .fill(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0)],
-                                             startPoint: .top, endPoint: .bottom))
-                        .frame(width: width * 0.05, height: height * 0.32)
-                }
-                .blendMode(.screen)
-                .offset(y: -height * 0.06)
-
-                if showEyes {
-                    HStack(spacing: width * 0.16) {
-                        eyeDot
-                        eyeDot
-                    }
-                    .offset(y: -height * 0.02)
-                    .opacity(0.85)
-                }
-
-                if dirt > 0.01 {
-                    DirtSpeckleCanvas(amount: dirt)
-                        .blendMode(.multiply)
-                }
-            }
-            .frame(width: width, height: height)
-            .clipShape(BottleShape())
-            .overlay(
-                BottleShape()
-                    .stroke(Color.white.opacity(0.22 * vibrancy + 0.05), lineWidth: 1)
+                    .fill(Theme.bottleBlue.opacity(0.3 + glow * 0.3))
                     .frame(width: width, height: height)
-            )
+                    .blur(radius: 22 + glow * 12)
+                    .opacity(0.45 + glow * 0.35)
+
+                ZStack {
+                    BottleShape()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Theme.bottleBlueDeep.opacity(0.55 * vibrancy + 0.15),
+                                    Theme.bottleBlue.opacity(0.42 * vibrancy + 0.15),
+                                    Theme.cleanCyan.opacity(0.12 * vibrancy),
+                                    Theme.bottleBlueDeep.opacity(0.5 * vibrancy + 0.15)
+                                ],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            )
+                        )
+                        .saturation(0.35 + vibrancy * 0.65)
+
+                    // Ambient occlusion: the seams where light naturally
+                    // gets trapped — under the cap and at the base.
+                    Capsule()
+                        .fill(Color.black.opacity(0.28))
+                        .frame(width: width * 0.5, height: height * 0.035)
+                        .blur(radius: 3)
+                        .offset(y: -height * 0.335)
+                    Capsule()
+                        .fill(Color.black.opacity(0.24))
+                        .frame(width: width * 0.62, height: height * 0.04)
+                        .blur(radius: 3)
+                        .offset(y: height * 0.42)
+
+                    Capsule()
+                        .fill(
+                            LinearGradient(colors: [.white.opacity(0.5), Theme.bottleBlueDeep.opacity(0.9 * vibrancy + 0.2)],
+                                           startPoint: .top, endPoint: .bottom)
+                        )
+                        .frame(width: width * 0.22, height: height * 0.075)
+                        .offset(y: -height * 0.46)
+
+                    HStack(spacing: width * 0.24) {
+                        Capsule()
+                            .fill(LinearGradient(colors: [.white.opacity(0.55), .white.opacity(0)],
+                                                 startPoint: .top, endPoint: .bottom))
+                            .frame(width: width * 0.09, height: height * 0.5)
+                        Capsule()
+                            .fill(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0)],
+                                                 startPoint: .top, endPoint: .bottom))
+                            .frame(width: width * 0.05, height: height * 0.32)
+                    }
+                    .blendMode(.screen)
+                    .offset(y: -height * 0.06)
+
+                    if showEyes {
+                        HStack(spacing: width * 0.16) {
+                            eyeDot
+                            eyeDot
+                        }
+                        .offset(y: -height * 0.02)
+                        .opacity(0.85)
+                    }
+
+                    if dirt > 0.01 {
+                        DirtSpeckleCanvas(amount: dirt)
+                            .blendMode(.multiply)
+                    }
+                }
+                .frame(width: width, height: height)
+                .clipShape(BottleShape())
+                .overlay(
+                    // Fresnel-style rim light: brighter where the curved
+                    // plastic edge catches light, dimmer on the shadow side.
+                    BottleShape()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.5 * vibrancy + 0.08),
+                                    Theme.cleanCyan.opacity(0.18 * vibrancy),
+                                    Color.black.opacity(0.22)
+                                ],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.4
+                        )
+                        .frame(width: width, height: height)
+                )
+            }
+            .rotationEffect(tilt)
         }
-        .rotationEffect(tilt)
+        .frame(width: width, height: height)
         .onAppear(perform: scheduleBlink)
     }
 

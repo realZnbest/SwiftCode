@@ -37,6 +37,12 @@ struct CanalScene: View {
                 ZStack {
                     waterBackground(darkness: darkness)
 
+                    LightRaysCanvas(color: Theme.cleanCyan, count: 4, reduceMotion: reduceMotion)
+                        .opacity(1 - darkness * 0.75)
+
+                    BubbleCanvas(count: 14, color: Theme.murkBrown, reduceMotion: reduceMotion)
+                        .opacity(0.4 + darkness * 0.4)
+
                     FishSilhouettesCanvas(darkness: darkness, reduceMotion: reduceMotion)
 
                     SmokeCanvas(intensity: darkness, color: Theme.murkGreen, reduceMotion: reduceMotion)
@@ -47,14 +53,17 @@ struct CanalScene: View {
                                 x: size.width * (0.15 + 0.35 * min(1, elapsed / introDuration)),
                                 y: size.height * 0.5 + CGFloat(sin(elapsed * 1.6)) * 18
                             )
+                            .transition(.opacity)
                     }
 
                     if stage == .macro {
                         macroView(size: size, macroElapsed: elapsed - introDuration)
+                            .transition(.opacity)
                     }
 
                     if stage == .fork || stage == .resolving {
                         forkView(size: size)
+                            .transition(.opacity.combined(with: .scale(scale: 0.94)))
                     }
 
                     Vignette(strength: stage == .macro ? 0.35 : 0.5)
@@ -87,6 +96,9 @@ struct CanalScene: View {
                 target: Array(repeating: center, count: 16),
                 mix: 1 - envelope, color: Theme.cleanWhite.opacity(0.85), opacity: envelope * 0.8
             )
+
+            MicroplasticDrift(elapsed: macroElapsed, center: center, reduceMotion: reduceMotion)
+                .opacity(envelope > 0.35 ? envelope : 0)
 
             BottleView(
                 vibrancy: game.vibrancy, dirt: game.grime, showEyes: envelope > 0.6,
@@ -126,18 +138,18 @@ struct CanalScene: View {
         return ZStack {
             // Sea path (left)
             PathChoiceIndicator(
-                systemImage: "water.waves",
-                tint: seaBlocked ? .gray : Theme.mutedSeaTeal,
+                kind: .sea,
                 bright: !seaBlocked && leaning < -0.15,
-                dim: seaBlocked
+                dim: seaBlocked,
+                containerSize: size
             )
             .position(x: size.width * 0.18, y: size.height * 0.42)
 
             // Recycling path (right)
             PathChoiceIndicator(
-                systemImage: "arrow.3.trianglepath",
-                tint: Theme.cleanCyan,
-                bright: leaning > 0.15 || seaBlocked
+                kind: .recyclingPoint,
+                bright: leaning > 0.15 || seaBlocked,
+                containerSize: size
             )
             .position(x: size.width * 0.82, y: size.height * 0.42)
 
@@ -180,13 +192,17 @@ struct CanalScene: View {
 
     private func enterMacro() {
         guard stage == .floating else { return }
-        stage = .macro
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.35) : .easeInOut(duration: 0.6)) {
+            stage = .macro
+        }
         game.sound.motif()
     }
 
     private func enterFork() {
         guard stage == .floating || stage == .macro else { return }
-        stage = .fork
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.35) : .easeInOut(duration: 0.6)) {
+            stage = .fork
+        }
         armIdleAutoAdvance(delay: 7)
     }
 
@@ -270,4 +286,3 @@ struct SeaFailureScene: View {
         }
     }
 }
-

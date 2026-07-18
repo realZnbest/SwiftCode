@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 35-45s. A glowing recycling facility: drag the bottle into the right
 /// bin, then watch it get rinsed, shredded into flakes, and re-formed into
-/// a park bench while the world brightens.
+/// a recycled-plastic park bench while the world brightens.
 struct RecyclingScene: View {
     @EnvironmentObject var game: GameState
 
@@ -15,6 +15,7 @@ struct RecyclingScene: View {
     @State private var misses = 0
     @State private var idleTask: Task<Void, Never>? = nil
     @State private var brighten: Double = 0
+    @State private var wrongDropFeedback = false
 
     private var reduceMotion: Bool { game.reduceMotion }
 
@@ -31,12 +32,22 @@ struct RecyclingScene: View {
                 machineryGlow(size: size)
 
                 if stage == .choosing || stage == .arriving {
-                    binView(rect: landfillRect, size: size, tint: .gray, systemImage: "trash.fill", bright: false)
-                    binView(rect: recyclingRect, size: size, tint: Theme.cleanCyan,
-                            systemImage: "arrow.3.trianglepath", bright: misses > 0)
+                    binView(rect: landfillRect, size: size, kind: .landfill, bright: false, warning: wrongDropFeedback, reduceMotion: reduceMotion)
+                    binView(rect: recyclingRect, size: size, kind: .recycling, bright: misses > 0, warning: false, reduceMotion: reduceMotion)
                 }
 
                 stageContent(size: size)
+
+                if wrongDropFeedback && stage == .choosing {
+                    Label("This bin keeps it buried. Try recycling.", systemImage: "exclamationmark.triangle.fill")
+                        .font(Theme.line(16))
+                        .foregroundStyle(Theme.neonAmber)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Theme.nearBlack.opacity(0.78), in: Capsule())
+                        .position(x: size.width * 0.5, y: size.height * 0.44)
+                        .transition(.opacity)
+                }
 
                 Vignette(strength: 0.55 - brighten * 0.25)
             }
@@ -57,7 +68,7 @@ struct RecyclingScene: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(stage == .choosing
             ? "Recycling facility. Drag the bottle into the glowing recycling bin, not the trash bin."
-            : "Recycling facility. The bottle is being cleaned and remade into a park bench.")
+            : "Recycling facility. The bottle is being cleaned, shredded, and remade into a bench made of recycled plastic.")
         .onAppear(perform: setup)
     }
 
@@ -72,8 +83,13 @@ struct RecyclingScene: View {
                 ],
                 startPoint: .top, endPoint: .bottom
             )
+            FactorySilhouetteCanvas()
+                .opacity(0.7)
+            LightRaysCanvas(color: Theme.cleanCyan, count: 3, reduceMotion: reduceMotion)
+                .opacity(0.5 + brighten * 0.2)
             NeonStreakField(colors: [Theme.cleanCyan, Theme.freshGreen], reduceMotion: reduceMotion)
                 .opacity(0.5 + brighten * 0.3)
+            ConveyorBeltCanvas(reduceMotion: reduceMotion)
             SparkleCanvas(count: Int(20 + brighten * 40), color: Theme.cleanWhite, reduceMotion: reduceMotion)
                 .opacity(0.3 + brighten * 0.5)
         }
@@ -98,21 +114,78 @@ struct RecyclingScene: View {
 
     // MARK: Bins
 
-    private func binView(rect: CGRect, size: CGSize, tint: Color, systemImage: String, bright: Bool) -> some View {
+    private enum BinKind { case landfill, recycling }
+
+    /// Each choice is a real illustrated object, not a bare icon in a
+    /// translucent panel — a grimy overflowing dumpster you can tell is a
+    /// dead end at a glance, next to a glowing bin that's obviously part of
+    /// the machinery around it. The murky haze/upward sparks behind each one
+    /// foreshadow what happens next, so the choice reads on sight.
+    private func binView(rect: CGRect, size: CGSize, kind: BinKind, bright: Bool, warning: Bool, reduceMotion: Bool) -> some View {
         let frame = CGRect(x: rect.minX * size.width, y: rect.minY * size.height,
                             width: rect.width * size.width, height: rect.height * size.height)
+        let glowColor = warning ? Theme.neonAmber : (kind == .landfill ? Theme.smokeOrange : Theme.cleanCyan)
+
         return ZStack {
-            RoundedRectangle(cornerRadius: 18)
-                .fill(tint.opacity(bright ? 0.22 : 0.12))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(tint.opacity(bright ? 0.9 : 0.4), lineWidth: bright ? 3 : 1.5))
-            Image(systemName: systemImage)
-                .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(tint.opacity(bright ? 1 : 0.6))
+            if kind == .landfill {
+                SmokeCanvas(intensity: 0.5, color: Theme.murkGreen, reduceMotion: reduceMotion)
+                    .frame(width: frame.width * 1.6, height: frame.height * 1.6)
+                    .opacity(0.5)
+            } else {
+                RisingSparksCanvas(color: Theme.cleanCyan, reduceMotion: reduceMotion)
+                    .frame(width: frame.width * 1.4, height: frame.height * 1.8)
+                    .opacity(0.6)
+            }
+
+            Group {
+                if kind == .landfill {
+                    TrashBinView(width: frame.width * 0.8, height: frame.height * 0.85)
+                } else {
+                    RecycleBinView(width: frame.width * 0.8, height: frame.height * 0.85)
+                }
+            }
+            .overlay(
+                warning ?
+                RoundedRectangle(cornerRadius: 12).stroke(Theme.neonAmber, lineWidth: 3).opacity(0.85)
+                    .frame(width: frame.width * 0.9, height: frame.height * 0.95)
+                : nil
+            )
         }
         .frame(width: frame.width, height: frame.height)
         .position(x: frame.midX, y: frame.midY)
-        .glow(tint, radius: bright ? 16 : 4, opacity: bright ? 0.5 : 0.1)
-        .animation(.easeInOut(duration: 0.4), value: bright)
+        .glow(glowColor, radius: bright || warning ? 20 : 6, opacity: bright || warning ? 0.55 : (kind == .landfill ? 0.08 : 0.2))
+        .scaleEffect(warning ? 1.035 : 1)
+        .animation(.easeInOut(duration: 0.25), value: bright)
+        .animation(.easeInOut(duration: 0.18), value: warning)
+    }
+
+    // MARK: - Bin illustrations
+
+    /// Small motes drifting upward and fading — placed behind the recycling
+    /// bin so it visibly leads onward/upward, the opposite of the landfill
+    /// bin's low, sinking smoke.
+    private struct RisingSparksCanvas: View {
+        var color: Color
+        var reduceMotion: Bool = false
+
+        var body: some View {
+            TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 24)) { context in
+                Canvas { ctx, size in
+                    let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                    for i in 0..<10 {
+                        let cycle = 2.4 + rnd(i, 70) * 1.2
+                        let phase = (t / cycle + rnd(i, 71)).truncatingRemainder(dividingBy: 1.0)
+                        let x = size.width * rnd(i, 72)
+                        let y = size.height * (1 - phase)
+                        let r: CGFloat = 1.5 + rnd(i, 73) * 2
+                        let fade = phase < 0.15 ? phase / 0.15 : 1 - (phase - 0.15) / 0.85
+                        ctx.opacity = 0.15 + fade * 0.5
+                        ctx.fill(Path(ellipseIn: CGRect(x: x - r / 2, y: y - r / 2, width: r, height: r)), with: .color(color))
+                    }
+                }
+            }
+            .allowsHitTesting(false)
+        }
     }
 
     // MARK: Stage content
@@ -173,7 +246,7 @@ struct RecyclingScene: View {
                         scatterRadius: reduceMotion ? 40 : 130,
                         target: targets, mix: mix, color: Theme.freshGreen.opacity(0.9), opacity: 1 - max(0, mix - 0.85) / 0.15
                     )
-                    BenchView(width: size.width * 0.32, height: size.height * 0.32)
+                    BenchView(width: size.width * 0.45, height: size.height * 0.18)
                         .position(x: origin.x + size.width * 0.16, y: origin.y + size.height * 0.16)
                         .opacity(max(0, (mix - 0.85) / 0.15))
                 }
@@ -184,7 +257,7 @@ struct RecyclingScene: View {
             }
 
         case .done:
-            BenchView(width: size.width * 0.32, height: size.height * 0.32)
+            BenchView(width: size.width * 0.45, height: size.height * 0.18)
                 .position(x: size.width * 0.5, y: size.height * 0.58)
                 .glow(Theme.freshGreen, radius: 20, opacity: 0.4)
         }
@@ -198,6 +271,7 @@ struct RecyclingScene: View {
         bottlePos = CGPoint(x: 0.5, y: 0.22)
         dragBase = bottlePos
         misses = 0
+        wrongDropFeedback = false
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.6))
             guard stage == .arriving else { return }
@@ -226,8 +300,16 @@ struct RecyclingScene: View {
         } else if landfillRect.contains(bottlePos) {
             misses += 1
             game.registerBinMiss()
-            withAnimation(.spring()) { bottlePos = CGPoint(x: 0.5, y: 0.22) }
+            withAnimation(.easeOut(duration: 0.35)) {
+                bottlePos = CGPoint(x: 0.5, y: 0.22)
+                wrongDropFeedback = true
+            }
             dragBase = bottlePos
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.6))
+                guard stage == .choosing else { return }
+                withAnimation(.easeOut(duration: 0.25)) { wrongDropFeedback = false }
+            }
             if misses >= 2 {
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(0.6))
@@ -322,43 +404,139 @@ private struct RectSpec {
     let x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat
 }
 
-/// A wide, front-on park-bench silhouette: a full-width backrest plank up
-/// top, two end posts carrying it down to a wider seat plank, and two
-/// legs. Read front-on and clearly multi-person-wide, this doesn't get
-/// mistaken for a single chair the way a narrower profile view did.
+/// A wide, front-on park-bench silhouette matching the classic recycled-
+/// plastic lumber bench: two dark trapezoidal end supports (wider at
+/// bottom, narrower at top) with brown seat plank overhanging both sides
+/// and two brown backrest slats separated by a gap.
+///
+/// `benchRectSpecs` approximates the filled area for particle-target
+/// distribution during the recycling animation; the actual drawing uses
+/// trapezoids via Canvas for the supports.
 private let benchRectSpecs: [RectSpec] = [
-    RectSpec(x: 0.06, y: 0.10, w: 0.88, h: 0.11),  // backrest
-    RectSpec(x: 0.06, y: 0.21, w: 0.09, h: 0.37),  // back post, left
-    RectSpec(x: 0.85, y: 0.21, w: 0.09, h: 0.37),  // back post, right
-    RectSpec(x: 0.0, y: 0.58, w: 1.0, h: 0.11),    // seat
-    RectSpec(x: 0.09, y: 0.69, w: 0.09, h: 0.29),  // leg, left
-    RectSpec(x: 0.82, y: 0.69, w: 0.09, h: 0.29)   // leg, right
+    // ── Left support (rectangle approximation of trapezoid) ──
+    RectSpec(x: 0.15, y: 0.0, w: 0.09, h: 1.0),
+    // ── Right support ──
+    RectSpec(x: 0.76, y: 0.0, w: 0.09, h: 1.0),
+    // ── Seat slab (thick, full-width, overhangs supports) ──
+    RectSpec(x: 0.0,  y: 0.52, w: 1.0,  h: 0.16),
+    // ── Top backrest slat ──
+    RectSpec(x: 0.08, y: 0.06, w: 0.84, h: 0.14),
+    // ── Bottom backrest slat ──
+    RectSpec(x: 0.08, y: 0.26, w: 0.84, h: 0.14),
 ]
 
-/// A simple, stylized park-bench silhouette used both at the end of the
-/// recycling scene and again in the closing park scene.
+/// A park-bench silhouette used both at the end of the recycling scene and
+/// again in the closing park scene. Drawn with Canvas so the end supports
+/// can be proper trapezoids — the shape that immediately reads "bench" at
+/// any scale. Two-tone: dark supports + warm brown planks with recycled-
+/// plastic speckle effect.
 struct BenchView: View {
     var width: CGFloat
     var height: CGFloat
 
+    // Support colors (dark charcoal, like molded recycled HDPE)
+    private let supportDark  = Color(red: 0.12, green: 0.12, blue: 0.14)
+    private let supportLight = Color(red: 0.22, green: 0.22, blue: 0.24)
+
+    // Plank colors (warm brown, like recycled plastic lumber)
+    private let plankLight = Color(red: 0.46, green: 0.33, blue: 0.26)
+    private let plankDark  = Color(red: 0.30, green: 0.19, blue: 0.14)
+
+    private let speckleColors: [Color] = [
+        Theme.bottleBlue, Theme.cleanCyan, Theme.freshGreen, Theme.neonAmber, .white
+    ]
+
     var body: some View {
-        ZStack {
-            ForEach(0..<benchRectSpecs.count, id: \.self) { i in
-                benchShape(benchRectSpecs[i])
-            }
+        Canvas { ctx, size in
+            let w = size.width
+            let h = size.height
+
+            let supportGrad = Gradient(colors: [supportLight, supportDark])
+            let plankGrad   = Gradient(colors: [plankLight, plankDark])
+
+            // ── 1. Trapezoidal end supports (drawn first, behind planks) ──
+            // Left support: wider at bottom, narrower at top
+            drawTrapezoid(ctx: ctx, w: w, h: h,
+                          bL: 0.15, bR: 0.24, tL: 0.17, tR: 0.22,
+                          gradient: supportGrad)
+            // Right support (mirror)
+            drawTrapezoid(ctx: ctx, w: w, h: h,
+                          bL: 0.76, bR: 0.85, tL: 0.78, tR: 0.83,
+                          gradient: supportGrad)
+
+            // ── 2. Seat plank (thick, overhangs supports on both sides) ──
+            let seatRect = CGRect(x: 0.0 * w, y: 0.50 * h,
+                                  width: 1.0 * w, height: 0.16 * h)
+            drawPlank(ctx: ctx, rect: seatRect, gradient: plankGrad, cr: 3, seed: 500)
+
+            // ── 3. Backrest slats (two planks with a gap) ──
+            let topSlat = CGRect(x: 0.08 * w, y: 0.04 * h,
+                                 width: 0.84 * w, height: 0.14 * h)
+            drawPlank(ctx: ctx, rect: topSlat, gradient: plankGrad, cr: 2.5, seed: 600)
+
+            let botSlat = CGRect(x: 0.08 * w, y: 0.24 * h,
+                                 width: 0.84 * w, height: 0.14 * h)
+            drawPlank(ctx: ctx, rect: botSlat, gradient: plankGrad, cr: 2.5, seed: 700)
         }
+        .shadow(color: .black.opacity(0.35), radius: 3, x: 0, y: 3)
         .frame(width: width, height: height)
     }
 
-    private func benchShape(_ r: RectSpec) -> some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(
-                LinearGradient(colors: [Color(red: 0.55, green: 0.4, blue: 0.24), Color(red: 0.36, green: 0.25, blue: 0.14)],
-                               startPoint: .top, endPoint: .bottom)
-            )
-            .frame(width: r.w * width, height: r.h * height)
-            .position(x: (r.x + r.w / 2) * width, y: (r.y + r.h / 2) * height)
+    /// Draws a trapezoid (wider at bottom, narrower at top) filled with a
+    /// vertical linear gradient plus a subtle edge highlight.
+    private func drawTrapezoid(ctx: GraphicsContext, w: CGFloat, h: CGFloat,
+                               bL: CGFloat, bR: CGFloat,
+                               tL: CGFloat, tR: CGFloat,
+                               gradient: Gradient) {
+        var path = Path()
+        path.move(to:    CGPoint(x: bL * w, y: h))        // bottom-left
+        path.addLine(to: CGPoint(x: tL * w, y: 0))        // top-left
+        path.addLine(to: CGPoint(x: tR * w, y: 0))        // top-right
+        path.addLine(to: CGPoint(x: bR * w, y: h))        // bottom-right
+        path.closeSubpath()
+
+        ctx.fill(path, with: .linearGradient(gradient,
+            startPoint: CGPoint(x: 0, y: 0),
+            endPoint:   CGPoint(x: 0, y: h)))
+        // Subtle edge highlight for depth
+        ctx.stroke(path, with: .color(.white.opacity(0.10)), lineWidth: 0.8)
     }
+
+    /// Draws a rounded-rect plank with gradient fill, highlight stroke, and
+    /// recycled-plastic speckle dots.
+    private func drawPlank(ctx: GraphicsContext, rect: CGRect,
+                           gradient: Gradient, cr: CGFloat, seed: Int) {
+        let rr = Path(roundedRect: rect, cornerRadius: cr)
+
+        // Fill
+        ctx.fill(rr, with: .linearGradient(gradient,
+            startPoint: CGPoint(x: 0, y: rect.minY),
+            endPoint:   CGPoint(x: 0, y: rect.maxY)))
+        // Highlight stroke for 3D sheen
+        ctx.stroke(rr, with: .color(.white.opacity(0.30)), lineWidth: 1.0)
+
+        // Recycled-plastic speckle dots (clipped to plank rect)
+        let count = max(6, Int(rect.width * rect.height / 80))
+        for i in 0..<count {
+            let sx = rect.minX + rnd(i, seed)     * rect.width
+            let sy = rect.minY + rnd(i, seed + 1) * rect.height
+            let sr: CGFloat = 0.5 + rnd(i, seed + 2) * 1.2
+            let speckle = Path(ellipseIn: CGRect(x: sx - sr, y: sy - sr,
+                                                  width: sr * 2, height: sr * 2))
+            // Only draw if inside the plank bounds
+            if rect.contains(CGPoint(x: sx, y: sy)) {
+                let opacity = 0.16 + rnd(i, seed + 3) * 0.22
+                let baseColor = speckleColors[i % speckleColors.count]
+                ctx.fill(speckle, with: .color(baseColor.opacity(opacity)))
+            }
+        }
+    }
+}
+
+/// No longer needed as a separate view — speckles are drawn inline in
+/// `BenchView.drawPlank`. Kept as a no-op so any stale references compile.
+private struct PlasticSpeckleCanvas: View {
+    var body: some View { Color.clear }
 }
 
 func benchTargetPoints(count: Int, width: CGFloat, height: CGFloat, origin: CGPoint) -> [CGPoint] {
@@ -381,3 +559,4 @@ func benchTargetPoints(count: Int, width: CGFloat, height: CGFloat, origin: CGPo
         return CGPoint(x: origin.x + lx * width, y: origin.y + ly * height)
     }
 }
+

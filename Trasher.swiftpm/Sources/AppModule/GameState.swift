@@ -13,13 +13,23 @@ final class GameState: ObservableObject {
 
     enum Phase: Int, Equatable, Hashable {
         case title
+        case factoryOrigin
         case opening
+        case sidewalkDrift
         case streetToDrain
+        case stormDrainTunnel
         case landfillFailure
+        case secondBottleMirror
         case canal
         case seaFailure
+        case nightIntoDay
+        case fishingNetRescue
+        case sortingLine
         case recycling
+        case pelletReveal
+        case truckDelivery
         case montage
+        case communityCleanup
         case ending
     }
 
@@ -67,14 +77,30 @@ final class GameState: ObservableObject {
     }
 
     func advanceFromTitle() {
+        goTo(.factoryOrigin)
+    }
+
+    func advanceFromFactoryOrigin() {
         goTo(.opening)
     }
 
     func advanceFromOpening() {
+        goTo(.sidewalkDrift)
+    }
+
+    func advanceFromSidewalkDrift() {
         goTo(.streetToDrain)
     }
 
     func chooseDrain() {
+        goTo(.stormDrainTunnel)
+    }
+
+    func advanceFromStormDrainTunnel() {
+        goTo(.secondBottleMirror)
+    }
+
+    func advanceFromSecondBottleMirror() {
         goTo(.canal)
     }
 
@@ -99,6 +125,18 @@ final class GameState: ObservableObject {
     }
 
     func chooseRecycling() {
+        goTo(.nightIntoDay)
+    }
+
+    func advanceFromNightIntoDay() {
+        goTo(.fishingNetRescue)
+    }
+
+    func advanceFromFishingNetRescue() {
+        goTo(.sortingLine)
+    }
+
+    func advanceFromSortingLine() {
         goTo(.recycling)
     }
 
@@ -112,10 +150,22 @@ final class GameState: ObservableObject {
         vibrancy = 1
         sound.success()
         Haptics.success()
+        goTo(.pelletReveal)
+    }
+
+    func advanceFromPelletReveal() {
+        goTo(.truckDelivery)
+    }
+
+    func advanceFromTruckDelivery() {
         goTo(.montage)
     }
 
     func advanceFromMontage() {
+        goTo(.communityCleanup)
+    }
+
+    func advanceFromCommunityCleanup() {
         goTo(.ending)
     }
 

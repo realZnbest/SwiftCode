@@ -5,6 +5,7 @@ import SwiftUI
 struct EndingScene: View {
     @EnvironmentObject var game: GameState
     @State private var showContent = false
+    @State private var showBenchCaption = false
 
     var body: some View {
         GeometryReader { geo in
@@ -13,16 +14,37 @@ struct EndingScene: View {
             ZStack {
                 parkBackground
 
-                BenchView(width: size.width * 0.2, height: size.height * 0.28)
-                    .position(x: size.width * 0.5, y: size.height * 0.66)
-                    .glow(Theme.freshGreen, radius: 14, opacity: 0.3)
+                BenchView(width: size.width * 0.35, height: size.height * 0.14)
+                    .position(x: size.width * 0.5, y: size.height * 0.71)
+                    .glow(Theme.freshGreen, radius: 14, opacity: endingGlow)
+
+                if showBenchCaption {
+                    // Echoes the opening line ("I still have a purpose.") so the
+                    // ending answers it, and reads as plastic reshaped — not wood.
+                    Text("Same plastic. A new purpose.")
+                        .font(Theme.line(15))
+                        .foregroundStyle(Color.black.opacity(0.75))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .transition(.opacity)
+                        .position(x: size.width * 0.5, y: size.height * 0.47)
+                }
+
+                if journeyWasMessy {
+                    endingScars(size: size)
+                }
 
                 communitySilhouettes(size: size)
 
                 VStack(spacing: 16) {
                     Spacer().frame(height: size.height * 0.05)
 
-                    JourneyRecapView(replayToken: game.journeyReplayToken, reduceMotion: game.reduceMotion)
+                    JourneyRecapView(
+                        replayToken: game.journeyReplayToken,
+                        reduceMotion: game.reduceMotion,
+                        waypoints: journeyWaypoints
+                    )
                         .frame(height: size.height * 0.22)
                         .padding(.horizontal, 50)
 
@@ -69,48 +91,105 @@ struct EndingScene: View {
         }
         .onAppear {
             withAnimation(.easeIn(duration: 1.0).delay(0.5)) { showContent = true }
+            withAnimation(.easeIn(duration: 0.8).delay(1.3)) { showBenchCaption = true }
         }
     }
 
     private var parkBackground: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(red: 0.55, green: 0.82, blue: 0.97), Color(red: 0.78, green: 0.92, blue: 0.72)],
+                colors: [
+                    Color(red: 0.55, green: 0.82, blue: 0.97).mix(with: Theme.murkGreen, amount: lingeringHaze),
+                    Color(red: 0.78, green: 0.92, blue: 0.72).mix(with: Theme.murkBrown, amount: lingeringHaze)
+                ],
                 startPoint: .top, endPoint: .bottom
             )
             GlowOrb(color: Theme.neonAmber, size: 170)
                 .position(x: 90, y: 70)
+            CloudDriftCanvas(reduceMotion: game.reduceMotion)
+                .opacity(0.7)
+            TreeLineCanvas()
             SparkleCanvas(count: 16, color: .white, reduceMotion: game.reduceMotion)
-                .opacity(0.35)
+                .opacity(0.35 - lingeringHaze * 0.2)
+            if lingeringHaze > 0 {
+                SmokeCanvas(intensity: lingeringHaze * 0.5, color: Theme.murkGreen, reduceMotion: game.reduceMotion)
+                    .opacity(lingeringHaze * 0.45)
+            }
         }
     }
 
-    private func communitySilhouettes(size: CGSize) -> some View {
-        HStack(spacing: 44) {
+    private var journeyWaypoints: [JourneyWaypoint] {
+        var result = [
+            JourneyWaypoint(icon: "building.2.fill", color: Theme.neonCyan),
+            JourneyWaypoint(icon: "cloud.rain.fill", color: Theme.neonPink)
+        ]
+        if game.landfillAttempts > 0 {
+            result.append(JourneyWaypoint(icon: "trash.fill", color: Theme.smokeOrange))
+        }
+        result.append(JourneyWaypoint(icon: "water.waves", color: Theme.murkGreen))
+        if game.seaAttempts > 0 {
+            result.append(JourneyWaypoint(icon: "water.waves", color: Theme.mutedSeaTeal))
+        }
+        result += [
+            JourneyWaypoint(icon: "arrow.3.trianglepath", color: Theme.cleanCyan),
+            JourneyWaypoint(icon: "leaf.fill", color: Theme.freshGreen)
+        ]
+        return result
+    }
+
+    private var lingeringHaze: Double {
+        min(0.28, game.grime * 0.12 + Double(game.binMisses + game.landfillAttempts + game.seaAttempts) * 0.045)
+    }
+
+    private var endingGlow: Double { 0.34 - lingeringHaze * 0.55 }
+    private var journeyWasMessy: Bool { lingeringHaze > 0.03 }
+
+    private func endingScars(size: CGSize) -> some View {
+        HStack(spacing: 9) {
             ForEach(0..<3, id: \.self) { _ in
-                Capsule()
-                    .fill(Color.black.opacity(0.28))
-                    .frame(width: 24, height: 44)
+                Capsule().fill(Theme.murkBrown.opacity(0.22)).frame(width: 4, height: 16)
             }
         }
-        .position(x: size.width * 0.5, y: size.height * 0.78)
+        .rotationEffect(.degrees(-10))
+        .position(x: size.width * 0.57, y: size.height * 0.68)
+        .allowsHitTesting(false)
+    }
+
+    private func communitySilhouettes(size: CGSize) -> some View {
+        // PersonFigure is 68pt tall; scaled to 0.6 that's 40.8pt, so its
+        // feet sit 20.4pt below the cluster's own center. Positioning that
+        // center 20.4pt above TreeLineCanvas's ground line (baseY = 0.78)
+        // plants the feet on the grass instead of floating above it.
+        let groundY = size.height * 0.78 - 20.4
+        return ZStack {
+            personCluster(shirts: [Theme.neonAmber, Theme.cleanCyan])
+                .position(x: size.width * 0.24, y: groundY)
+            personCluster(shirts: [Theme.neonPink])
+                .position(x: size.width * 0.78, y: groundY)
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// Flanks the bench rather than sitting in the text/button column below
+    /// it, and stays above the tree line so figures don't blend into the
+    /// dark foliage silhouettes. Uses the same head/torso/legs PersonFigure
+    /// as the community cleanup scene, not an unlabeled dark capsule.
+    private func personCluster(shirts: [Color]) -> some View {
+        HStack(spacing: 12) {
+            ForEach(Array(shirts.enumerated()), id: \.offset) { _, shirt in
+                PersonFigure(shirt: shirt)
+            }
+        }
+        .scaleEffect(0.6)
     }
 }
 
 // MARK: - Journey recap
 
-private struct JourneyWaypoint {
+struct JourneyWaypoint {
     let icon: String
     let color: Color
 }
-
-private let journeyWaypoints: [JourneyWaypoint] = [
-    JourneyWaypoint(icon: "building.2.fill", color: Theme.neonCyan),
-    JourneyWaypoint(icon: "cloud.rain.fill", color: Theme.neonPink),
-    JourneyWaypoint(icon: "water.waves", color: Theme.murkGreen),
-    JourneyWaypoint(icon: "arrow.3.trianglepath", color: Theme.cleanCyan),
-    JourneyWaypoint(icon: "leaf.fill", color: Theme.freshGreen)
-]
 
 private struct JourneyPathShape: Shape {
     let points: [CGPoint]
@@ -133,6 +212,7 @@ private struct JourneyPathShape: Shape {
 struct JourneyRecapView: View {
     var replayToken: Int
     var reduceMotion: Bool
+    var waypoints: [JourneyWaypoint]
 
     @State private var progress: CGFloat = 0
 
@@ -153,14 +233,14 @@ struct JourneyRecapView: View {
                         style: StrokeStyle(lineWidth: 3, lineCap: .round)
                     )
 
-                ForEach(0..<journeyWaypoints.count, id: \.self) { i in
-                    let threshold = CGFloat(i) / CGFloat(journeyWaypoints.count - 1)
+                ForEach(0..<waypoints.count, id: \.self) { i in
+                    let threshold = CGFloat(i) / CGFloat(max(waypoints.count - 1, 1))
                     let revealed = reduceMotion || progress >= threshold - 0.03
                     ZStack {
-                        Circle().fill(journeyWaypoints[i].color.opacity(0.22)).frame(width: 38, height: 38)
-                        Image(systemName: journeyWaypoints[i].icon)
+                        Circle().fill(waypoints[i].color.opacity(0.22)).frame(width: 38, height: 38)
+                        Image(systemName: waypoints[i].icon)
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(journeyWaypoints[i].color)
+                            .foregroundStyle(waypoints[i].color)
                     }
                     .position(points[i])
                     .opacity(revealed ? 1 : 0.25)
@@ -180,11 +260,11 @@ struct JourneyRecapView: View {
         .onAppear(perform: animate)
         .onChange(of: replayToken) { _, _ in animate() }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("A path from city street, to storm drain, to canal, to recycling facility, to park bench.")
+        .accessibilityLabel("A path from city street, to storm drain, to canal, to recycling facility, to a bench made of recycled plastic.")
     }
 
     private func waypointPositions(in size: CGSize) -> [CGPoint] {
-        let n = journeyWaypoints.count
+        let n = max(waypoints.count, 2)
         return (0..<n).map { i in
             let x = size.width * (CGFloat(i) / CGFloat(n - 1))
             let y = size.height * (i.isMultiple(of: 2) ? 0.3 : 0.7)

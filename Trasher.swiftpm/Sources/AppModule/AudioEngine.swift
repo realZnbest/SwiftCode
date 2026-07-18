@@ -4,14 +4,14 @@ import UIKit
 /// Every sound in Trasher is synthesized at launch — no bundled audio
 /// files — so the whole game stays tiny and fully offline. Ambient layers
 /// crossfade as the story moves through title -> city -> drain -> canal ->
-/// facility -> montage -> park, a soft arpeggio motif ties the emotional
-/// beats together, and a shared reverb send gives everything a sense of
+/// facility -> montage -> park, a slow bright/dramatic pad motif ties the
+/// emotional beats together, and a shared reverb send gives everything a sense of
 /// space instead of sounding like dry synthesizer test tones.
 @MainActor
 final class SoundEngine {
 
     private enum Layer: CaseIterable {
-        case city, rain, water, machinery, sparkle, arp
+        case city, rain, water, machinery, sparkle, theme
     }
 
     private let engine = AVAudioEngine()
@@ -99,30 +99,33 @@ final class SoundEngine {
         }
 
         let sparkle = makeBuffer(duration: 4.0, fadeEdges: true) { t in
-            let a = sin(2 * .pi * 880 * t) * 0.06
-            let b = sin(2 * .pi * 1320 * t + 0.5) * 0.04
+            let a = sin(2 * .pi * 660 * t) * 0.05
+            let b = sin(2 * .pi * 990 * t + 0.5) * 0.03
             let trem = 0.5 + 0.5 * sin(2 * .pi * 0.3 * t)
             return Float((a + b) * trem)
         }
 
-        // A soft, hopeful four-note arpeggio that loops with breathing room
-        // between phrases. Used sparingly (recycling, montage, ending) as
-        // the story's musical "hope" motif.
-        let arpNotes: [Double] = [392.00, 440.00, 587.33, 659.25]
-        let arpNoteDuration = 0.46
-        let arp = makeBuffer(duration: 4.4, fadeEdges: true) { t in
-            let phraseLength = Double(arpNotes.count) * arpNoteDuration
-            guard t < phraseLength else { return 0 }
-            let idx = min(arpNotes.count - 1, Int(t / arpNoteDuration))
-            let freq = arpNotes[idx]
-            let localT = t - Double(idx) * arpNoteDuration
-            let attack = min(1, localT / 0.04)
-            let decay = exp(-localT * 2.4)
-            return Float(sin(2 * .pi * freq * t)) * Float(attack * decay) * 0.16
+        // A slow two-chord pad, not a plinky arpeggio: it breathes between a
+        // wistful A minor (dramatic) and a warm F major (bright) over an
+        // 8-second cycle, so the story's recurring "hope" motif reads as one
+        // sustained, half-bright/half-dramatic mood instead of a repeating
+        // tune that wears thin over a long playthrough.
+        let themeCycle = 8.0
+        let chordDramatic: [(freq: Double, amp: Double)] = [(220.00, 1.0), (261.63, 0.75), (329.63, 0.6), (440.00, 0.4)]
+        let chordBright: [(freq: Double, amp: Double)] = [(174.61, 1.0), (220.00, 0.75), (261.63, 0.6), (349.23, 0.4)]
+        let theme = makeBuffer(duration: themeCycle, fadeEdges: true) { t in
+            // 0 = fully dramatic chord, 1 = fully bright chord; a smooth
+            // cosine crossfade rather than a hard cut between them.
+            let blend = 0.5 - 0.5 * cos(2 * .pi * t / themeCycle)
+            let breathe = 0.82 + 0.18 * sin(2 * .pi * t / (themeCycle / 2))
+            let dramatic = chordDramatic.reduce(0.0) { $0 + sin(2 * .pi * $1.freq * t) * $1.amp }
+            let bright = chordBright.reduce(0.0) { $0 + sin(2 * .pi * $1.freq * t) * $1.amp }
+            let mixed = dramatic * (1 - blend) + bright * blend
+            return Float(mixed * breathe) * 0.045
         }
 
         let buffers: [Layer: AVAudioPCMBuffer] = [
-            .city: city, .rain: rain, .water: water, .machinery: machinery, .sparkle: sparkle, .arp: arp
+            .city: city, .rain: rain, .water: water, .machinery: machinery, .sparkle: sparkle, .theme: theme
         ]
 
         for layer in Layer.allCases {
@@ -216,25 +219,47 @@ final class SoundEngine {
 
         switch phase {
         case .title:
-            target = [.city: 0.28, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.08, .arp: 0.05]
+            target = [.city: 0.28, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.08, .theme: 0.05]
+        case .factoryOrigin:
+            target = [.city: 0.1, .rain: 0, .water: 0, .machinery: 0.3, .sparkle: 0.1, .theme: 0.08]
         case .opening:
-            target = [.city: 0.45, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.05, .arp: 0]
+            target = [.city: 0.45, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.05, .theme: 0]
+        case .sidewalkDrift:
+            target = [.city: 0.4, .rain: 0.15, .water: 0, .machinery: 0, .sparkle: 0.05, .theme: 0]
         case .streetToDrain:
-            target = [.city: 0.22, .rain: 0.55, .water: 0.12, .machinery: 0, .sparkle: 0, .arp: 0]
+            target = [.city: 0.22, .rain: 0.55, .water: 0.12, .machinery: 0, .sparkle: 0, .theme: 0]
+        case .stormDrainTunnel:
+            target = [.city: 0.05, .rain: 0.3, .water: 0.35, .machinery: 0.1, .sparkle: 0, .theme: 0]
+            masterVolume = 0.8
         case .landfillFailure:
-            target = [.city: 0, .rain: 0.04, .water: 0.04, .machinery: 0.18, .sparkle: 0, .arp: 0]
+            target = [.city: 0, .rain: 0.04, .water: 0.04, .machinery: 0.18, .sparkle: 0, .theme: 0]
             masterVolume = 0.5
+        case .secondBottleMirror:
+            target = [.city: 0, .rain: 0.08, .water: 0.35, .machinery: 0, .sparkle: 0, .theme: 0]
+            masterVolume = 0.6
         case .canal:
-            target = [.city: 0.05, .rain: 0.12, .water: 0.5, .machinery: 0, .sparkle: 0, .arp: 0]
+            target = [.city: 0.05, .rain: 0.12, .water: 0.5, .machinery: 0, .sparkle: 0, .theme: 0]
         case .seaFailure:
-            target = [.city: 0, .rain: 0.05, .water: 0.25, .machinery: 0, .sparkle: 0, .arp: 0]
+            target = [.city: 0, .rain: 0.05, .water: 0.25, .machinery: 0, .sparkle: 0, .theme: 0]
             masterVolume = 0.5
+        case .nightIntoDay:
+            target = [.city: 0.05, .rain: 0, .water: 0.3, .machinery: 0, .sparkle: 0.2, .theme: 0.15]
+        case .fishingNetRescue:
+            target = [.city: 0, .rain: 0, .water: 0.25, .machinery: 0.1, .sparkle: 0.25, .theme: 0.2]
+        case .sortingLine:
+            target = [.city: 0, .rain: 0, .water: 0.05, .machinery: 0.4, .sparkle: 0.12, .theme: 0.08]
         case .recycling:
-            target = [.city: 0, .rain: 0, .water: 0.08, .machinery: 0.5, .sparkle: 0.15, .arp: 0.1]
+            target = [.city: 0, .rain: 0, .water: 0.08, .machinery: 0.5, .sparkle: 0.15, .theme: 0.1]
+        case .pelletReveal:
+            target = [.city: 0, .rain: 0, .water: 0.05, .machinery: 0.25, .sparkle: 0.35, .theme: 0.25]
+        case .truckDelivery:
+            target = [.city: 0.15, .rain: 0, .water: 0, .machinery: 0.2, .sparkle: 0.2, .theme: 0.15]
         case .montage:
-            target = [.city: 0.1, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.3, .arp: 0.32]
+            target = [.city: 0.1, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.3, .theme: 0.32]
+        case .communityCleanup:
+            target = [.city: 0.1, .rain: 0, .water: 0.08, .machinery: 0, .sparkle: 0.4, .theme: 0.28]
         case .ending:
-            target = [.city: 0.08, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.45, .arp: 0.18]
+            target = [.city: 0.08, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.45, .theme: 0.18]
         }
 
         rampVolumes(to: target, master: masterVolume, duration: 1.4)

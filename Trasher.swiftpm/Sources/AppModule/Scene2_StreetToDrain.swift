@@ -32,7 +32,7 @@ struct StreetToDrainScene: View {
 
     private let laneCount = 5
     private let bottleRowFrac: CGFloat = 0.72
-    private let dodgeDuration: Double = 27
+    private let dodgeDuration: Double = 10
 
     @State private var stage: Stage = .dodging
     @State private var obstacles: [FallingObstacle] = []
@@ -45,6 +45,8 @@ struct StreetToDrainScene: View {
     @State private var showHint = true
     @State private var forkDragX: CGFloat = 0
     @State private var choiceMade = false
+    @State private var resolveProgress: Double = 0
+    @State private var throwTowardDrain = true
     @State private var idleTask: Task<Void, Never>? = nil
     @State private var flashTimestamps: [Double] = []
     @State private var triggeredFlashes: Set<Int> = []
@@ -64,56 +66,76 @@ struct StreetToDrainScene: View {
                 TrafficStreakCanvas(reduceMotion: reduceMotion)
 
                 if stage == .dodging {
-                    drainPreview(size: size)
-                    RippleCanvas(reduceMotion: reduceMotion, x: bottleX, rowFrac: bottleRowFrac)
+                    // Grouped so the whole dodge — obstacles, bottle, hint,
+                    // progress bar — fades out as one unit instead of each
+                    // piece popping away separately when the fork appears.
+                    Group {
+                        drainPreview(size: size)
+                        RippleCanvas(reduceMotion: reduceMotion, x: bottleX, rowFrac: bottleRowFrac)
 
-                    TimelineView(.animation(minimumInterval: reduceMotion ? 0.2 : 1.0 / 45)) { context in
-                        let elapsed = context.date.timeIntervalSince(sceneStart)
-                        ZStack {
-                            Canvas { ctx, canvasSize in
-                                for obstacle in obstacles {
-                                    draw(obstacle, elapsed: elapsed, size: canvasSize, ctx: &ctx)
-                                }
-                            }
-                            Color.clear
-                                .onChange(of: elapsed) { _, newValue in
-                                    evaluateCollisions(elapsed: newValue)
-                                    checkLightning(elapsed: newValue)
-                                    if newValue > dodgeDuration {
-                                        enterFork()
+                        TimelineView(.animation(minimumInterval: reduceMotion ? 0.2 : 1.0 / 45)) { context in
+                            let elapsed = context.date.timeIntervalSince(sceneStart)
+                            ZStack {
+                                Canvas { ctx, canvasSize in
+                                    for obstacle in obstacles {
+                                        draw(obstacle, elapsed: elapsed, size: canvasSize, ctx: &ctx)
                                     }
                                 }
+                                Color.clear
+                                    .onChange(of: elapsed) { _, newValue in
+                                        evaluateCollisions(elapsed: newValue)
+                                        checkLightning(elapsed: newValue)
+                                        if newValue > dodgeDuration {
+                                            enterFork()
+                                        }
+                                    }
+                            }
+                        }
+
+                        ForEach(feedbackBursts) { burst in
+                            feedbackView(burst)
+                                .position(x: burst.xFrac * size.width, y: bottleRowFrac * size.height)
+                                .transition(.opacity)
+                        }
+
+                        // A faint mirrored reflection dissolving into the wet
+                        // pavement below — the same trick real wet-street photos
+                        // rely on to sell the "reflective ground" read.
+                        BottleView(
+                            vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, glow: 0,
+                            width: 80, height: 192
+                        )
+                        .scaleEffect(x: 1, y: -1)
+                        .opacity(0.2)
+                        .blur(radius: 2.5)
+                        .mask(LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom))
+                        .position(x: bottleX * size.width, y: bottleRowFrac * size.height + 192)
+
+                        BottleView(
+                            vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, glow: 0,
+                            width: 80, height: 192
+                        )
+                        .position(x: bottleX * size.width, y: bottleRowFrac * size.height)
+
+                        progressTrack(size: size)
+
+                        if showHint {
+                            Text("Swipe to dodge")
+                                .font(Theme.line(20))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .padding(.horizontal, 22)
+                                .padding(.vertical, 10)
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .position(x: size.width / 2, y: size.height * 0.18)
+                                .transition(.opacity)
                         }
                     }
-
-                    ForEach(feedbackBursts) { burst in
-                        feedbackView(burst)
-                            .position(x: burst.xFrac * size.width, y: bottleRowFrac * size.height)
-                            .transition(.opacity)
-                    }
-
-                    BottleView(
-                        vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, glow: 0,
-                        width: 80, height: 192
-                    )
-                    .position(x: bottleX * size.width, y: bottleRowFrac * size.height)
-
-                    progressTrack(size: size)
-
-                    if showHint {
-                        Text("Swipe to dodge")
-                            .font(Theme.line(20))
-                            .foregroundStyle(.white.opacity(0.85))
-                            .padding(.horizontal, 22)
-                            .padding(.vertical, 10)
-                            .background(.ultraThinMaterial, in: Capsule())
-                            .position(x: size.width / 2, y: size.height * 0.18)
-                            .transition(.opacity)
-                    }
+                    .transition(.opacity)
                 }
 
                 if stage == .fork || stage == .resolving {
                     forkView(size: size)
+                        .transition(.opacity.combined(with: .scale(scale: 0.94)))
                 }
 
                 Vignette(strength: 0.5)
@@ -210,24 +232,28 @@ struct StreetToDrainScene: View {
         return ZStack {
             // Landfill / garbage truck path (left) — the wrong turn.
             PathChoiceIndicator(
-                systemImage: "trash.fill",
-                tint: landfillBlocked ? .gray : Theme.smokeOrange,
+                kind: .landfill,
                 bright: !landfillBlocked && leaning < -0.15,
-                dim: landfillBlocked
+                dim: landfillBlocked,
+                containerSize: size
             )
             .position(x: size.width * 0.18, y: size.height * 0.42)
 
             // Storm drain path (right) — continues the story correctly.
             PathChoiceIndicator(
-                systemImage: "arrow.down.circle.fill",
-                tint: Theme.neonCyan,
-                bright: leaning > 0.15 || landfillBlocked
+                kind: .stormDrain,
+                bright: leaning > 0.15 || landfillBlocked,
+                containerSize: size
             )
             .position(x: size.width * 0.82, y: size.height * 0.42)
 
-            BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 62, height: 152)
-                .position(x: bottleCenterX, y: size.height * 0.62)
-                .rotationEffect(.degrees(Double(leaning) * 14))
+            if stage == .resolving {
+                throwingBottle(size: size)
+            } else {
+                BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 62, height: 152)
+                    .position(x: bottleCenterX, y: size.height * 0.62)
+                    .rotationEffect(.degrees(Double(leaning) * 14))
+            }
         }
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -253,6 +279,7 @@ struct StreetToDrainScene: View {
         sceneStart = Date()
         choiceMade = false
         forkDragX = 0
+        resolveProgress = 0
         resolved = []
         nearMissed = []
         feedbackBursts = []
@@ -264,7 +291,10 @@ struct StreetToDrainScene: View {
         } else {
             stage = .dodging
             obstacles = buildObstacles()
-            flashTimestamps = (0..<3).map { _ in Double.random(in: 5...(dodgeDuration - 3)) }.sorted()
+            // Scales down with dodgeDuration instead of a fixed 5...(duration-3)
+            // window, which would produce an invalid (empty) range once the
+            // dodge got shortened to a few seconds.
+            flashTimestamps = (0..<1).map { _ in Double.random(in: 1.0...max(1.5, dodgeDuration - 1)) }.sorted()
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(3.2))
                 withAnimation { showHint = false }
@@ -295,7 +325,9 @@ struct StreetToDrainScene: View {
 
     private func enterFork() {
         guard stage == .dodging else { return }
-        stage = .fork
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.35) : .easeInOut(duration: 0.6)) {
+            stage = .fork
+        }
         armIdleAutoAdvance()
     }
 
@@ -441,11 +473,11 @@ struct StreetToDrainScene: View {
         guard !choiceMade else { return }
         choiceMade = true
         idleTask?.cancel()
+        throwTowardDrain = towardDrain
         stage = .resolving
 
-        let travel: CGFloat = towardDrain ? 900 : -900
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.5) : .easeIn(duration: 0.8)) {
-            forkDragX = travel
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.5) : .easeIn(duration: 0.85)) {
+            resolveProgress = 1
         }
 
         Task { @MainActor in
@@ -456,6 +488,29 @@ struct StreetToDrainScene: View {
                 game.chooseLandfill()
             }
         }
+    }
+
+    /// An actual throw instead of a straight swipe: the bottle tumbles
+    /// (multiple full rotations, not just a capped tilt), follows an arc
+    /// rather than a flat line — down into the drain, or up and over into
+    /// the truck — shrinks as it recedes, and fades out at the very end.
+    private func throwingBottle(size: CGSize) -> some View {
+        let p = resolveProgress
+        let direction: CGFloat = throwTowardDrain ? 1 : -1
+        let x = size.width / 2 + direction * CGFloat(p) * size.width * 0.8
+        let arc: CGFloat = throwTowardDrain
+            ? CGFloat(p * p) * 110
+            : -CGFloat(sin(p * .pi)) * 80
+        let y = size.height * 0.62 + arc
+        let rotation = Double(direction) * p * 640
+        let scale = 1 - p * 0.55
+        let opacity = p > 0.7 ? max(0, 1 - (p - 0.7) / 0.3) : 1
+
+        return BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 62, height: 152)
+            .rotationEffect(.degrees(rotation))
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .position(x: x, y: y)
     }
 }
 

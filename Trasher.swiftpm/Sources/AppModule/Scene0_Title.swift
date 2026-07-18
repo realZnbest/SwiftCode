@@ -8,7 +8,6 @@ struct TitleScene: View {
     @EnvironmentObject var game: GameState
 
     @State private var appear = false
-    @State private var pulse = false
     @State private var beginTask: Task<Void, Never>?
 
     private var reduceMotion: Bool { game.reduceMotion }
@@ -46,14 +45,7 @@ struct TitleScene: View {
                 .position(x: size.width / 2, y: size.height * 0.26)
                 .opacity(appear ? 1 : 0)
 
-                Text("Tap to begin")
-                    .font(Theme.line(16))
-                    .foregroundStyle(.white.opacity(pulse ? 0.95 : 0.4))
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .position(x: size.width / 2, y: size.height * 0.88)
-                    .opacity(appear ? 1 : 0)
+                tapToBeginLabel(size: size)
 
                 Vignette(strength: 0.62)
             }
@@ -66,6 +58,27 @@ struct TitleScene: View {
         .accessibilityHint("Double tap to begin")
         .onAppear(perform: runSequence)
         .onDisappear { beginTask?.cancel() }
+    }
+
+    /// Driven by a continuous sine wave from `TimelineView` rather than a
+    /// toggled `@State` + `repeatForever` animation — `repeatForever` on an
+    /// imperatively-toggled bool is prone to restarting/jumping whenever the
+    /// surrounding view re-renders (e.g. from the `appear` fade-in), which
+    /// reads as the label glitching back and forth instead of pulsing
+    /// smoothly. A pure function of elapsed time has no state to desync.
+    private func tapToBeginLabel(size: CGSize) -> some View {
+        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            let glow = reduceMotion ? 0.7 : 0.4 + 0.55 * (0.5 + 0.5 * sin(t * 1.7))
+            Text("Tap to begin")
+                .font(Theme.line(16))
+                .foregroundStyle(.white.opacity(glow))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+        .position(x: size.width / 2, y: size.height * 0.88)
+        .opacity(appear ? 1 : 0)
     }
 
     private func spotlightGlow(size: CGSize) -> some View {
@@ -84,9 +97,6 @@ struct TitleScene: View {
 
     private func runSequence() {
         withAnimation(.easeIn(duration: 1.0).delay(0.3)) { appear = true }
-        withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true).delay(1.2)) {
-            pulse = true
-        }
 
         beginTask?.cancel()
         beginTask = Task { @MainActor in

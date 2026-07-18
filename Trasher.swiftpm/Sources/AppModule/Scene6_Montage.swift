@@ -65,7 +65,7 @@ struct MontageScene: View {
                     .opacity(0.6)
             case .everywhere:
                 SparkleCanvas(count: 70, color: Theme.cleanWhite, reduceMotion: reduceMotion)
-                PathChoiceIndicator(systemImage: "arrow.3.trianglepath", tint: Theme.freshGreen, bright: true)
+                PathChoiceIndicator(kind: .recyclingPoint, bright: true, containerSize: size)
                     .position(x: size.width / 2, y: size.height * 0.44)
             }
 
