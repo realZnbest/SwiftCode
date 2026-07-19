@@ -139,7 +139,7 @@ struct StreetToDrainScene: View {
                     .allowsHitTesting(false)
                     
                 if stage == .intro {
-                    Text("Discarded, ignored, and in everyone's way.")
+                    Text("มันไร้ค่า เกะกะขวางทางทุกคน แม้กระทั่งหมา")
                         .font(Theme.line(26))
                         .foregroundStyle(.white.opacity(0.95))
                         .padding(.horizontal, 28)
@@ -864,7 +864,7 @@ struct LandfillFailureScene: View {
                 LandfillGroundCanvas(groundY: groundY)
 
                 if showText {
-                    Text("Buried is not gone.")
+                    Text("การฝังไม่ได้ทำให้หายไปไหน")
                         .font(Theme.line(24))
                         .foregroundStyle(.white.opacity(0.9))
                         .padding(.horizontal, 26)

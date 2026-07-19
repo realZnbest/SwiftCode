@@ -46,7 +46,7 @@ struct RecyclingScene: View {
                 stageContent(size: size)
 
                 if wrongDropFeedback && stage == .choosing {
-                    Label("This bin keeps it buried. Try recycling.", systemImage: "exclamationmark.triangle.fill")
+                    Label("ถังขยะใบนี้มีแต่จะทำให้มันถูกฝัง ลองเอาไปรีไซเคิลดูสิ!", systemImage: "exclamationmark.triangle.fill")
                         .font(Theme.line(16))
                         .foregroundStyle(Theme.neonAmber)
                         .padding(.horizontal, 18)
@@ -61,7 +61,7 @@ struct RecyclingScene: View {
                     // shredded flakes were just reforming a second ago, so
                     // without this it's easy to miss that the bench sitting
                     // there now *is* the bottle, not a separate prop.
-                    Text("Look — it's a bench now, made of recycled plastic.")
+                    Text("ดูนี่สิ! ตอนนี้มันกลายเป็นม้านั่งที่ทำจากพลาสติกรีไซเคิลแล้ว")
                         .font(Theme.line(20))
                         .foregroundStyle(.white.opacity(0.95))
                         .multilineTextAlignment(.center)
@@ -187,7 +187,7 @@ struct RecyclingScene: View {
         // the whole cleaning/shredding/reforming process, not a passive
         // receptacle like the trash side. Matches PathChoiceIndicator's own
         // label for the same choice at the street and canal forks.
-        let label = kind == .landfill ? "Trash bin" : "Recycling"
+        let label = kind == .landfill ? "ถังขยะ" : "รีไซเคิล"
 
         return VStack(spacing: 6) {
             ZStack {

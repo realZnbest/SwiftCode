@@ -341,12 +341,12 @@ enum PathKind {
     /// have to guess what a drain grate versus a wave crest means.
     var label: String {
         switch self {
-        case .landfill: return "Landfill"
-        case .stormDrain: return "Storm drain"
+        case .landfill: return "ฝังกลบ"
+        case .stormDrain: return "ท่อระบายน้ำ"
         // "Open sea" read as neutral, even pleasant — this is the bad,
         // dead-end choice (mirrors "Trash bin"), so the label should say so.
-        case .sea: return "Lost at sea"
-        case .recyclingPoint: return "Recycling"
+        case .sea: return "ล่องลอยต่อไป"
+        case .recyclingPoint: return "รีไซเคิล"
         }
     }
 }

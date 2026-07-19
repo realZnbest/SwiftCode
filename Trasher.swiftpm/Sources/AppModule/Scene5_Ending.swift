@@ -21,7 +21,7 @@ struct EndingScene: View {
                 if showBenchCaption {
                     // Echoes the opening line ("I still have a purpose.") so the
                     // ending answers it, and reads as plastic reshaped — not wood.
-                    Text("Same plastic. A new purpose.")
+                    Text("พลาสติกใหม่ที่ทำจากพลาสติกเดิม")
                         .font(Theme.line(15))
                         .foregroundStyle(.white.opacity(0.9))
                         .padding(.horizontal, 14)
@@ -50,7 +50,7 @@ struct EndingScene: View {
 
                     Spacer()
 
-                    Text("Waste does not disappear.\nYou can choose where it goes.")
+                    Text("ขยะไม่ได้หายไปไหน\nแต่คุณเลือกได้ว่าจะให้มันไปอยู่ไหน")
                         .multilineTextAlignment(.center)
                         .font(Theme.line(24))
                         .foregroundStyle(.white.opacity(0.9))
@@ -59,7 +59,7 @@ struct EndingScene: View {
                     Button {
                         game.playAgain()
                     } label: {
-                        Label("Play Again", systemImage: "arrow.counterclockwise")
+                        Label("เล่นอีกครั้ง", systemImage: "arrow.counterclockwise")
                             .font(Theme.line(17))
                             .padding(.horizontal, 22)
                             .padding(.vertical, 12)

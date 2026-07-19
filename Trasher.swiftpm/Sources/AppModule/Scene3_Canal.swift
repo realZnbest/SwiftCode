@@ -125,7 +125,7 @@ struct CanalScene: View {
             .scaleEffect(1 + envelope * 2.1)
 
             if envelope > 0.35 {
-                Text("Some of it never comes back.")
+                Text("บางส่วนของมันไม่เคยกลับมา")
                     .font(Theme.line(21))
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 24)
@@ -336,7 +336,7 @@ struct SeaFailureScene: View {
                         .position(x: bottleX, y: bottleY + CGFloat(yBob))
 
                     if showText {
-                        Text("Waste does not disappear.")
+                        Text("มันไม่ได้หายไปไหน")
                             .font(Theme.line(24))
                             .foregroundStyle(.white.opacity(0.9))
                             .padding(.horizontal, 26)

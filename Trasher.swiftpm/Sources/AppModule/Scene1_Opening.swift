@@ -73,7 +73,7 @@ struct OpeningScene: View {
                 }
 
                 if showText {
-                    Text("I still have a purpose.")
+                    Text("มันยังคงมีเป้าหมายอยู่")
                         .font(Theme.line(26))
                         .foregroundStyle(.white.opacity(0.95))
                         .padding(.horizontal, 28)

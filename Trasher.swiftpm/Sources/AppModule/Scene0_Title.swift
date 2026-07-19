@@ -68,7 +68,7 @@ struct TitleScene: View {
         TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             let glow = reduceMotion ? 0.7 : 0.4 + 0.55 * (0.5 + 0.5 * sin(t * 1.7))
-            Text("Tap to begin")
+            Text("แตะเพื่อเริ่ม")
                 .font(Theme.line(16))
                 .foregroundStyle(.white.opacity(glow))
                 .padding(.horizontal, 20)

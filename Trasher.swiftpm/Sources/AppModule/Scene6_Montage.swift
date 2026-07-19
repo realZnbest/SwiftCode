@@ -9,10 +9,10 @@ private struct MontageVignette {
 }
 
 private let montageVignettes: [MontageVignette] = [
-    MontageVignette(colors: [Theme.smokeOrange, Theme.neonPink], label: "A city.", kind: .city),
-    MontageVignette(colors: [Theme.murkGreen, Theme.cleanCyan], label: "A river.", kind: .river),
-    MontageVignette(colors: [Theme.neonPurple, Theme.deepNavy], label: "A coast.", kind: .coast),
-    MontageVignette(colors: [Theme.cleanCyan, Theme.freshGreen], label: "Everywhere.", kind: .everywhere)
+    MontageVignette(colors: [Theme.smokeOrange, Theme.neonPink], label: "ในเมือง", kind: .city),
+    MontageVignette(colors: [Theme.murkGreen, Theme.cleanCyan], label: "ในน้ำ", kind: .river),
+    MontageVignette(colors: [Theme.neonPurple, Theme.deepNavy], label: "ชายฝั่ง.", kind: .coast),
+    MontageVignette(colors: [Theme.cleanCyan, Theme.freshGreen], label: "ทุกๆที่", kind: .everywhere)
 ]
 
 /// A quick, wordless-almost montage widening the story's scope right

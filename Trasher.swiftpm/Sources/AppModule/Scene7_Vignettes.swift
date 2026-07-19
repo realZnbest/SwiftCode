@@ -103,7 +103,7 @@ struct FactoryOriginScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Made to be used once.",
+            line: "มันถูกผลิตมา เพื่อใช้เพียงครั้งเดียว",
             accessibilityText: "A factory line. The bottle is filled and sealed, brand new.",
             // Timed to the birth-and-travel sequence below (roughly 6.1s
             // from appearing to sliding off the right edge, including the
@@ -320,7 +320,7 @@ struct StormDrainTunnelScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Into the dark, out of sight.",
+            line: "ดำดิ่งสู่ความมืดมิด จนไม่มีใครมองเห็น",
             accessibilityText: "A storm drain tunnel. The bottle tumbles through rushing water, out of sight.",
             vignetteStrength: 0.7,
             showBottle: false,
@@ -361,7 +361,7 @@ struct SecondBottleMirrorScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Not every piece gets free.",
+            line: "ไม่ใช่ทุกชิ้นที่จะออกมาได้",
             accessibilityText: "The canal. Another bottle, snagged in debris, will not move again.",
             bottlePosition: UnitPoint(x: 0.38, y: 0.48),
             bottleShowEyes: true,
@@ -396,7 +396,7 @@ struct NightIntoDayScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Time keeps moving forward.",
+            line: "เมื่อเวลาผ่านไป",
             accessibilityText: "Dawn breaks over the water. Time keeps moving forward.",
             content: { size in
                 ZStack {
@@ -422,7 +422,7 @@ struct FishingNetRescueScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Someone chose to reach in.",
+            line: "มีใครบางคนหยิบมันขึ้นมา",
             accessibilityText: "A hand net reaches into the water and lifts the bottle out.",
             bottlePosition: UnitPoint(x: 0.5, y: 0.46),
             bottleShowEyes: true,
@@ -525,7 +525,7 @@ struct SortingLineScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Sorted from everything it wasn't.",
+            line: "มันถูกแยกออกมาจากสิ่งแปลกปลอมทั้งหมด",
             accessibilityText: "A sorting line. Optical scanners separate plastic from glass and metal.",
             bottlePosition: UnitPoint(x: 0.5, y: 0.8),
             content: { size in
@@ -558,7 +558,7 @@ struct PelletRevealScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Not the same. Not gone, either.",
+            line: "ส่วนชิ้นนี้มันไม่ได้เหมือนเดิม แต่ก็ไม่ได้หายไปไหน",
             accessibilityText: "Shredded plastic reforms into small raw pellets, ready to be shaped again.",
             showBottle: false,
             content: { size in
@@ -594,7 +594,7 @@ struct TruckDeliveryScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "On its way to becoming something new.",
+            line: "เส้นทางนี้จะทำให้มันเปลี่ยนไป",
             accessibilityText: "A recycling truck drives down a night road, carrying the reclaimed material out into the city.",
             showBottle: false,
             // The road sits low and the truck low with it, so the caption
@@ -727,7 +727,7 @@ struct CommunityCleanupScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Some hands make sure less of it starts this journey.",
+            line: "มีมือบางคู่ เลือกที่จะหยุดไม่ให้มันต้องมาเริ่มเส้นทางนี้อีก",
             accessibilityText: "Volunteers clean a riverbank, picking up litter before it starts this same journey.",
             showBottle: false,
             content: { size in
@@ -765,7 +765,7 @@ struct DeliveryTruckScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "Shipped across the city.",
+            line: "กำลังเดินทางไปที่ไหนสักแห่ง",
             accessibilityText: "A delivery truck drives through the city at night, carrying bottles from the factory.",
             showBottle: false,
             textPosition: UnitPoint(x: 0.5, y: 0.15),
@@ -1019,7 +1019,7 @@ struct VendingAndDiscardScene: View {
 
                 // Narrative text after discard
                 if showText {
-                    Text("Used once. Left behind.")
+                    Text("มันถูกใช้ครั้งเดียว แล้วก็โดนทิ้ง")
                         .font(Theme.line(24))
                         .foregroundStyle(.white.opacity(0.95))
                         .padding(.horizontal, 26)
@@ -1276,7 +1276,7 @@ struct VendingAndDiscardScene: View {
 /// than a generic UI control.
 private struct BuyButtonLabel: View {
     var body: some View {
-        Text("BUY")
+        Text("ซื้อ")
             .font(Theme.title(22))
             .foregroundStyle(.white)
             .padding(.horizontal, 32)
