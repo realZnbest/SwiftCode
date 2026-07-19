@@ -55,6 +55,7 @@ struct StreetToDrainScene: View {
     @State private var triggeredEvents: Set<String> = []
     @State private var flashOpacity: Double = 0
     @State private var choiceMade = false
+    @State private var introCaptionOpacity: Double = 0
     @State private var idleTask: Task<Void, Never>? = nil
 
     // Drag-to-drop fork, matching the recycling facility's own bottle-drag
@@ -104,10 +105,10 @@ struct StreetToDrainScene: View {
                             // but this time runs in from the right and
                             // exits left.
                             StrayDogView(legPhase: s.legPhase)
-                                .frame(width: 132 * s.dogScale, height: 100 * s.dogScale)
+                                .frame(width: 184 * s.dogScale, height: 140 * s.dogScale) // scaled by ~1.4x
                                 .scaleEffect(x: -1, y: 1)
                                 .opacity(s.dogOpacity)
-                                .position(x: s.dogPos.x * size.width, y: s.dogPos.y * size.height - 0.42 * 100 * s.dogScale)
+                                .position(x: s.dogPos.x * size.width, y: s.dogPos.y * size.height - 0.42 * 140 * s.dogScale)
 
                             BottleView(
                                 vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, glow: 0,
@@ -137,6 +138,16 @@ struct StreetToDrainScene: View {
                     .opacity(flashOpacity)
                     .blendMode(.plusLighter)
                     .allowsHitTesting(false)
+                    
+                if stage == .intro {
+                    Text("Discarded, ignored, and in everyone's way.")
+                        .font(Theme.line(26))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 14)
+                        .opacity(introCaptionOpacity)
+                        .position(x: size.width / 2, y: size.height * 0.35)
+                }
             }
             .contentShape(Rectangle())
         }
@@ -279,6 +290,15 @@ struct StreetToDrainScene: View {
             armIdleAutoAdvance()
         } else {
             stage = .intro
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
+                guard stage == .intro else { return }
+                withAnimation(.easeIn(duration: 1.5)) { introCaptionOpacity = 1 }
+                
+                try? await Task.sleep(for: .seconds(4.0))
+                guard stage == .intro else { return }
+                withAnimation(.easeOut(duration: 1.5)) { introCaptionOpacity = 0 }
+            }
         }
     }
 
@@ -383,7 +403,6 @@ struct StreetToDrainScene: View {
     /// changes as it runs in from the right and off the left.
     private func introState(at elapsed: Double) -> SnatchState {
         let groundY = Double(bottleRowFrac)
-        let mouthY = groundY - 0.06
         let dogStartX = 1.15
         let exitX = -0.25
 
@@ -419,9 +438,9 @@ struct StreetToDrainScene: View {
             dogX = Double(kickEndX) + sin(shakeT * 40) * 0.01
             dogScale = 1.0
             dogOpacity = 1
-            let mx = dogX - 0.05
+            let mx = dogX - 0.07 * dogScale
             bottleX = mx + sin(shakeT * 30) * 0.025
-            bottleY = mouthY + cos(shakeT * 22) * 0.02
+            bottleY = groundY - 0.084 * dogScale + cos(shakeT * 22) * 0.02
             tiltDeg = 90 + 25 * sin(shakeT * 34)
             blur = max(0, min(7, shakeT / 0.15 * 5) + 2 * sin(shakeT * 10))
 
@@ -430,8 +449,8 @@ struct StreetToDrainScene: View {
             dogX = lerp(Double(kickEndX), exitX, frac)
             dogScale = lerp(1.0, 0.8, frac)
             dogOpacity = 1
-            bottleX = dogX - 0.05
-            bottleY = mouthY
+            bottleX = dogX - 0.07 * dogScale
+            bottleY = groundY - 0.084 * dogScale
             tiltDeg = 90 + 6 * sin(elapsed * 20)
             let settleT = min(1, (elapsed - shakeEnd) / 0.3)
             blur = max(0.8, 4 * (1 - settleT))
@@ -441,8 +460,8 @@ struct StreetToDrainScene: View {
             dogX = exitX
             dogScale = 0.8
             dogOpacity = 1 - frac
-            bottleX = exitX - 0.05
-            bottleY = mouthY
+            bottleX = exitX - 0.07 * dogScale
+            bottleY = groundY - 0.084 * dogScale
             tiltDeg = 90
             blur = 0.8 * (1 - frac)
 
@@ -578,7 +597,8 @@ private struct KickerFigure: View {
             // Mirrors the whole figure — including which leg (front/back)
             // leads the kick — so it visibly faces and leads with the
             // direction it's actually walking and kicking.
-            .scaleEffect(x: direction, y: 1)
+            // Scaled by 1.4x from the bottom so the feet stay on the ground.
+            .scaleEffect(CGSize(width: direction * 1.4, height: 1.4), anchor: .bottom)
             .opacity(min(fadeIn, fadeOut))
             .position(x: bodyX, y: groundY - 22)
         }

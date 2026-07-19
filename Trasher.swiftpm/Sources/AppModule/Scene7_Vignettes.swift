@@ -78,25 +78,114 @@ struct VignetteScene<Content: View>: View {
 
 struct FactoryOriginScene: View {
     @EnvironmentObject var game: GameState
+    @State private var heroBottleX: CGFloat = 1.2
+    @State private var nozzleY: CGFloat = -0.3
+    @State private var flashOpacity: Double = 0
+    @State private var bgBottleOffset: CGFloat = 0
 
     var body: some View {
         VignetteScene(
             line: "Made to be used once.",
             accessibilityText: "A factory line. The bottle is filled and sealed, brand new.",
-            bottlePosition: UnitPoint(x: 0.5, y: 0.82),
-            bottleGlow: 0.35,
+            showBottle: false, // We'll render it ourselves in the ZStack
             textPosition: UnitPoint(x: 0.5, y: 0.65),
-            content: { _ in
+            content: { size in
                 ZStack {
                     LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
                     FactorySilhouetteCanvas(reduceMotion: game.reduceMotion).opacity(0.6)
                     ConveyorBeltCanvas(reduceMotion: game.reduceMotion)
+
+                    // Continuous Background Bottles
+                    HStack(spacing: 200) {
+                        ForEach(0..<12, id: \.self) { _ in
+                            BottleView(vibrancy: 1, dirt: 0, showEyes: false, glow: 0, width: 40, height: 98, tilt: .zero)
+                                .opacity(0.3)
+                        }
+                    }
+                    .offset(x: bgBottleOffset)
+                    // 0.82 * size.height is the hero bottle center. 
+                    // To match the hero bottle's bottom edge (148/2 = 74 down), 
+                    // we shift the 98-height bg bottles down by 25 (74 - 49).
+                    .position(x: size.width * 0.5, y: size.height * 0.82 + 25)
+                    .onAppear {
+                        withAnimation(.linear(duration: 2.5).repeatForever(autoreverses: false)) {
+                            bgBottleOffset = 240
+                        }
+                    }
+
+                    // Hero Bottle
+                    BottleView(
+                        vibrancy: 1, dirt: 0, showEyes: false,
+                        glow: 0.35, width: 60, height: 148, tilt: .zero
+                    )
+                    .position(x: size.width * heroBottleX, y: size.height * 0.82)
+
+                    // Mechanical Nozzle
+                    VStack(spacing: 0) {
+                        Rectangle().fill(Color.black.opacity(0.8)).frame(width: 24, height: size.height * 0.4)
+                        Capsule().fill(Theme.cleanCyan).frame(width: 50, height: 16)
+                    }
+                    .position(x: size.width * 0.5, y: size.height * nozzleY)
+
+                    // Cap Flash
+                    if flashOpacity > 0 {
+                        Circle()
+                            .fill(Theme.neonCyan)
+                            .frame(width: 150, height: 150)
+                            .blur(radius: 30)
+                            .opacity(flashOpacity)
+                            .position(x: size.width * 0.5, y: size.height * 0.75)
+                    }
+
                     LightRaysCanvas(color: Theme.cleanCyan, count: 3, reduceMotion: game.reduceMotion)
                     SparkleCanvas(count: 18, color: .white, reduceMotion: game.reduceMotion).opacity(0.4)
                 }
+                .onAppear(perform: runAnimation)
             },
             onFinish: { game.advanceFromFactoryOrigin() }
         )
+    }
+
+    private func runAnimation() {
+        let scale = game.reduceMotion ? 0.6 : 1.0
+        
+        // Start hero bottle on the left
+        heroBottleX = -0.2
+        
+        Task { @MainActor in
+            // 1. Hero bottle slides in from the left
+            withAnimation(.easeOut(duration: 1.2 * scale)) {
+                heroBottleX = 0.5
+            }
+            try? await Task.sleep(for: .seconds(1.2 * scale))
+            
+            // 2. Nozzle descends to cap it
+            withAnimation(.spring(response: 0.5 * scale, dampingFraction: 0.7)) {
+                nozzleY = 0.54 // Stops right above the bottle
+            }
+            try? await Task.sleep(for: .seconds(0.4 * scale))
+            
+            // 3. Flash & sound
+            game.sound.success()
+            withAnimation(.easeOut(duration: 0.1)) {
+                flashOpacity = 0.8
+            }
+            try? await Task.sleep(for: .seconds(0.1))
+            withAnimation(.easeIn(duration: 0.4)) {
+                flashOpacity = 0
+            }
+            
+            // 4. Nozzle retracts
+            withAnimation(.easeIn(duration: 0.6 * scale)) {
+                nozzleY = -0.3
+            }
+            
+            // 5. Bottle slides out to the right
+            try? await Task.sleep(for: .seconds(1.4 * scale))
+            withAnimation(.easeIn(duration: 1.0 * scale)) {
+                heroBottleX = 1.2
+            }
+        }
     }
 }
 
