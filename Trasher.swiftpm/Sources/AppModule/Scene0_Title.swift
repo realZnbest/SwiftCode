@@ -102,7 +102,6 @@ struct TitleScene: View {
         beginTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.9))
             guard !Task.isCancelled else { return }
-            game.sound.motif()
 
             try? await Task.sleep(for: .seconds(7.1))
             guard !Task.isCancelled else { return }

@@ -17,8 +17,6 @@ struct RootView: View {
                     FactoryOriginScene()
                 case .opening:
                     OpeningScene()
-                case .sidewalkDrift:
-                    SidewalkDriftScene()
                 case .streetToDrain:
                     StreetToDrainScene()
                 case .stormDrainTunnel:

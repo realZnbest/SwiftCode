@@ -2,16 +2,18 @@ import AVFoundation
 import UIKit
 
 /// Every sound in Trasher is synthesized at launch — no bundled audio
-/// files — so the whole game stays tiny and fully offline. Ambient layers
-/// crossfade as the story moves through title -> city -> drain -> canal ->
-/// facility -> montage -> park, a slow bright/dramatic pad motif ties the
-/// emotional beats together, and a shared reverb send gives everything a sense of
-/// space instead of sounding like dry synthesizer test tones.
+/// files — so the whole game stays tiny and fully offline. Ambient noise
+/// layers (city hum, rain, water, machinery, sparkle) crossfade as the
+/// story moves through title -> city -> drain -> canal -> facility ->
+/// montage -> park, plus impact/success one-shots for feedback — no
+/// background music or melodic score, just atmosphere and SFX, run through
+/// a shared reverb send so everything feels like it's in the same space
+/// instead of dry synthesizer test tones.
 @MainActor
 final class SoundEngine {
 
     private enum Layer: CaseIterable {
-        case city, rain, water, machinery, sparkle, theme
+        case city, rain, water, machinery, sparkle
     }
 
     private let engine = AVAudioEngine()
@@ -25,12 +27,10 @@ final class SoundEngine {
     private let impactPlayers = [AVAudioPlayerNode(), AVAudioPlayerNode(), AVAudioPlayerNode()]
     private var nextImpactIndex = 0
     private let successPlayer = AVAudioPlayerNode()
-    private let motifPlayer = AVAudioPlayerNode()
     private let thunderPlayer = AVAudioPlayerNode()
 
     private var impactSample: AVAudioPCMBuffer!
     private var successSample: AVAudioPCMBuffer!
-    private var motifSample: AVAudioPCMBuffer!
     private var thunderSample: AVAudioPCMBuffer!
 
     init() {
@@ -98,34 +98,22 @@ final class SoundEngine {
             return Float(hum + clank)
         }
 
+        // Filtered noise with a fluttering amplitude, not tones — reads as
+        // an airy glinting texture rather than a chime or musical interval.
+        // A single slow, gentle swell — not the fast dual-rate flutter this
+        // had before, which beat together into an irregular pattering
+        // rhythm that read as footsteps running in the background instead
+        // of a quiet ambient shimmer.
+        var sparkleLP: Float = 0
         let sparkle = makeBuffer(duration: 4.0, fadeEdges: true) { t in
-            let a = sin(2 * .pi * 660 * t) * 0.05
-            let b = sin(2 * .pi * 990 * t + 0.5) * 0.03
-            let trem = 0.5 + 0.5 * sin(2 * .pi * 0.3 * t)
-            return Float((a + b) * trem)
-        }
-
-        // A slow two-chord pad, not a plinky arpeggio: it breathes between a
-        // wistful A minor (dramatic) and a warm F major (bright) over an
-        // 8-second cycle, so the story's recurring "hope" motif reads as one
-        // sustained, half-bright/half-dramatic mood instead of a repeating
-        // tune that wears thin over a long playthrough.
-        let themeCycle = 8.0
-        let chordDramatic: [(freq: Double, amp: Double)] = [(220.00, 1.0), (261.63, 0.75), (329.63, 0.6), (440.00, 0.4)]
-        let chordBright: [(freq: Double, amp: Double)] = [(174.61, 1.0), (220.00, 0.75), (261.63, 0.6), (349.23, 0.4)]
-        let theme = makeBuffer(duration: themeCycle, fadeEdges: true) { t in
-            // 0 = fully dramatic chord, 1 = fully bright chord; a smooth
-            // cosine crossfade rather than a hard cut between them.
-            let blend = 0.5 - 0.5 * cos(2 * .pi * t / themeCycle)
-            let breathe = 0.82 + 0.18 * sin(2 * .pi * t / (themeCycle / 2))
-            let dramatic = chordDramatic.reduce(0.0) { $0 + sin(2 * .pi * $1.freq * t) * $1.amp }
-            let bright = chordBright.reduce(0.0) { $0 + sin(2 * .pi * $1.freq * t) * $1.amp }
-            let mixed = dramatic * (1 - blend) + bright * blend
-            return Float(mixed * breathe) * 0.045
+            let n = Float.random(in: -1...1)
+            sparkleLP = sparkleLP * 0.7 + n * 0.3
+            let shimmer = 0.6 + 0.4 * sin(2 * .pi * 0.4 * t)
+            return sparkleLP * Float(shimmer) * 0.07
         }
 
         let buffers: [Layer: AVAudioPCMBuffer] = [
-            .city: city, .rain: rain, .water: water, .machinery: machinery, .sparkle: sparkle, .theme: theme
+            .city: city, .rain: rain, .water: water, .machinery: machinery, .sparkle: sparkle
         ]
 
         for layer in Layer.allCases {
@@ -146,30 +134,16 @@ final class SoundEngine {
             return lp * env * 0.9
         }
 
-        let notes: [Double] = [523.25, 659.25, 783.99, 1046.5]
-        let noteDuration = 0.14
-        successSample = makeBuffer(duration: noteDuration * Double(notes.count)) { t in
-            let idx = min(notes.count - 1, Int(t / noteDuration))
-            let freq = notes[idx]
-            let localT = t - Double(idx) * noteDuration
-            let env = sin(.pi * min(1, localT / noteDuration))
-            return Float(sin(2 * .pi * freq * t) * env) * 0.5
-        }
-
-        // A gentle rising bell phrase for emotional beats (title, "I still
-        // have a purpose", the macro beat, the ending reveal).
-        let motifNotes: [Double] = [440.0, 587.33, 880.0]
-        let motifNoteDuration = 0.34
-        motifSample = makeBuffer(duration: motifNoteDuration * Double(motifNotes.count) + 0.4) { t in
-            let phraseLength = Double(motifNotes.count) * motifNoteDuration
-            guard t < phraseLength else { return 0 }
-            let idx = min(motifNotes.count - 1, Int(t / motifNoteDuration))
-            let freq = motifNotes[idx]
-            let localT = t - Double(idx) * motifNoteDuration
-            let env = Float(min(1, localT / 0.015)) * Float(exp(-localT * 3.6))
-            let fundamental = sin(2 * .pi * freq * t)
-            let overtone = sin(2 * .pi * freq * 2 * t) * 0.22
-            return Float(fundamental + overtone) * env * 0.42
+        // A bright noise burst, not a melodic phrase — a fast attack and
+        // fluttering texture reads as a satisfying "success" sting on its
+        // dynamics alone, without spelling out any notes.
+        var successLP: Float = 0
+        successSample = makeBuffer(duration: 0.45) { t in
+            let n = Float.random(in: -1...1)
+            successLP = successLP * 0.4 + n * 0.6
+            let env = Float(min(1, t / 0.03)) * Float(exp(-t * 5))
+            let flutter = 0.6 + 0.4 * sin(2 * .pi * 14 * t)
+            return successLP * env * Float(flutter) * 0.9
         }
 
         // A distant, low thunder rumble for the storm's occasional lightning.
@@ -188,14 +162,12 @@ final class SoundEngine {
         }
         engine.attach(successPlayer)
         engine.connect(successPlayer, to: engine.mainMixerNode, format: monoFormat())
-        engine.attach(motifPlayer)
-        engine.connect(motifPlayer, to: engine.mainMixerNode, format: monoFormat())
         engine.attach(thunderPlayer)
         engine.connect(thunderPlayer, to: engine.mainMixerNode, format: monoFormat())
 
         // Shared reverb send: routes the whole mix through a bright plate
-        // reverb before it reaches the speakers, so city, water, and the
-        // musical motif all feel like they're in the same wide, glossy space.
+        // reverb before it reaches the speakers, so every layer feels like
+        // it's in the same wide, glossy space instead of dry test tones.
         engine.attach(reverb)
         reverb.loadFactoryPreset(.plate)
         reverb.wetDryMix = 24
@@ -219,47 +191,45 @@ final class SoundEngine {
 
         switch phase {
         case .title:
-            target = [.city: 0.28, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.08, .theme: 0.05]
+            target = [.city: 0.28, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.08]
         case .factoryOrigin:
-            target = [.city: 0.1, .rain: 0, .water: 0, .machinery: 0.3, .sparkle: 0.1, .theme: 0.08]
+            target = [.city: 0.1, .rain: 0, .water: 0, .machinery: 0.3, .sparkle: 0.1]
         case .opening:
-            target = [.city: 0.45, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.05, .theme: 0]
-        case .sidewalkDrift:
-            target = [.city: 0.4, .rain: 0.15, .water: 0, .machinery: 0, .sparkle: 0.05, .theme: 0]
+            target = [.city: 0.45, .rain: 0, .water: 0, .machinery: 0, .sparkle: 0.05]
         case .streetToDrain:
-            target = [.city: 0.22, .rain: 0.55, .water: 0.12, .machinery: 0, .sparkle: 0, .theme: 0]
+            target = [.city: 0.22, .rain: 0.55, .water: 0.12, .machinery: 0, .sparkle: 0]
         case .stormDrainTunnel:
-            target = [.city: 0.05, .rain: 0.3, .water: 0.35, .machinery: 0.1, .sparkle: 0, .theme: 0]
+            target = [.city: 0.05, .rain: 0.3, .water: 0.35, .machinery: 0.1, .sparkle: 0]
             masterVolume = 0.8
         case .landfillFailure:
-            target = [.city: 0, .rain: 0.04, .water: 0.04, .machinery: 0.18, .sparkle: 0, .theme: 0]
+            target = [.city: 0, .rain: 0.04, .water: 0.04, .machinery: 0.18, .sparkle: 0]
             masterVolume = 0.5
         case .secondBottleMirror:
-            target = [.city: 0, .rain: 0.08, .water: 0.35, .machinery: 0, .sparkle: 0, .theme: 0]
+            target = [.city: 0, .rain: 0.08, .water: 0.35, .machinery: 0, .sparkle: 0]
             masterVolume = 0.6
         case .canal:
-            target = [.city: 0.05, .rain: 0.12, .water: 0.5, .machinery: 0, .sparkle: 0, .theme: 0]
+            target = [.city: 0.05, .rain: 0.12, .water: 0.5, .machinery: 0, .sparkle: 0]
         case .seaFailure:
-            target = [.city: 0, .rain: 0.05, .water: 0.25, .machinery: 0, .sparkle: 0, .theme: 0]
+            target = [.city: 0, .rain: 0.05, .water: 0.25, .machinery: 0, .sparkle: 0]
             masterVolume = 0.5
         case .nightIntoDay:
-            target = [.city: 0.05, .rain: 0, .water: 0.3, .machinery: 0, .sparkle: 0.2, .theme: 0.15]
+            target = [.city: 0.05, .rain: 0, .water: 0.3, .machinery: 0, .sparkle: 0.2]
         case .fishingNetRescue:
-            target = [.city: 0, .rain: 0, .water: 0.25, .machinery: 0.1, .sparkle: 0.25, .theme: 0.2]
+            target = [.city: 0, .rain: 0, .water: 0.25, .machinery: 0.1, .sparkle: 0.25]
         case .sortingLine:
-            target = [.city: 0, .rain: 0, .water: 0.05, .machinery: 0.4, .sparkle: 0.12, .theme: 0.08]
+            target = [.city: 0, .rain: 0, .water: 0.05, .machinery: 0.4, .sparkle: 0.12]
         case .recycling:
-            target = [.city: 0, .rain: 0, .water: 0.08, .machinery: 0.5, .sparkle: 0.15, .theme: 0.1]
+            target = [.city: 0, .rain: 0, .water: 0.08, .machinery: 0.5, .sparkle: 0.15]
         case .pelletReveal:
-            target = [.city: 0, .rain: 0, .water: 0.05, .machinery: 0.25, .sparkle: 0.35, .theme: 0.25]
+            target = [.city: 0, .rain: 0, .water: 0.05, .machinery: 0.25, .sparkle: 0.35]
         case .truckDelivery:
-            target = [.city: 0.15, .rain: 0, .water: 0, .machinery: 0.2, .sparkle: 0.2, .theme: 0.15]
+            target = [.city: 0.15, .rain: 0, .water: 0, .machinery: 0.2, .sparkle: 0.2]
         case .montage:
-            target = [.city: 0.1, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.3, .theme: 0.32]
+            target = [.city: 0.1, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.3]
         case .communityCleanup:
-            target = [.city: 0.1, .rain: 0, .water: 0.08, .machinery: 0, .sparkle: 0.4, .theme: 0.28]
+            target = [.city: 0.1, .rain: 0, .water: 0.08, .machinery: 0, .sparkle: 0.4]
         case .ending:
-            target = [.city: 0.08, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.45, .theme: 0.18]
+            target = [.city: 0.08, .rain: 0, .water: 0.05, .machinery: 0, .sparkle: 0.45]
         }
 
         rampVolumes(to: target, master: masterVolume, duration: 1.4)
@@ -309,15 +279,6 @@ final class SoundEngine {
         thunderPlayer.stop()
         thunderPlayer.scheduleBuffer(thunderSample, at: nil)
         thunderPlayer.play()
-    }
-
-    /// A soft rising bell phrase played at emotional beats: the title card,
-    /// "I still have a purpose", the canal's macro close-up, and the ending
-    /// reveal. Kept rare so it stays meaningful.
-    func motif() {
-        motifPlayer.stop()
-        motifPlayer.scheduleBuffer(motifSample, at: nil)
-        motifPlayer.play()
     }
 
     func muffle() {

@@ -16,6 +16,7 @@ struct RecyclingScene: View {
     @State private var idleTask: Task<Void, Never>? = nil
     @State private var brighten: Double = 0
     @State private var wrongDropFeedback = false
+    @State private var showBenchCaption = false
 
     private var reduceMotion: Bool { game.reduceMotion }
 
@@ -46,6 +47,23 @@ struct RecyclingScene: View {
                         .padding(.vertical, 10)
                         .background(Theme.nearBlack.opacity(0.78), in: Capsule())
                         .position(x: size.width * 0.5, y: size.height * 0.44)
+                        .transition(.opacity)
+                }
+
+                if showBenchCaption && stage == .done {
+                    // Names the payoff at the exact moment it appears — the
+                    // shredded flakes were just reforming a second ago, so
+                    // without this it's easy to miss that the bench sitting
+                    // there now *is* the bottle, not a separate prop.
+                    Text("Look — it's a bench now, made of recycled plastic.")
+                        .font(Theme.line(20))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 26)
+                        .padding(.vertical, 12)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .glow(Theme.freshGreen, radius: 10, opacity: 0.3)
+                        .position(x: size.width * 0.5, y: size.height * 0.78)
                         .transition(.opacity)
                 }
 
@@ -83,8 +101,10 @@ struct RecyclingScene: View {
                 ],
                 startPoint: .top, endPoint: .bottom
             )
-            FactorySilhouetteCanvas()
+            FactorySilhouetteCanvas(reduceMotion: reduceMotion)
                 .opacity(0.7)
+            balesRow
+                .opacity(0.55)
             LightRaysCanvas(color: Theme.cleanCyan, count: 3, reduceMotion: reduceMotion)
                 .opacity(0.5 + brighten * 0.2)
             NeonStreakField(colors: [Theme.cleanCyan, Theme.freshGreen], reduceMotion: reduceMotion)
@@ -92,6 +112,38 @@ struct RecyclingScene: View {
             ConveyorBeltCanvas(reduceMotion: reduceMotion)
             SparkleCanvas(count: Int(20 + brighten * 40), color: Theme.cleanWhite, reduceMotion: reduceMotion)
                 .opacity(0.3 + brighten * 0.5)
+        }
+    }
+
+    /// Stacked bales of already-compacted material along the back wall —
+    /// the one purely "recycling facility" signifier that the shared
+    /// factory silhouette can't provide, so this scene reads as a distinct
+    /// place and not just a re-tinted copy of the origin factory.
+    private var balesRow: some View {
+        GeometryReader { geo in
+            let size = geo.size
+            HStack(alignment: .bottom, spacing: size.width * 0.015) {
+                ForEach(0..<6, id: \.self) { i in
+                    let tint = [Theme.freshGreen, Theme.cleanCyan, Theme.smokeOrange][i % 3]
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(tint.opacity(0.16))
+                        .overlay(RoundedRectangle(cornerRadius: 2).stroke(tint.opacity(0.3), lineWidth: 1))
+                        .overlay(
+                            // Baling-wire crosses, the detail that reads as
+                            // "compacted block" instead of a plain crate.
+                            Path { p in
+                                p.move(to: CGPoint(x: 0, y: 0)); p.addLine(to: CGPoint(x: size.width * 0.05, y: size.height * 0.08))
+                                p.move(to: CGPoint(x: size.width * 0.05, y: 0)); p.addLine(to: CGPoint(x: 0, y: size.height * 0.08))
+                            }
+                            .stroke(tint.opacity(0.35), lineWidth: 1)
+                        )
+                        .frame(width: size.width * 0.05, height: size.height * (0.16 + CGFloat((i * 37) % 5) * 0.025))
+                }
+            }
+            .frame(width: size.width, alignment: .leading)
+            .padding(.leading, size.width * 0.015)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, size.height * 0.14)
         }
     }
 
@@ -124,39 +176,51 @@ struct RecyclingScene: View {
     private func binView(rect: CGRect, size: CGSize, kind: BinKind, bright: Bool, warning: Bool, reduceMotion: Bool) -> some View {
         let frame = CGRect(x: rect.minX * size.width, y: rect.minY * size.height,
                             width: rect.width * size.width, height: rect.height * size.height)
-        let glowColor = warning ? Theme.neonAmber : (kind == .landfill ? Theme.smokeOrange : Theme.cleanCyan)
+        let glowColor = warning ? Theme.neonAmber : (kind == .landfill ? Theme.smokeOrange : Theme.freshGreen)
+        // "Recycling", not "Recycling bin" — dropping the bottle here starts
+        // the whole cleaning/shredding/reforming process, not a passive
+        // receptacle like the trash side. Matches PathChoiceIndicator's own
+        // label for the same choice at the street and canal forks.
+        let label = kind == .landfill ? "Trash bin" : "Recycling"
 
-        return ZStack {
-            if kind == .landfill {
-                SmokeCanvas(intensity: 0.5, color: Theme.murkGreen, reduceMotion: reduceMotion)
-                    .frame(width: frame.width * 1.6, height: frame.height * 1.6)
-                    .opacity(0.5)
-            } else {
-                RisingSparksCanvas(color: Theme.cleanCyan, reduceMotion: reduceMotion)
-                    .frame(width: frame.width * 1.4, height: frame.height * 1.8)
-                    .opacity(0.6)
-            }
-
-            Group {
+        return VStack(spacing: 6) {
+            ZStack {
                 if kind == .landfill {
-                    TrashBinView(width: frame.width * 0.8, height: frame.height * 0.85)
+                    SmokeCanvas(intensity: 0.5, color: Theme.murkGreen, reduceMotion: reduceMotion)
+                        .frame(width: frame.width * 1.6, height: frame.height * 1.6)
+                        .opacity(0.5)
                 } else {
-                    RecycleBinView(width: frame.width * 0.8, height: frame.height * 0.85)
+                    RisingSparksCanvas(color: Theme.freshGreen, reduceMotion: reduceMotion)
+                        .frame(width: frame.width * 1.4, height: frame.height * 1.8)
+                        .opacity(0.6)
                 }
+
+                Group {
+                    if kind == .landfill {
+                        TrashBinView(width: frame.width * 0.8, height: frame.height * 0.85)
+                    } else {
+                        RecycleBinView(width: frame.width * 0.8, height: frame.height * 0.85)
+                    }
+                }
+                .overlay(
+                    warning ?
+                    RoundedRectangle(cornerRadius: 12).stroke(Theme.neonAmber, lineWidth: 3).opacity(0.85)
+                        .frame(width: frame.width * 0.9, height: frame.height * 0.95)
+                    : nil
+                )
             }
-            .overlay(
-                warning ?
-                RoundedRectangle(cornerRadius: 12).stroke(Theme.neonAmber, lineWidth: 3).opacity(0.85)
-                    .frame(width: frame.width * 0.9, height: frame.height * 0.95)
-                : nil
-            )
+            .frame(width: frame.width, height: frame.height)
+            .glow(glowColor, radius: bright || warning ? 20 : 6, opacity: bright || warning ? 0.55 : (kind == .landfill ? 0.08 : 0.2))
+            .scaleEffect(warning ? 1.035 : 1)
+            .animation(.easeInOut(duration: 0.25), value: bright)
+            .animation(.easeInOut(duration: 0.18), value: warning)
+
+            Text(label)
+                .font(Theme.line(18))
+                .foregroundStyle(.white.opacity(0.8))
+                .shadow(color: .black.opacity(0.6), radius: 3)
         }
-        .frame(width: frame.width, height: frame.height)
         .position(x: frame.midX, y: frame.midY)
-        .glow(glowColor, radius: bright || warning ? 20 : 6, opacity: bright || warning ? 0.55 : (kind == .landfill ? 0.08 : 0.2))
-        .scaleEffect(warning ? 1.035 : 1)
-        .animation(.easeInOut(duration: 0.25), value: bright)
-        .animation(.easeInOut(duration: 0.18), value: warning)
     }
 
     // MARK: - Bin illustrations
@@ -272,6 +336,7 @@ struct RecyclingScene: View {
         dragBase = bottlePos
         misses = 0
         wrongDropFeedback = false
+        showBenchCaption = false
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.6))
             guard stage == .arriving else { return }
@@ -336,8 +401,10 @@ struct RecyclingScene: View {
         stage = next
         stageStart = Date()
         if next == .done {
+            withAnimation(.easeIn(duration: 0.3)) { showBenchCaption = true }
             Task { @MainActor in
-                try? await Task.sleep(for: .seconds(1.6))
+                // Long enough to actually read the caption, not just glimpse it.
+                try? await Task.sleep(for: .seconds(5.5))
                 game.finishRecycling()
             }
         }

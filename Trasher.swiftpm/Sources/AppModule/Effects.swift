@@ -292,22 +292,22 @@ struct RecycleBinView: View {
     var body: some View {
         ZStack {
             BinBodyShape()
-                .fill(LinearGradient(colors: [Theme.cleanCyan.opacity(0.32), Theme.cleanCyan.opacity(0.1)],
+                .fill(LinearGradient(colors: [Theme.freshGreen.opacity(0.32), Theme.freshGreen.opacity(0.1)],
                                       startPoint: .top, endPoint: .bottom))
-                .overlay(BinBodyShape().stroke(Theme.cleanCyan.opacity(0.85), lineWidth: 2))
+                .overlay(BinBodyShape().stroke(Theme.freshGreen.opacity(0.85), lineWidth: 2))
                 .frame(width: width, height: height * 0.62)
                 .offset(y: height * 0.19)
 
             RoundedRectangle(cornerRadius: 4)
-                .fill(Theme.cleanCyan.opacity(0.55))
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.cleanCyan, lineWidth: 1.5))
+                .fill(Theme.freshGreen.opacity(0.55))
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.freshGreen, lineWidth: 1.5))
                 .frame(width: width * 1.05, height: height * 0.08)
                 .rotationEffect(.degrees(-8), anchor: .leading)
                 .offset(x: -width * 0.02, y: -height * 0.15)
 
             Image(systemName: "arrow.3.trianglepath")
                 .font(.system(size: width * 0.3, weight: .semibold))
-                .foregroundStyle(Theme.cleanCyan)
+                .foregroundStyle(Theme.freshGreen)
                 .offset(y: height * 0.2)
         }
         .frame(width: width, height: height)
@@ -327,7 +327,21 @@ enum PathKind {
         case .landfill: return Theme.smokeOrange
         case .stormDrain: return Theme.neonCyan
         case .sea: return Theme.mutedSeaTeal
-        case .recyclingPoint: return Theme.cleanCyan
+        case .recyclingPoint: return Theme.freshGreen
+        }
+    }
+
+    /// A short caption under the glyph — the illustrations read fine once
+    /// you already know the story, but a judge seeing this cold shouldn't
+    /// have to guess what a drain grate versus a wave crest means.
+    var label: String {
+        switch self {
+        case .landfill: return "Landfill"
+        case .stormDrain: return "Storm drain"
+        // "Open sea" read as neutral, even pleasant — this is the bad,
+        // dead-end choice (mirrors "Trash bin"), so the label should say so.
+        case .sea: return "Lost at sea"
+        case .recyclingPoint: return "Recycling"
         }
     }
 }
@@ -348,6 +362,7 @@ struct PathChoiceIndicator: View {
     var bright: Bool
     var dim: Bool = false
     var containerSize: CGSize
+    var showLabel: Bool = true
 
     private var tint: Color { kind.tint }
 
@@ -356,27 +371,132 @@ struct PathChoiceIndicator: View {
     private var glowDiameter: CGFloat { glyphWidth * 2.3 }
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [tint.opacity(bright ? 0.55 : 0.28), .clear],
-                                     center: .center, startRadius: 0, endRadius: glowDiameter / 2))
-                .frame(width: glowDiameter, height: glowDiameter)
-            glyph
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(colors: [tint.opacity(bright ? 0.55 : 0.28), .clear],
+                                         center: .center, startRadius: 0, endRadius: glowDiameter / 2))
+                    .frame(width: glowDiameter, height: glowDiameter)
+                glyph
+            }
+            // The glow circle is much bigger than the glyph itself (mostly
+            // transparent past its bright center) — without this, its full
+            // diameter drives the VStack's layout height, stranding the
+            // label far below the visibly-drawn bin instead of right under it.
+            .frame(width: glyphWidth, height: glyphHeight)
+            .glow(tint, radius: bright ? 20 : 6, opacity: bright ? 0.6 : 0.15)
+            .scaleEffect(bright ? 1.06 : 1)
+            .animation(.easeInOut(duration: 0.4), value: bright)
+
+            if showLabel {
+                Text(kind.label)
+                    .font(Theme.line(18))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .shadow(color: .black.opacity(0.6), radius: 3)
+            }
         }
         .opacity(dim ? 0.25 : 1)
-        .glow(tint, radius: bright ? 20 : 6, opacity: bright ? 0.6 : 0.15)
-        .scaleEffect(bright ? 1.06 : 1)
-        .animation(.easeInOut(duration: 0.4), value: bright)
     }
 
     @ViewBuilder
     private var glyph: some View {
         switch kind {
-        case .landfill: TrashBinView(width: glyphWidth, height: glyphHeight)
+        case .landfill: LandfillMoundGlyph(bright: bright, size: max(glyphWidth, glyphHeight))
         case .stormDrain: StormDrainGlyph(bright: bright, size: max(glyphWidth, glyphHeight))
         case .sea: SeaGlyph(bright: bright, size: max(glyphWidth, glyphHeight))
         case .recyclingPoint: RecycleBinView(width: glyphWidth, height: glyphHeight)
         }
+    }
+}
+
+/// A cross-section of a landfill mound — layered dirt strata with a bottle
+/// half-buried in one of the layers — not a trash bin. This is the street
+/// fork's "wrong turn" choice, and the scene it leads to says "Buried is
+/// not gone": a bin (something you'd empty) undersold that permanence, so
+/// this reads as ground the bottle disappears *into*, not a container.
+private struct LandfillMoundGlyph: View {
+    var bright: Bool
+    var size: CGFloat
+
+    var body: some View {
+        Canvas { ctx, canvasSize in
+            let s = min(canvasSize.width, canvasSize.height)
+            let baseY = s * 0.9
+            let topY = s * 0.22
+            let midX = s * 0.5
+            let baseHalf = s * 0.42
+            let topHalf = s * 0.11
+
+            // A pyramid's proportions (wide base, narrow top) built from
+            // jittered points instead of straight edges, so the silhouette
+            // reads as a heaped dirt pile, not a ruler-drawn shape.
+            func jaggedEdge(from: CGPoint, to: CGPoint, steps: Int, seed: Int) -> [CGPoint] {
+                (0...steps).map { i in
+                    let t = CGFloat(i) / CGFloat(steps)
+                    let x = from.x + (to.x - from.x) * t
+                    let y = from.y + (to.y - from.y) * t
+                    guard i != 0 && i != steps else { return CGPoint(x: x, y: y) }
+                    let jx = (rnd(seed + i, 640) - 0.5) * s * 0.07
+                    let jy = (rnd(seed + i, 641) - 0.5) * s * 0.045
+                    return CGPoint(x: x + jx, y: y + jy)
+                }
+            }
+
+            let left = jaggedEdge(from: CGPoint(x: midX - baseHalf, y: baseY), to: CGPoint(x: midX - topHalf, y: topY), steps: 5, seed: 10)
+            let top = jaggedEdge(from: CGPoint(x: midX - topHalf, y: topY), to: CGPoint(x: midX + topHalf, y: topY), steps: 3, seed: 30)
+            let right = jaggedEdge(from: CGPoint(x: midX + topHalf, y: topY), to: CGPoint(x: midX + baseHalf, y: baseY), steps: 5, seed: 50)
+
+            var mound = Path()
+            mound.move(to: left[0])
+            for p in left.dropFirst() { mound.addLine(to: p) }
+            for p in top.dropFirst() { mound.addLine(to: p) }
+            for p in right.dropFirst() { mound.addLine(to: p) }
+            mound.closeSubpath()
+
+            ctx.fill(mound, with: .color(Color(red: 0.3, green: 0.22, blue: 0.14)))
+
+            var clipped = ctx
+            clipped.clip(to: mound)
+
+            // Strata bands follow the mound's own taper (jittered, not flat
+            // shelves), instead of uniform-width stacked rectangles that
+            // read as drawers.
+            let bandColors: [Color] = [
+                Color(red: 0.38, green: 0.29, blue: 0.18),
+                Color(red: 0.27, green: 0.2, blue: 0.12),
+                Color(red: 0.2, green: 0.14, blue: 0.08)
+            ]
+            for (i, color) in bandColors.enumerated() {
+                let bandT = CGFloat(i + 1) / CGFloat(bandColors.count + 1)
+                let y = baseY + (topY - baseY) * bandT
+                var band = Path()
+                for j in 0...6 {
+                    let t = CGFloat(j) / 6
+                    let x = midX - baseHalf + baseHalf * 2 * t
+                    let jitter = (rnd(i * 10 + j, 660) - 0.5) * s * 0.035
+                    let pt = CGPoint(x: x, y: y + jitter)
+                    if j == 0 { band.move(to: pt) } else { band.addLine(to: pt) }
+                }
+                clipped.stroke(band, with: .color(color.opacity(0.85)), lineWidth: s * 0.05)
+            }
+
+            // Debris flecks scattered through the mound.
+            for i in 0..<8 {
+                let x = midX - baseHalf * 0.6 + rnd(i, 700) * baseHalf * 1.2
+                let y = baseY - rnd(i, 701) * (baseY - topY) * 0.8
+                let r = s * 0.02
+                clipped.fill(Path(ellipseIn: CGRect(x: x - r / 2, y: y - r / 2, width: r, height: r)), with: .color(.black.opacity(0.3)))
+            }
+
+            // The bottle, half-swallowed partway up — the whole point of
+            // the icon.
+            var bottleLayer = clipped
+            bottleLayer.translateBy(x: midX + s * 0.02, y: baseY - (baseY - topY) * 0.5)
+            bottleLayer.rotate(by: .degrees(14))
+            let bottlePath = Path(roundedRect: CGRect(x: -s * 0.05, y: -s * 0.12, width: s * 0.1, height: s * 0.24), cornerRadius: s * 0.03)
+            bottleLayer.fill(bottlePath, with: .color(Theme.bottleBlue.opacity(bright ? 0.9 : 0.65)))
+        }
+        .frame(width: size, height: size)
     }
 }
 
@@ -621,67 +741,114 @@ struct ConveyorBeltCanvas: View {
     }
 }
 
-/// Simple pipe and gear silhouettes framing the recycling facility so it
-/// reads as an industrial space instead of a generic glowing void.
+/// Pipe, crane, and gear silhouettes framing every factory/facility scene
+/// (origin line, sorting line, recycling facility) so they read as one real
+/// industrial space instead of a generic glowing void. The gears actually
+/// turn and the windows actually flicker — a static silhouette reads as a
+/// backdrop painting; a few moving parts read as a place that's running.
 struct FactorySilhouetteCanvas: View {
+    var reduceMotion: Bool = false
+
     var body: some View {
-        Canvas { ctx, size in
-            let factoryColor = Color(red: 0.05, green: 0.09, blue: 0.11).opacity(0.8)
-            let highlightColor = Theme.cleanCyan.opacity(0.18)
+        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 20)) { context in
+            let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                let factoryColor = Color(red: 0.05, green: 0.09, blue: 0.11).opacity(0.8)
+                let highlightColor = Theme.cleanCyan.opacity(0.18)
 
-            // Overhead crane/beam
-            var beam = Path()
-            beam.addRect(CGRect(x: 0, y: size.height * 0.05, width: size.width, height: size.height * 0.08))
-            ctx.fill(beam, with: .color(factoryColor))
-            ctx.stroke(beam, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
-
-            // Hanging central nozzle/crane (aligns above bottle)
-            var nozzle = Path()
-            let nx = size.width * 0.5
-            let ny = size.height * 0.13
-            nozzle.move(to: CGPoint(x: nx - 30, y: ny))
-            nozzle.addLine(to: CGPoint(x: nx + 30, y: ny))
-            nozzle.addLine(to: CGPoint(x: nx + 15, y: ny + size.height * 0.12))
-            nozzle.addLine(to: CGPoint(x: nx - 15, y: ny + size.height * 0.12))
-            nozzle.closeSubpath()
-            ctx.fill(nozzle, with: .color(factoryColor))
-            ctx.stroke(nozzle, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
-
-            // Pipes and angled struts down each side.
-            let sides: [CGFloat] = [0.08, 0.92]
-            for side in sides {
-                let x = side * size.width
-                
-                // Vertical pipe
-                var pipe = Path()
-                pipe.addRect(CGRect(x: x - 12, y: size.height * 0.13, width: 24, height: size.height * 0.87))
-                ctx.fill(pipe, with: .color(factoryColor))
-                
-                // Angled strut
-                var strut = Path()
-                strut.move(to: CGPoint(x: x + (side < 0.5 ? 12 : -12), y: size.height * 0.3))
-                strut.addLine(to: CGPoint(x: x + (side < 0.5 ? 60 : -60), y: size.height * 0.13))
-                ctx.stroke(strut, with: .color(factoryColor), style: StrokeStyle(lineWidth: 16))
-                ctx.stroke(strut, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
-
-                for j in 0..<4 {
-                    let ringY = size.height * 0.25 + CGFloat(j) * size.height * 0.18
-                    ctx.stroke(Path(CGRect(x: x - 15, y: ringY, width: 30, height: 10)),
-                               with: .color(highlightColor), style: StrokeStyle(lineWidth: 2))
+                // A hazy, distant second facility building behind everything
+                // else, for depth instead of one flat plane of machinery.
+                for i in 0..<3 {
+                    let bx = size.width * (0.12 + CGFloat(i) * 0.38)
+                    let bw = size.width * 0.26
+                    let bh = size.height * (0.32 + rnd(i, 500) * 0.12)
+                    let rect = CGRect(x: bx, y: size.height * 0.18 - bh * 0.3, width: bw, height: bh)
+                    ctx.fill(Path(rect), with: .color(Color(red: 0.04, green: 0.07, blue: 0.09).opacity(0.5)))
+                    // A handful of lit windows so the distant building reads
+                    // as occupied/running, not a dead silhouette.
+                    for w in 0..<6 {
+                        guard rnd(i * 11 + w, 501) > 0.55 else { continue }
+                        let wx = rect.minX + rect.width * (CGFloat(w % 3) + 0.5) / 3
+                        let wy = rect.minY + rect.height * (CGFloat(w / 3) + 0.5) / 2
+                        let flicker = 0.4 + 0.3 * sin(t * 0.6 + Double(w) * 2.1)
+                        ctx.fill(Path(CGRect(x: wx - 3, y: wy - 4, width: 6, height: 8)),
+                                 with: .color(Theme.cleanCyan.opacity(0.25 * flicker)))
+                    }
                 }
-            }
-            
-            // Background gears (decorative)
-            let gearX: [CGFloat] = [0.2, 0.85]
-            let gearY: [CGFloat] = [0.15, 0.4]
-            let gearR: [CGFloat] = [0.1, 0.15]
-            for i in 0..<2 {
-                let gearCenter = CGPoint(x: size.width * gearX[i], y: size.height * gearY[i])
-                let r = size.width * gearR[i]
-                var gear = Path()
-                gear.addEllipse(in: CGRect(x: gearCenter.x - r, y: gearCenter.y - r, width: r * 2, height: r * 2))
-                ctx.stroke(gear, with: .color(Theme.cleanCyan.opacity(0.1)), style: StrokeStyle(lineWidth: 12))
-                ctx.stroke(gear, with: .color(Theme.cleanCyan.opacity(0.15)), style: StrokeStyle(lineWidth: 4, dash: [10, 15]))
+
+                // Overhead crane/beam
+                var beam = Path()
+                beam.addRect(CGRect(x: 0, y: size.height * 0.05, width: size.width, height: size.height * 0.08))
+                ctx.fill(beam, with: .color(factoryColor))
+                ctx.stroke(beam, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
+
+                // A slow steam wisp drifting up from the beam — the one
+                // purely atmospheric touch that sells "running machinery"
+                // at a glance, before you even notice the gears or windows.
+                for i in 0..<3 {
+                    let phase = (t * 0.05 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
+                    let sx = size.width * (0.3 + CGFloat(i) * 0.22)
+                    let sy = size.height * 0.05 - size.height * 0.28 * CGFloat(phase)
+                    let r = size.width * (0.04 + 0.05 * CGFloat(phase))
+                    ctx.opacity = (1 - phase) * 0.12
+                    ctx.fill(Path(ellipseIn: CGRect(x: sx - r, y: sy - r * 0.6, width: r * 2, height: r * 1.2)),
+                             with: .color(.white))
+                }
+                ctx.opacity = 1
+
+                // Hanging central nozzle/crane (aligns above bottle)
+                var nozzle = Path()
+                let nx = size.width * 0.5
+                let ny = size.height * 0.13
+                nozzle.move(to: CGPoint(x: nx - 30, y: ny))
+                nozzle.addLine(to: CGPoint(x: nx + 30, y: ny))
+                nozzle.addLine(to: CGPoint(x: nx + 15, y: ny + size.height * 0.12))
+                nozzle.addLine(to: CGPoint(x: nx - 15, y: ny + size.height * 0.12))
+                nozzle.closeSubpath()
+                ctx.fill(nozzle, with: .color(factoryColor))
+                ctx.stroke(nozzle, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
+
+                // Pipes, angled struts, and lit port windows down each side.
+                let sides: [CGFloat] = [0.08, 0.92]
+                for side in sides {
+                    let x = side * size.width
+
+                    var pipe = Path()
+                    pipe.addRect(CGRect(x: x - 12, y: size.height * 0.13, width: 24, height: size.height * 0.87))
+                    ctx.fill(pipe, with: .color(factoryColor))
+
+                    var strut = Path()
+                    strut.move(to: CGPoint(x: x + (side < 0.5 ? 12 : -12), y: size.height * 0.3))
+                    strut.addLine(to: CGPoint(x: x + (side < 0.5 ? 60 : -60), y: size.height * 0.13))
+                    ctx.stroke(strut, with: .color(factoryColor), style: StrokeStyle(lineWidth: 16))
+                    ctx.stroke(strut, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
+
+                    for j in 0..<4 {
+                        let ringY = size.height * 0.25 + CGFloat(j) * size.height * 0.18
+                        let pulse = 0.5 + 0.5 * sin(t * 1.1 + Double(j) + Double(side))
+                        ctx.stroke(Path(CGRect(x: x - 15, y: ringY, width: 30, height: 10)),
+                                   with: .color(highlightColor.opacity(0.4 + pulse * 0.6)), style: StrokeStyle(lineWidth: 2))
+                    }
+                }
+
+                // Background gears, actually turning — a dashed ring that
+                // rotates reads as a real turning gear, not wallpaper.
+                let gearX: [CGFloat] = [0.2, 0.85]
+                let gearY: [CGFloat] = [0.15, 0.4]
+                let gearR: [CGFloat] = [0.1, 0.15]
+                for i in 0..<2 {
+                    let gearCenter = CGPoint(x: size.width * gearX[i], y: size.height * gearY[i])
+                    let r = size.width * gearR[i]
+                    var gear = Path()
+                    gear.addEllipse(in: CGRect(x: gearCenter.x - r, y: gearCenter.y - r, width: r * 2, height: r * 2))
+                    ctx.stroke(gear, with: .color(Theme.cleanCyan.opacity(0.1)), style: StrokeStyle(lineWidth: 12))
+
+                    var teeth = ctx
+                    teeth.translateBy(x: gearCenter.x, y: gearCenter.y)
+                    teeth.rotate(by: .radians(t * (i.isMultiple(of: 2) ? 0.25 : -0.2)))
+                    teeth.translateBy(x: -gearCenter.x, y: -gearCenter.y)
+                    teeth.stroke(gear, with: .color(Theme.cleanCyan.opacity(0.15)), style: StrokeStyle(lineWidth: 4, dash: [10, 15]))
+                }
             }
         }
         .allowsHitTesting(false)

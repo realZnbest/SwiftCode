@@ -89,7 +89,7 @@ struct FactoryOriginScene: View {
             content: { _ in
                 ZStack {
                     LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                    FactorySilhouetteCanvas().opacity(0.6)
+                    FactorySilhouetteCanvas(reduceMotion: game.reduceMotion).opacity(0.6)
                     ConveyorBeltCanvas(reduceMotion: game.reduceMotion)
                     LightRaysCanvas(color: Theme.cleanCyan, count: 3, reduceMotion: game.reduceMotion)
                     SparkleCanvas(count: 18, color: .white, reduceMotion: game.reduceMotion).opacity(0.4)
@@ -100,178 +100,7 @@ struct FactoryOriginScene: View {
     }
 }
 
-// MARK: - 2. Sidewalk drift (after the opening, before the dodge)
-
-struct SidewalkDriftScene: View {
-    @EnvironmentObject var game: GameState
-    @State private var start = Date()
-
-    /// Each kick is (time it lands, how far it sends the bottle as a
-    /// fraction of screen width). Between kicks the bottle sits still —
-    /// it only moves because something just struck it, not on its own —
-    /// which is what actually sells "every step moves it somewhere." A
-    /// full walking figure (see `KickerFigure`) times its stride to reach
-    /// the bottle at exactly this moment, so the cause is a visible person,
-    /// not an abstract leg shape.
-    private let kicks: [(time: Double, distance: CGFloat)] = [
-        (0.9, 0.16), (2.3, 0.14), (3.7, 0.13),
-        (5.1, 0.14), (6.5, 0.14), (7.9, 0.15)
-    ]
-    private let groundYFrac: CGFloat = 0.8
-
-    var body: some View {
-        VignetteScene(
-            line: "Every step moves it somewhere.",
-            accessibilityText: "A sidewalk at night. A passerby's foot kicks the bottle along with each stride.",
-            hold: 9.0,
-            showBottle: false,
-            content: { size in
-                let groundY = size.height * groundYFrac
-                return ZStack {
-                    LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                    SkylineCanvas().opacity(0.3)
-                    NeonStreakField(colors: [Theme.neonPink, Theme.neonCyan], reduceMotion: game.reduceMotion)
-                    RainCanvas(intensity: 0.4, reduceMotion: game.reduceMotion)
-
-                    sidewalkGround(groundY: groundY, size: size)
-
-                    TimelineView(.animation(minimumInterval: game.reduceMotion ? 1 : 1.0 / 30)) { context in
-                        let elapsed = game.reduceMotion ? 4.5 : context.date.timeIntervalSince(start)
-                        let xFrac = bottleXFrac(at: elapsed)
-                        let traveled = (xFrac - 0.14) * size.width
-
-                        ZStack {
-                            ForEach(Array(kicks.enumerated()), id: \.offset) { _, kick in
-                                KickerFigure(
-                                    localTime: elapsed - kick.time,
-                                    footX: bottleXFrac(at: kick.time) * size.width,
-                                    groundY: groundY
-                                )
-                            }
-
-                            BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 56, height: 138,
-                                       tilt: .degrees(Double(traveled) * 2.1))
-                                .position(x: xFrac * size.width, y: groundY - 12)
-                        }
-                    }
-                }
-            },
-            onFinish: { game.advanceFromSidewalkDrift() }
-        )
-        .onAppear { start = Date() }
-    }
-
-    /// Accumulates every kick that's already landed in full, then animates
-    /// the one currently in flight with an ease-out settle.
-    private func bottleXFrac(at t: Double) -> CGFloat {
-        var x: CGFloat = 0.14
-        for kick in kicks {
-            guard t >= kick.time else { break }
-            let localT = min(1, (t - kick.time) / 0.3)
-            let eased = 1 - pow(1 - localT, 3)
-            x += kick.distance * eased
-        }
-        return x
-    }
-
-    /// A concrete sidewalk slab: a flat paved band with a curb-edge
-    /// highlight and a few expansion-joint lines, so there's an actual
-    /// ground plane for the bottle and the walker to stand on instead of
-    /// them floating over a bare gradient.
-    private func sidewalkGround(groundY: CGFloat, size: CGSize) -> some View {
-        ZStack(alignment: .top) {
-            Rectangle()
-                .fill(Color(red: 0.07, green: 0.08, blue: 0.1))
-                .frame(height: size.height - groundY)
-            Rectangle()
-                .fill(Color.white.opacity(0.12))
-                .frame(height: 2)
-            HStack(spacing: size.width * 0.11) {
-                ForEach(0..<10, id: \.self) { _ in
-                    Rectangle().fill(Color.white.opacity(0.05)).frame(width: 1.5)
-                }
-            }
-            .frame(height: size.height - groundY, alignment: .top)
-        }
-        .frame(width: size.width, height: size.height - groundY)
-        .position(x: size.width / 2, y: groundY + (size.height - groundY) / 2)
-    }
-}
-
-/// A full walking figure timed to plant its kicking foot on the bottle at
-/// `localTime == 0`. Outside the kick window it just walks (a simple
-/// two-leg scissor cycle); through the kick window the lead leg swings
-/// from a cocked-back windup into a forward follow-through, so the impact
-/// reads as something a person did, not a disembodied leg popping in.
-private struct KickerFigure: View {
-    var localTime: Double
-    var footX: CGFloat
-    var groundY: CGFloat
-
-    private let walkSpeed: CGFloat = 150
-    // A cool blue-gray rather than flat black — reads as a figure caught
-    // in the street's neon and rain rather than a silhouette cutout that
-    // blends into the near-black background.
-    private let skin = Color(red: 0.34, green: 0.37, blue: 0.44)
-
-    var body: some View {
-        if localTime > -1.15 && localTime < 0.85 {
-            let bodyX = footX + walkSpeed * CGFloat(localTime) - 13
-            let fadeIn = min(1, max(0, (localTime + 1.15) / 0.3))
-            let fadeOut = min(1, max(0, (0.85 - localTime) / 0.3))
-            ZStack {
-                Ellipse()
-                    .fill(Color.black.opacity(0.35))
-                    .frame(width: 86, height: 20)
-                    .offset(y: 9)
-
-                ZStack(alignment: .bottom) {
-                    Capsule().fill(skin).frame(width: 18, height: 83)
-                        .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.5))
-                        .rotationEffect(.degrees(backLegAngle), anchor: .top)
-                        .offset(x: -13)
-                    Capsule().fill(skin).frame(width: 18, height: 83)
-                        .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.5))
-                        .rotationEffect(.degrees(frontLegAngle), anchor: .top)
-                        .offset(x: 13)
-                    VStack(spacing: 7) {
-                        Circle().fill(skin).frame(width: 41, height: 41)
-                        RoundedRectangle(cornerRadius: 10).fill(skin.opacity(0.92)).frame(width: 49, height: 68)
-                    }
-                    .overlay(
-                        VStack(spacing: 7) {
-                            Circle().stroke(Theme.neonCyan.opacity(0.2), lineWidth: 1.5).frame(width: 41, height: 41)
-                            RoundedRectangle(cornerRadius: 10).stroke(Theme.neonCyan.opacity(0.2), lineWidth: 1.5).frame(width: 49, height: 68)
-                        }
-                    )
-                    .offset(y: -83)
-                }
-            }
-            .opacity(min(fadeIn, fadeOut))
-            .position(x: bodyX, y: groundY - 22)
-        }
-    }
-
-    /// Mid-kick (roughly -0.12...0.26s of local time) overrides the normal
-    /// walk cycle for the front leg with a windup-to-follow-through swing;
-    /// otherwise both legs just scissor back and forth for an ordinary gait.
-    private var kickPhase: Double? {
-        guard localTime > -0.12 && localTime < 0.26 else { return nil }
-        return min(1, max(0, (localTime + 0.12) / 0.38))
-    }
-
-    private var backLegAngle: Double {
-        if kickPhase != nil { return -18 }
-        return sin(localTime * 9) * 24
-    }
-
-    private var frontLegAngle: Double {
-        if let k = kickPhase { return -55 + k * 100 }
-        return -sin(localTime * 9) * 24
-    }
-}
-
-// MARK: - 3. Storm drain tunnel (after choosing the drain)
+// MARK: - 2. Storm drain tunnel (after choosing the drain)
 
 struct StormDrainTunnelScene: View {
     @EnvironmentObject var game: GameState
@@ -312,7 +141,7 @@ struct StormDrainTunnelScene: View {
     }
 }
 
-// MARK: - 4. Second bottle mirror (right before the canal)
+// MARK: - 3. Second bottle mirror (right before the canal)
 
 struct SecondBottleMirrorScene: View {
     @EnvironmentObject var game: GameState
@@ -347,7 +176,7 @@ struct SecondBottleMirrorScene: View {
     }
 }
 
-// MARK: - 5. Night into day (after the canal fork resolves toward recycling)
+// MARK: - 4. Night into day (after the canal fork resolves toward recycling)
 
 struct NightIntoDayScene: View {
     @EnvironmentObject var game: GameState
@@ -373,7 +202,7 @@ struct NightIntoDayScene: View {
     }
 }
 
-// MARK: - 6. Fishing net rescue (before the recycling facility)
+// MARK: - 5. Fishing net rescue (before the recycling facility)
 
 struct FishingNetRescueScene: View {
     @EnvironmentObject var game: GameState
@@ -394,23 +223,7 @@ struct FishingNetRescueScene: View {
                     BubbleCanvas(count: 16, color: .white, reduceMotion: game.reduceMotion)
                     FishSilhouettesCanvas(darkness: 0.15, reduceMotion: game.reduceMotion)
 
-                    Canvas { ctx, canvasSize in
-                        let net = CGRect(x: canvasSize.width * 0.5, y: 0, width: canvasSize.width * 0.5, height: canvasSize.height * 0.55)
-                        for i in 0...6 {
-                            let x = net.minX + net.width * CGFloat(i) / 6
-                            var p = Path()
-                            p.move(to: CGPoint(x: x, y: net.minY))
-                            p.addLine(to: CGPoint(x: x - net.width * 0.35, y: net.maxY))
-                            ctx.stroke(p, with: .color(.white.opacity(0.22)), lineWidth: 1.2)
-                        }
-                        for i in 0...4 {
-                            let y = net.minY + net.height * CGFloat(i) / 4
-                            var p = Path()
-                            p.move(to: CGPoint(x: net.minX, y: y))
-                            p.addLine(to: CGPoint(x: net.maxX, y: y - net.height * 0.15))
-                            ctx.stroke(p, with: .color(.white.opacity(0.22)), lineWidth: 1.2)
-                        }
-                    }
+                    HandNetCanvas()
                 }
             },
             onFinish: { game.advanceFromFishingNetRescue() }
@@ -418,7 +231,74 @@ struct FishingNetRescueScene: View {
     }
 }
 
-// MARK: - 7. Sorting line (facility approach, before cleaning/shredding)
+/// A real hand net — a rim, a handle reaching off-frame (implying someone
+/// holding it just outside the shot), and a diamond mesh that actually sags
+/// into a pouch under its own weight — instead of two flat sets of straight
+/// lines crossing each other.
+private struct HandNetCanvas: View {
+    var body: some View {
+        Canvas { ctx, size in
+            // Where the mesh actually has to converge — the bottle's own
+            // position in FishingNetRescueScene (bottlePosition: 0.5, 0.46)
+            // — not an arbitrary point off to the side. The hoop can sit
+            // above and to the right (reaching in from an angle), but the
+            // bottom of the pouch must land on the bottle, or the net reads
+            // as scooping empty water next to it.
+            let catchPoint = CGPoint(x: size.width * 0.5, y: size.height * 0.46)
+            let hoopCenter = CGPoint(x: size.width * 0.62, y: size.height * 0.06)
+            let hoopRadius = size.width * 0.22
+            let hoopRect = CGRect(x: hoopCenter.x - hoopRadius, y: hoopCenter.y - hoopRadius * 0.38,
+                                   width: hoopRadius * 2, height: hoopRadius * 0.76)
+
+            // Handle, reaching off the top-right corner as if held from
+            // outside the frame.
+            var handle = Path()
+            handle.move(to: CGPoint(x: hoopRect.maxX - hoopRadius * 0.25, y: hoopRect.minY + hoopRadius * 0.1))
+            handle.addLine(to: CGPoint(x: size.width * 1.08, y: -size.height * 0.08))
+            ctx.stroke(handle, with: .color(Color(red: 0.5, green: 0.44, blue: 0.36)), lineWidth: 5)
+            ctx.stroke(handle, with: .color(Color(red: 0.68, green: 0.6, blue: 0.5).opacity(0.6)), lineWidth: 1.5)
+
+            // Diamond mesh sagging into a pouch below the hoop, pinching
+            // down to the catch point — instead of a flat triangle of
+            // straight crossing lines that don't converge on anything.
+            let cols = 7
+            let rows = 5
+            func meshPoint(_ col: Int, _ row: Int) -> CGPoint {
+                let colFrac = CGFloat(col) / CGFloat(cols)
+                let rowFrac = CGFloat(row) / CGFloat(rows)
+                let rimX = hoopRect.minX + hoopRect.width * colFrac
+                let rimY = hoopRect.midY
+                let spread = hoopRadius * 0.5 * (1 - rowFrac)
+                let pouchX = catchPoint.x + (colFrac - 0.5) * spread
+                let x = rimX + (pouchX - rimX) * rowFrac
+                let y = rimY + (catchPoint.y - rimY) * (rowFrac * rowFrac)
+                return CGPoint(x: x, y: y)
+            }
+            for row in 0...rows {
+                var p = Path()
+                for col in 0...cols {
+                    let pt = meshPoint(col, row)
+                    if col == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+                }
+                ctx.stroke(p, with: .color(.white.opacity(0.3 - Double(row) * 0.03)), lineWidth: 1.1)
+            }
+            for col in 0...cols {
+                var p = Path()
+                for row in 0...rows {
+                    let pt = meshPoint(col, row)
+                    if row == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+                }
+                ctx.stroke(p, with: .color(.white.opacity(0.24)), lineWidth: 1.0)
+            }
+
+            // Rim on top of the mesh so the net reads as opening toward the
+            // viewer, not a flat grid floating in space.
+            ctx.stroke(Path(ellipseIn: hoopRect), with: .color(.white.opacity(0.6)), lineWidth: 3)
+        }
+    }
+}
+
+// MARK: - 6. Sorting line (facility approach, before cleaning/shredding)
 
 struct SortingLineScene: View {
     @EnvironmentObject var game: GameState
@@ -431,7 +311,7 @@ struct SortingLineScene: View {
             content: { size in
                 ZStack {
                     LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                    FactorySilhouetteCanvas().opacity(0.6)
+                    FactorySilhouetteCanvas(reduceMotion: game.reduceMotion).opacity(0.6)
                     ConveyorBeltCanvas(reduceMotion: game.reduceMotion)
                     LightRaysCanvas(color: Theme.cleanCyan, count: 3, reduceMotion: game.reduceMotion)
 
@@ -451,7 +331,7 @@ struct SortingLineScene: View {
     }
 }
 
-// MARK: - 8. Pellet reveal (right after finishing recycling)
+// MARK: - 7. Pellet reveal (right after finishing recycling)
 
 struct PelletRevealScene: View {
     @EnvironmentObject var game: GameState
@@ -487,7 +367,7 @@ struct PelletRevealScene: View {
     }
 }
 
-// MARK: - 9. Truck delivery (carrying the reclaimed material out)
+// MARK: - 8. Truck delivery (carrying the reclaimed material out)
 
 struct TruckDeliveryScene: View {
     @EnvironmentObject var game: GameState
@@ -615,7 +495,7 @@ private struct RoadLinesCanvas: View {
     }
 }
 
-// MARK: - 10. Community cleanup (after the montage, before the park)
+// MARK: - 9. Community cleanup (after the montage, before the park)
 
 struct CommunityCleanupScene: View {
     @EnvironmentObject var game: GameState

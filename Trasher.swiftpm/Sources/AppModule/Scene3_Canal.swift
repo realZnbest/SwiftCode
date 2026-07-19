@@ -11,10 +11,18 @@ struct CanalScene: View {
 
     @State private var stage: Stage = .floating
     @State private var sceneStart = Date()
-    @State private var dragX: CGFloat = 0
     @State private var choiceMade = false
     @State private var resolvedToward: Bool? = nil // true = recycling (right), false = sea (left)
     @State private var idleTask: Task<Void, Never>? = nil
+
+    // Drag-to-drop fork, matching the recycling facility's own bottle-drag
+    // mechanic: the bottle starts up top and the two outcomes sit as real
+    // targets at the bottom, instead of a horizontal swipe-and-launch.
+    @State private var forkBottlePos = CGPoint(x: 0.5, y: 0.22)
+    @State private var forkDragBase = CGPoint(x: 0.5, y: 0.22)
+    @State private var forkWrongFeedback = false
+    private let seaForkRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
+    private let recyclingForkRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
 
     private var reduceMotion: Bool { game.reduceMotion }
     private let introDuration: Double = 9
@@ -79,7 +87,7 @@ struct CanalScene: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(stage == .fork || stage == .resolving
-            ? "A fork in the canal. Swipe left toward the sea, or swipe right toward the bright recycling point."
+            ? "A fork in the canal. Drag the bottle down into the waves on the left toward the sea, or the glowing bin on the right toward recycling."
             : "Canal scene. The water is growing darker.")
         .onAppear(perform: setup)
     }
@@ -130,57 +138,92 @@ struct CanalScene: View {
         )
     }
 
+    /// The bottle starts up top and the two outcomes are real drop targets
+    /// at the bottom — the same drag-a-bottle-into-a-bin mechanic as the
+    /// recycling facility, instead of a horizontal swipe-and-launch, so the
+    /// interaction feels identical everywhere the game asks the player to
+    /// choose a fate for the bottle.
     private func forkView(size: CGSize) -> some View {
         let seaBlocked = game.mustRouteToRecycling
-        let bottleCenterX = size.width / 2 + dragX
-        let leaning = dragX / (size.width * 0.3)
+        let hoveringSea = !choiceMade && !seaBlocked && seaForkRect.contains(forkBottlePos)
+        let hoveringRecycling = !choiceMade && recyclingForkRect.contains(forkBottlePos)
 
         return ZStack {
             // Sea path (left)
             PathChoiceIndicator(
                 kind: .sea,
-                bright: !seaBlocked && leaning < -0.15,
+                bright: hoveringSea,
                 dim: seaBlocked,
                 containerSize: size
             )
-            .position(x: size.width * 0.18, y: size.height * 0.42)
+            .position(x: seaForkRect.midX * size.width, y: seaForkRect.midY * size.height)
 
             // Recycling path (right)
             PathChoiceIndicator(
                 kind: .recyclingPoint,
-                bright: leaning > 0.15 || seaBlocked,
+                bright: hoveringRecycling,
                 containerSize: size
             )
-            .position(x: size.width * 0.82, y: size.height * 0.42)
+            .position(x: recyclingForkRect.midX * size.width, y: recyclingForkRect.midY * size.height)
+
+            if forkWrongFeedback {
+                Label("One bottle already got away. Try recycling.", systemImage: "exclamationmark.triangle.fill")
+                    .font(Theme.line(16))
+                    .foregroundStyle(Theme.neonAmber)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(Theme.nearBlack.opacity(0.78), in: Capsule())
+                    .position(x: size.width * 0.5, y: size.height * 0.36)
+                    .transition(.opacity)
+            }
 
             BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 62, height: 152)
-                .position(x: bottleCenterX, y: size.height * 0.62)
-                .rotationEffect(.degrees(Double(leaning) * 14))
+                .position(x: forkBottlePos.x * size.width, y: forkBottlePos.y * size.height)
         }
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     guard !choiceMade else { return }
-                    dragX = max(-size.width * 0.3, min(size.width * 0.3, value.translation.width))
+                    forkBottlePos = CGPoint(
+                        x: min(0.95, max(0.05, forkDragBase.x + value.translation.width / size.width)),
+                        y: min(0.95, max(0.05, forkDragBase.y + value.translation.height / size.height))
+                    )
                 }
-                .onEnded { value in
+                .onEnded { _ in
                     guard !choiceMade else { return }
-                    let threshold = size.width * 0.16
-                    if value.translation.width < -threshold && !seaBlocked {
-                        resolve(towardRecycling: false)
-                    } else if value.translation.width > threshold {
-                        resolve(towardRecycling: true)
-                    } else {
-                        withAnimation(.spring()) { dragX = 0 }
-                    }
+                    evaluateForkDrop(seaBlocked: seaBlocked)
                 }
         )
+    }
+
+    private func evaluateForkDrop(seaBlocked: Bool) {
+        forkDragBase = forkBottlePos
+        if recyclingForkRect.contains(forkBottlePos) {
+            resolve(towardRecycling: true)
+        } else if seaForkRect.contains(forkBottlePos) {
+            if seaBlocked {
+                withAnimation(.easeOut(duration: 0.35)) {
+                    forkBottlePos = CGPoint(x: 0.5, y: 0.22)
+                    forkWrongFeedback = true
+                }
+                forkDragBase = forkBottlePos
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1.6))
+                    guard stage == .fork else { return }
+                    withAnimation(.easeOut(duration: 0.25)) { forkWrongFeedback = false }
+                }
+            } else {
+                resolve(towardRecycling: false)
+            }
+        }
     }
 
     private func setup() {
         sceneStart = Date()
         choiceMade = false
-        dragX = 0
+        forkBottlePos = CGPoint(x: 0.5, y: 0.22)
+        forkDragBase = forkBottlePos
+        forkWrongFeedback = false
         resolvedToward = nil
         if game.mustRouteToRecycling {
             stage = .fork
@@ -195,7 +238,6 @@ struct CanalScene: View {
         withAnimation(reduceMotion ? .easeInOut(duration: 0.35) : .easeInOut(duration: 0.6)) {
             stage = .macro
         }
-        game.sound.motif()
     }
 
     private func enterFork() {
@@ -215,6 +257,9 @@ struct CanalScene: View {
         }
     }
 
+    /// Settles the bottle into the chosen bin and holds briefly — the same
+    /// drop-then-pause beat as the recycling facility's `succeed()` — before
+    /// the scene actually transitions.
     private func resolve(towardRecycling: Bool) {
         guard !choiceMade else { return }
         choiceMade = true
@@ -222,10 +267,12 @@ struct CanalScene: View {
         resolvedToward = towardRecycling
         stage = .resolving
 
-        let travel: CGFloat = towardRecycling ? 900 : -900
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.5) : .easeIn(duration: 0.8)) {
-            dragX = travel
+        let target = towardRecycling ? recyclingForkRect : seaForkRect
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.4) : .easeInOut(duration: 0.6)) {
+            forkBottlePos = CGPoint(x: target.midX, y: target.midY)
         }
+        game.sound.impactThud()
+        Haptics.collision()
 
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(reduceMotion ? 0.5 : 0.85))

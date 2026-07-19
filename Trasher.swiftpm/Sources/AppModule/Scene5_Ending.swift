@@ -131,7 +131,7 @@ struct EndingScene: View {
             result.append(JourneyWaypoint(icon: "water.waves", color: Theme.mutedSeaTeal))
         }
         result += [
-            JourneyWaypoint(icon: "arrow.3.trianglepath", color: Theme.cleanCyan),
+            JourneyWaypoint(icon: "arrow.3.trianglepath", color: Theme.freshGreen),
             JourneyWaypoint(icon: "leaf.fill", color: Theme.freshGreen)
         ]
         return result

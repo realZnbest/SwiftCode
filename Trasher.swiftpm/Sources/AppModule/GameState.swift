@@ -15,7 +15,6 @@ final class GameState: ObservableObject {
         case title
         case factoryOrigin
         case opening
-        case sidewalkDrift
         case streetToDrain
         case stormDrainTunnel
         case landfillFailure
@@ -85,10 +84,6 @@ final class GameState: ObservableObject {
     }
 
     func advanceFromOpening() {
-        goTo(.sidewalkDrift)
-    }
-
-    func advanceFromSidewalkDrift() {
         goTo(.streetToDrain)
     }
 
