@@ -308,7 +308,7 @@ struct StreetToDrainScene: View {
         var x = kickStartX
         for kick in kicks {
             guard t >= kick.time else { break }
-            let localT = min(1, (t - kick.time) / 0.3)
+            let localT = min(1, (t - kick.time) / 0.55)
             let eased = 1 - pow(1 - localT, 3)
             x += kick.distance * eased
         }
@@ -323,7 +323,7 @@ struct StreetToDrainScene: View {
         var offset: CGFloat = 0
         for kick in kicks {
             guard t >= kick.time else { break }
-            let localT = (t - kick.time) / 0.3
+            let localT = (t - kick.time) / 0.35
             guard localT < 1 else { continue }
             let hopHeight = min(0.045, abs(kick.distance) * 0.11)
             offset = -sin(.pi * localT) * hopHeight
@@ -340,8 +340,8 @@ struct StreetToDrainScene: View {
         for kick in kicks {
             guard t >= kick.time else { break }
             let localT = t - kick.time
-            guard localT < 0.6 else { continue }
-            let decay = exp(-localT * 7)
+            guard localT < 0.8 else { continue }
+            let decay = exp(-localT * 5)
             let dir = kick.distance >= 0 ? 1.0 : -1.0
             wobble = sin(localT * 26) * decay * 18 * dir
         }
@@ -355,6 +355,15 @@ struct StreetToDrainScene: View {
     /// than adding a parallel method, since a dog's teeth are just another
     /// physical impact on the bottle.
     private func handleEvents(at elapsed: Double) {
+        for (i, kick) in kicks.enumerated() {
+            let kickId = "kick_\(i)"
+            if elapsed >= kick.time && !triggeredEvents.contains(kickId) {
+                triggeredEvents.insert(kickId)
+                game.sound.impactThud()
+                Haptics.collision()
+            }
+        }
+
         if elapsed >= biteAt && !triggeredEvents.contains("bite") {
             triggeredEvents.insert("bite")
             game.registerObstacleHit()
@@ -526,51 +535,44 @@ private struct KickerFigure: View {
                     .offset(y: 9)
 
                 ZStack(alignment: .bottom) {
+                    // Back arm (drawn behind body)
+                    Capsule().fill(skin).frame(width: 14, height: 52)
+                        .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.2))
+                        .rotationEffect(.degrees(backArmAngle), anchor: .top)
+                        .offset(x: -2, y: -99)
+
+                    // Back leg
                     Capsule().fill(skin).frame(width: 18, height: 83)
                         .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.5))
                         .rotationEffect(.degrees(backLegAngle), anchor: .top)
-                        .offset(x: -13)
-                    Capsule().fill(skin).frame(width: 18, height: 83)
-                        .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.5))
-                        .rotationEffect(.degrees(frontLegAngle), anchor: .top)
-                        .offset(x: 13)
+                        .offset(x: -2)
+
+                    // Torso & Head
                     VStack(spacing: 7) {
-                        Circle().fill(skin).frame(width: 41, height: 41)
-                        RoundedRectangle(cornerRadius: 10).fill(skin.opacity(0.92)).frame(width: 49, height: 68)
+                        Circle().fill(skin).frame(width: 36, height: 36)
+                            .offset(x: 4) // head slightly forward for profile
+                        RoundedRectangle(cornerRadius: 10).fill(skin.opacity(0.92)).frame(width: 28, height: 68)
                     }
                     .overlay(
                         VStack(spacing: 7) {
-                            Circle().stroke(Theme.neonCyan.opacity(0.2), lineWidth: 1.5).frame(width: 41, height: 41)
-                            RoundedRectangle(cornerRadius: 10).stroke(Theme.neonCyan.opacity(0.2), lineWidth: 1.5).frame(width: 49, height: 68)
+                            Circle().stroke(Theme.neonCyan.opacity(0.2), lineWidth: 1.5).frame(width: 36, height: 36)
+                                .offset(x: 4)
+                            RoundedRectangle(cornerRadius: 10).stroke(Theme.neonCyan.opacity(0.2), lineWidth: 1.5).frame(width: 28, height: 68)
                         }
                     )
                     .offset(y: -83)
 
-                    // Arms swing opposite the same-side leg — the ordinary
-                    // contralateral walking gait — and flare out for
-                    // balance through the kick instead of just vanishing.
-                    // Drawn *after* the torso (on top of it in z-order)
-                    // and anchored outside the torso's own half-width
-                    // (24.5pt) so they're actually visible hanging beside
-                    // the body instead of tucked behind it.
-                    //
-                    // This ZStack is bottom-aligned, so every child's
-                    // un-rotated, un-offset position starts flush with its
-                    // OWN bottom edge at the ZStack's bottom. The torso
-                    // VStack (116pt tall: 41 head + 7 spacing + 68 torso)
-                    // is shifted up 83pt to sit on the legs, which puts
-                    // its torso segment spanning 83...151pt above the
-                    // ground and the shoulder (torso top) at 151pt. An arm
-                    // is 52pt tall, so to land its own top at that 151pt
-                    // shoulder line, it needs to move up (151 - 52) = 99pt.
-                    Capsule().fill(skin).frame(width: 12, height: 52)
-                        .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.2))
-                        .rotationEffect(.degrees(backArmAngle), anchor: .top)
-                        .offset(x: -28, y: -99)
-                    Capsule().fill(skin).frame(width: 12, height: 52)
+                    // Front leg
+                    Capsule().fill(skin).frame(width: 18, height: 83)
+                        .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.5))
+                        .rotationEffect(.degrees(frontLegAngle), anchor: .top)
+                        .offset(x: 2)
+
+                    // Front arm (drawn over body)
+                    Capsule().fill(skin).frame(width: 14, height: 52)
                         .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.2))
                         .rotationEffect(.degrees(frontArmAngle), anchor: .top)
-                        .offset(x: 28, y: -99)
+                        .offset(x: 2, y: -99)
                 }
             }
             // Mirrors the whole figure — including which leg (front/back)
@@ -596,17 +598,26 @@ private struct KickerFigure: View {
     }
 
     private var frontLegAngle: Double {
-        if let k = kickPhase { return -55 + k * 100 }
+        if let k = kickPhase {
+            let eased = sin(k * .pi / 2)
+            return -55 + eased * 100
+        }
         return -sin(localTime * 9) * 24
     }
 
     private var backArmAngle: Double {
-        if kickPhase != nil { return 25 }
+        if let k = kickPhase {
+            let eased = sin(k * .pi / 2)
+            return -20 + eased * 45
+        }
         return -sin(localTime * 9) * 18
     }
 
     private var frontArmAngle: Double {
-        if kickPhase != nil { return -35 }
+        if let k = kickPhase {
+            let eased = sin(k * .pi / 2)
+            return 20 - eased * 55
+        }
         return sin(localTime * 9) * 18
     }
 }
