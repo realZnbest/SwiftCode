@@ -13,7 +13,6 @@ struct RecyclingScene: View {
     @State private var bottlePos = CGPoint(x: 0.5, y: 0.22)
     @State private var dragBase = CGPoint(x: 0.5, y: 0.22)
     @State private var misses = 0
-    @State private var idleTask: Task<Void, Never>? = nil
     @State private var brighten: Double = 0
     @State private var wrongDropFeedback = false
     @State private var showBenchCaption = false
@@ -348,20 +347,6 @@ struct RecyclingScene: View {
             try? await Task.sleep(for: .seconds(1.6))
             guard stage == .arriving else { return }
             stage = .choosing
-            armIdleAutoAdvance()
-        }
-    }
-
-    private func armIdleAutoAdvance() {
-        idleTask?.cancel()
-        idleTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(9))
-            guard !Task.isCancelled, stage == .choosing else { return }
-            withAnimation(.easeInOut(duration: 0.8)) {
-                bottlePos = CGPoint(x: recyclingRect.midX, y: recyclingRect.midY)
-            }
-            try? await Task.sleep(for: .seconds(0.85))
-            succeed()
         }
     }
 
@@ -382,23 +367,11 @@ struct RecyclingScene: View {
                 guard stage == .choosing else { return }
                 withAnimation(.easeOut(duration: 0.25)) { wrongDropFeedback = false }
             }
-            if misses >= 2 {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(0.6))
-                    guard stage == .choosing else { return }
-                    withAnimation(.easeInOut(duration: 0.8)) {
-                        bottlePos = CGPoint(x: recyclingRect.midX, y: recyclingRect.midY)
-                    }
-                    try? await Task.sleep(for: .seconds(0.85))
-                    succeed()
-                }
-            }
         }
     }
 
     private func succeed() {
         guard stage == .choosing else { return }
-        idleTask?.cancel()
         game.sound.impactThud()
         advance(to: .cleaning)
     }

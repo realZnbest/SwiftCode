@@ -2,13 +2,12 @@ import SwiftUI
 
 /// A short, interactive title card before the story begins: the bottle
 /// rests under a streetlamp spotlight while dust drifts through the beam.
-/// Tap anywhere to begin, or it moves on by itself after a few seconds so
-/// the game never waits on an instruction a judge might not read.
+/// Tap anywhere to begin — it waits for that tap rather than moving on by
+/// itself, so the title card never gets skipped before someone's ready.
 struct TitleScene: View {
     @EnvironmentObject var game: GameState
 
     @State private var appear = false
-    @State private var beginTask: Task<Void, Never>?
 
     private var reduceMotion: Bool { game.reduceMotion }
 
@@ -57,7 +56,6 @@ struct TitleScene: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Double tap to begin")
         .onAppear(perform: runSequence)
-        .onDisappear { beginTask?.cancel() }
     }
 
     /// Driven by a continuous sine wave from `TimelineView` rather than a
@@ -97,20 +95,9 @@ struct TitleScene: View {
 
     private func runSequence() {
         withAnimation(.easeIn(duration: 1.0).delay(0.3)) { appear = true }
-
-        beginTask?.cancel()
-        beginTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.9))
-            guard !Task.isCancelled else { return }
-
-            try? await Task.sleep(for: .seconds(7.1))
-            guard !Task.isCancelled else { return }
-            begin()
-        }
     }
 
     private func begin() {
-        beginTask?.cancel()
         game.advanceFromTitle()
     }
 }

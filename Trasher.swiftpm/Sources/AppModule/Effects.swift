@@ -658,7 +658,9 @@ struct TreeLineCanvas: View {
         Canvas { ctx, size in
             let baseY = size.height * 0.78
             let count = 8
-            let lightGreen = Color(red: 0.42, green: 0.68, blue: 0.32)
+            let shadowGreen = Color(red: 0.22, green: 0.42, blue: 0.19)
+            let midGreen = Color(red: 0.42, green: 0.68, blue: 0.32)
+            let highlightGreen = Color(red: 0.68, green: 0.86, blue: 0.46)
             let trunkColor = Color(red: 0.17, green: 0.11, blue: 0.07)
 
             for i in 0..<count {
@@ -669,40 +671,91 @@ struct TreeLineCanvas: View {
                 let trunkW = max(3, canopyR * 0.16)
                 let canopyCenterY = baseY - trunkH - canopyR * 0.6
 
-                // Trunk, planted at the ground (its bottom sits exactly on
-                // baseY, never past it) and rising up to overlap slightly
-                // into the canopy so there's no visible gap.
-                let trunkTop = canopyCenterY + canopyR * 0.3
-                ctx.fill(
-                    Path(roundedRect: CGRect(x: x - trunkW / 2, y: trunkTop, width: trunkW, height: baseY - trunkTop),
-                         cornerRadius: trunkW * 0.4),
-                    with: .color(trunkColor.opacity(0.65))
-                )
-
-                // A cluster of overlapping round puffs reads as foliage far
-                // more clearly than one squashed oval — the irregular
-                // silhouette is what makes it legible as a tree.
-                for puff in 0..<3 {
-                    let seed = i * 11 + puff
-                    let px = x + (rnd(seed, 342) - 0.5) * canopyR * 0.9
-                    let py = canopyCenterY - rnd(seed, 343) * canopyR * 0.35
-                    let pr = canopyR * (0.68 + rnd(seed, 345) * 0.4)
-                    ctx.fill(Path(ellipseIn: CGRect(x: px - pr / 2, y: py - pr / 2, width: pr, height: pr)),
-                             with: .color(lightGreen.opacity(0.65)))
-                }
-                // A brighter top puff catches the light and separates the
-                // canopy's silhouette from the flat trunk/ground color.
-                let hlR = canopyR * 0.5
-                ctx.fill(
-                    Path(ellipseIn: CGRect(x: x - hlR / 2, y: canopyCenterY - canopyR * 0.4 - hlR / 2, width: hlR, height: hlR)),
-                    with: .color(Color(red: 0.62, green: 0.82, blue: 0.42).opacity(0.45))
-                )
+                drawTree(in: &ctx, seedBase: i, x: x, baseY: baseY, canopyCenterY: canopyCenterY,
+                         canopyR: canopyR, trunkH: trunkH, trunkW: trunkW, trunkColor: trunkColor,
+                         shadow: shadowGreen, mid: midGreen, highlight: highlightGreen,
+                         canopyOpacity: 0.7, highlightOpacity: 0.55)
             }
 
             ctx.fill(Path(CGRect(x: 0, y: baseY, width: size.width, height: size.height - baseY)),
-                     with: .color(lightGreen.opacity(0.28)))
+                     with: .color(midGreen.opacity(0.28)))
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// Draws one naturalistic tree into `ctx`: a tapered trunk with a small
+/// branch fork feeding a layered, many-puffed canopy (a back shadow layer
+/// for bulk, a denser mid layer for silhouette, and a few bright highlight
+/// puffs offset toward one side for volume) — replacing the previous
+/// three-flat-circles-on-a-stick look with something that actually reads
+/// as foliage catching light unevenly.
+private func drawTree(
+    in ctx: inout GraphicsContext,
+    seedBase: Int, x: CGFloat, baseY: CGFloat, canopyCenterY: CGFloat,
+    canopyR: CGFloat, trunkH: CGFloat, trunkW: CGFloat,
+    trunkColor: Color, shadow: Color, mid: Color, highlight: Color,
+    canopyOpacity: Double, highlightOpacity: Double
+) {
+    // Trunk: tapered (wider at the base than where it meets the canopy),
+    // planted exactly on baseY and rising to overlap slightly into the
+    // canopy so there's no visible gap.
+    let trunkTop = canopyCenterY + canopyR * 0.32
+    let baseHalfW = trunkW * 0.55
+    let topHalfW = trunkW * 0.3
+    var trunkPath = Path()
+    trunkPath.move(to: CGPoint(x: x - baseHalfW, y: baseY))
+    trunkPath.addLine(to: CGPoint(x: x - topHalfW, y: trunkTop))
+    trunkPath.addLine(to: CGPoint(x: x + topHalfW, y: trunkTop))
+    trunkPath.addLine(to: CGPoint(x: x + baseHalfW, y: baseY))
+    trunkPath.closeSubpath()
+    ctx.fill(trunkPath, with: .color(trunkColor.opacity(0.75)))
+
+    // A single small branch fork breaks up the "lollipop" silhouette where
+    // trunk meets canopy.
+    let forkDir: CGFloat = rnd(seedBase, 601) > 0.5 ? 1 : -1
+    var fork = Path()
+    let forkStart = CGPoint(x: x + topHalfW * 0.5 * forkDir, y: trunkTop + trunkH * 0.1)
+    fork.move(to: forkStart)
+    fork.addLine(to: CGPoint(x: forkStart.x + forkDir * canopyR * 0.3, y: forkStart.y - canopyR * 0.34))
+    ctx.stroke(fork, with: .color(trunkColor.opacity(0.7)), lineWidth: max(1.4, trunkW * 0.3))
+
+    // Back shadow layer — broad, dim puffs that establish the canopy's
+    // overall (slightly irregular) bulk before anything else is drawn.
+    for puff in 0..<5 {
+        let seed = seedBase * 31 + puff + 900
+        let angle = rnd(seed, 1) * .pi * 2
+        let dist = rnd(seed, 2) * canopyR * 0.5
+        let px = x + cos(angle) * dist
+        let py = canopyCenterY + sin(angle) * dist * 0.55
+        let pr = canopyR * (0.62 + rnd(seed, 3) * 0.4)
+        ctx.fill(Path(ellipseIn: CGRect(x: px - pr / 2, y: py - pr / 2, width: pr, height: pr)),
+                 with: .color(shadow.opacity(canopyOpacity)))
+    }
+
+    // Mid layer — a denser cluster of medium puffs; this is the bulk of
+    // the visible silhouette and where most of the "leafiness" reads from.
+    for puff in 0..<7 {
+        let seed = seedBase * 47 + puff + 300
+        let angle = rnd(seed, 4) * .pi * 2
+        let dist = rnd(seed, 5) * canopyR * 0.4
+        let px = x + cos(angle) * dist
+        let py = canopyCenterY - canopyR * 0.05 + sin(angle) * dist * 0.5
+        let pr = canopyR * (0.48 + rnd(seed, 6) * 0.32)
+        ctx.fill(Path(ellipseIn: CGRect(x: px - pr / 2, y: py - pr / 2, width: pr, height: pr)),
+                 with: .color(mid.opacity(min(1, canopyOpacity * 1.05))))
+    }
+
+    // Highlight puffs — small and bright, offset toward one side (an
+    // implied light source) instead of one dead-center top circle, so the
+    // canopy reads with actual volume rather than a flat painted disc.
+    for puff in 0..<3 {
+        let seed = seedBase * 71 + puff + 60
+        let px = x - canopyR * 0.15 + rnd(seed, 7) * canopyR * 0.5
+        let py = canopyCenterY - canopyR * (0.32 + rnd(seed, 8) * 0.26)
+        let pr = canopyR * (0.24 + rnd(seed, 9) * 0.22)
+        ctx.fill(Path(ellipseIn: CGRect(x: px - pr / 2, y: py - pr / 2, width: pr, height: pr)),
+                 with: .color(highlight.opacity(highlightOpacity)))
     }
 }
 
@@ -723,8 +776,8 @@ struct RoadsideTreesCanvas: View {
 
     var body: some View {
         Canvas { ctx, size in
+            let darkShadow = Color(red: 0.015, green: 0.03, blue: 0.02)
             let dark = Color(red: 0.03, green: 0.055, blue: 0.04)
-            let rim = Theme.neonAmber.opacity(0.15)
             let slot = size.width / CGFloat(count)
             let xs = positions ?? (0..<count).map { i -> CGFloat in
                 var x = slot * (CGFloat(i) + 0.5) + (rnd(i, 512) - 0.5) * slot * 0.4
@@ -734,7 +787,6 @@ struct RoadsideTreesCanvas: View {
             }
 
             for (i, x) in xs.enumerated() {
-
                 // H ≈ trunkH + canopyR·1.6, and trunkH = canopyR·1.1, so
                 // canopyR = H / 2.7 keeps the tree's total height at target.
                 let treeH = height * (0.9 + rnd(i, 517) * 0.2)
@@ -743,26 +795,14 @@ struct RoadsideTreesCanvas: View {
                 let trunkW = max(2, canopyR * 0.12)
                 let canopyCenterY = roadTopY - trunkH - canopyR * 0.55
 
-                ctx.fill(
-                    Path(roundedRect: CGRect(x: x - trunkW / 2, y: canopyCenterY, width: trunkW, height: roadTopY - canopyCenterY),
-                         cornerRadius: trunkW * 0.4),
-                    with: .color(dark.opacity(0.85))
-                )
-
-                for puff in 0..<3 {
-                    let seed = i * 13 + puff
-                    let px = x + (rnd(seed, 514) - 0.5) * canopyR * 0.8
-                    let py = canopyCenterY - rnd(seed, 515) * canopyR * 0.3
-                    let pr = canopyR * (0.7 + rnd(seed, 516) * 0.35)
-                    ctx.fill(Path(ellipseIn: CGRect(x: px - pr / 2, y: py - pr / 2, width: pr, height: pr)),
-                             with: .color(dark))
-                }
-
-                let hlR = canopyR * 0.22
-                ctx.fill(
-                    Path(ellipseIn: CGRect(x: x + canopyR * 0.28 - hlR / 2, y: canopyCenterY - canopyR * 0.3 - hlR / 2, width: hlR, height: hlR)),
-                    with: .color(rim)
-                )
+                // No amber highlight puffs here — on a dark silhouette
+                // tree they read as unexplained yellow dots rather than
+                // light catching the leaves, so night trees stay a flat,
+                // legible silhouette instead.
+                drawTree(in: &ctx, seedBase: i, x: x, baseY: roadTopY, canopyCenterY: canopyCenterY,
+                         canopyR: canopyR, trunkH: trunkH, trunkW: trunkW, trunkColor: dark,
+                         shadow: darkShadow, mid: dark, highlight: Theme.neonAmber,
+                         canopyOpacity: 0.88, highlightOpacity: 0)
             }
         }
         .allowsHitTesting(false)
@@ -878,26 +918,6 @@ struct FactorySilhouetteCanvas: View {
                 let factoryColor = Color(red: 0.05, green: 0.09, blue: 0.11).opacity(0.8)
                 let highlightColor = Theme.cleanCyan.opacity(0.18)
 
-                // A hazy, distant second facility building behind everything
-                // else, for depth instead of one flat plane of machinery.
-                for i in 0..<3 {
-                    let bx = size.width * (0.12 + CGFloat(i) * 0.38)
-                    let bw = size.width * 0.26
-                    let bh = size.height * (0.32 + rnd(i, 500) * 0.12)
-                    let rect = CGRect(x: bx, y: size.height * 0.18 - bh * 0.3, width: bw, height: bh)
-                    ctx.fill(Path(rect), with: .color(Color(red: 0.04, green: 0.07, blue: 0.09).opacity(0.5)))
-                    // A handful of lit windows so the distant building reads
-                    // as occupied/running, not a dead silhouette.
-                    for w in 0..<6 {
-                        guard rnd(i * 11 + w, 501) > 0.55 else { continue }
-                        let wx = rect.minX + rect.width * (CGFloat(w % 3) + 0.5) / 3
-                        let wy = rect.minY + rect.height * (CGFloat(w / 3) + 0.5) / 2
-                        let flicker = 0.4 + 0.3 * sin(t * 0.6 + Double(w) * 2.1)
-                        ctx.fill(Path(CGRect(x: wx - 3, y: wy - 4, width: 6, height: 8)),
-                                 with: .color(Theme.cleanCyan.opacity(0.25 * flicker)))
-                    }
-                }
-
                 // Overhead crane/beam
                 var beam = Path()
                 beam.addRect(CGRect(x: 0, y: size.height * 0.05, width: size.width, height: size.height * 0.08))
@@ -953,23 +973,50 @@ struct FactorySilhouetteCanvas: View {
                     }
                 }
 
-                // Background gears, actually turning — a dashed ring that
-                // rotates reads as a real turning gear, not wallpaper.
-                let gearX: [CGFloat] = [0.2, 0.85]
-                let gearY: [CGFloat] = [0.15, 0.4]
-                let gearR: [CGFloat] = [0.1, 0.15]
+                // Background gears, actually turning and actually mounted
+                // to the side pipes via a short bracket — a bare-opacity
+                // dashed ring with nothing visibly holding it up read as an
+                // unexplained floating circle, not machinery, so this is a
+                // filled cog silhouette (real teeth, a hub) bolted in place.
+                let gearSide: [CGFloat] = [0.08, 0.92]
+                let gearY: [CGFloat] = [0.32, 0.56]
+                let gearR: [CGFloat] = [0.075, 0.06]
                 for i in 0..<2 {
-                    let gearCenter = CGPoint(x: size.width * gearX[i], y: size.height * gearY[i])
+                    let side = gearSide[i]
+                    let armDir: CGFloat = side < 0.5 ? 1 : -1
+                    let pipeX = side * size.width
                     let r = size.width * gearR[i]
-                    var gear = Path()
-                    gear.addEllipse(in: CGRect(x: gearCenter.x - r, y: gearCenter.y - r, width: r * 2, height: r * 2))
-                    ctx.stroke(gear, with: .color(Theme.cleanCyan.opacity(0.1)), style: StrokeStyle(lineWidth: 12))
+                    let gearCenter = CGPoint(x: pipeX + armDir * (r + 20), y: size.height * gearY[i])
 
-                    var teeth = ctx
-                    teeth.translateBy(x: gearCenter.x, y: gearCenter.y)
-                    teeth.rotate(by: .radians(t * (i.isMultiple(of: 2) ? 0.25 : -0.2)))
-                    teeth.translateBy(x: -gearCenter.x, y: -gearCenter.y)
-                    teeth.stroke(gear, with: .color(Theme.cleanCyan.opacity(0.15)), style: StrokeStyle(lineWidth: 4, dash: [10, 15]))
+                    var bracket = Path()
+                    bracket.move(to: CGPoint(x: pipeX + armDir * 12, y: gearCenter.y))
+                    bracket.addLine(to: CGPoint(x: gearCenter.x, y: gearCenter.y))
+                    ctx.stroke(bracket, with: .color(factoryColor), style: StrokeStyle(lineWidth: 6))
+                    ctx.stroke(bracket, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1))
+
+                    var cog = Path()
+                    let teethCount = 10
+                    for tIdx in 0..<teethCount * 2 {
+                        let angle = Double(tIdx) / Double(teethCount * 2) * 2 * .pi
+                        let radius = tIdx.isMultiple(of: 2) ? r : r * 0.78
+                        let pt = CGPoint(x: gearCenter.x + CGFloat(cos(angle)) * radius,
+                                         y: gearCenter.y + CGFloat(sin(angle)) * radius)
+                        if tIdx == 0 { cog.move(to: pt) } else { cog.addLine(to: pt) }
+                    }
+                    cog.closeSubpath()
+
+                    var spinning = ctx
+                    spinning.translateBy(x: gearCenter.x, y: gearCenter.y)
+                    spinning.rotate(by: .radians(t * (i.isMultiple(of: 2) ? 0.22 : -0.18)))
+                    spinning.translateBy(x: -gearCenter.x, y: -gearCenter.y)
+                    spinning.fill(cog, with: .color(Color(red: 0.08, green: 0.12, blue: 0.14)))
+                    spinning.stroke(cog, with: .color(highlightColor), lineWidth: 1.5)
+
+                    let hubR = r * 0.32
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: gearCenter.x - hubR, y: gearCenter.y - hubR, width: hubR * 2, height: hubR * 2)),
+                        with: .color(Theme.cleanCyan.opacity(0.3))
+                    )
                 }
             }
         }

@@ -13,7 +13,6 @@ struct CanalScene: View {
     @State private var sceneStart = Date()
     @State private var choiceMade = false
     @State private var resolvedToward: Bool? = nil // true = recycling (right), false = sea (left)
-    @State private var idleTask: Task<Void, Never>? = nil
 
     // Drag-to-drop fork, matching the recycling facility's own bottle-drag
     // mechanic: the bottle starts up top and the two outcomes sit as real
@@ -237,7 +236,6 @@ struct CanalScene: View {
         resolvedToward = nil
         if game.mustRouteToRecycling {
             stage = .fork
-            armIdleAutoAdvance(delay: 6)
         } else {
             stage = .floating
         }
@@ -255,16 +253,6 @@ struct CanalScene: View {
         withAnimation(reduceMotion ? .easeInOut(duration: 0.35) : .easeInOut(duration: 0.6)) {
             stage = .fork
         }
-        armIdleAutoAdvance(delay: 7)
-    }
-
-    private func armIdleAutoAdvance(delay: Double) {
-        idleTask?.cancel()
-        idleTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(delay))
-            guard !Task.isCancelled, !choiceMade else { return }
-            resolve(towardRecycling: true)
-        }
     }
 
     /// Settles the bottle into the chosen bin and holds briefly — the same
@@ -273,7 +261,6 @@ struct CanalScene: View {
     private func resolve(towardRecycling: Bool) {
         guard !choiceMade else { return }
         choiceMade = true
-        idleTask?.cancel()
         resolvedToward = towardRecycling
         stage = .resolving
 
@@ -300,35 +287,71 @@ struct CanalScene: View {
 struct SeaFailureScene: View {
     @EnvironmentObject var game: GameState
     @State private var showText = false
+    @State private var sceneStart = Date()
 
     private var reduceMotion: Bool { game.reduceMotion }
 
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Theme.nearBlack, Color(red: 0.05, green: 0.08, blue: 0.09)],
-                           startPoint: .top, endPoint: .bottom)
+        GeometryReader { geo in
+            let size = geo.size
 
-            SmokeCanvas(intensity: 0.5, color: Theme.murkGreen, reduceMotion: reduceMotion)
-                .opacity(0.5)
+            TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30)) { context in
+                let elapsed = reduceMotion ? 0 : context.date.timeIntervalSince(sceneStart)
+                // The same layered, out-of-phase sine waves as the canal's
+                // floating bottle — so it visibly rocks and drifts instead
+                // of sitting perfectly still at the center of the frame.
+                let yBob = 14 * sin(elapsed * 1.5) + 6 * sin(elapsed * 0.8 + 0.4)
+                let tiltDeg = 10 * sin(elapsed * 0.65 + 0.2) + 4 * sin(elapsed * 1.8 + 1.3)
+                let bottleX = size.width * 0.42
+                let bottleY = size.height * 0.56
 
-            BottleView(vibrancy: 0.35, dirt: game.grime, showEyes: false, width: 54, height: 132)
-                .saturation(0.3)
-                .opacity(0.7)
+                ZStack {
+                    LinearGradient(colors: [Theme.nearBlack, Color(red: 0.05, green: 0.08, blue: 0.09)],
+                                   startPoint: .top, endPoint: .bottom)
 
-            if showText {
-                Text("Waste does not disappear.")
-                    .font(Theme.line(24))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .padding(.horizontal, 26)
-                    .padding(.vertical, 12)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .transition(.opacity)
+                    LightRaysCanvas(color: Theme.cleanCyan, count: 3, reduceMotion: reduceMotion)
+                        .opacity(0.2)
+
+                    BubbleCanvas(count: 14, color: .white, reduceMotion: reduceMotion)
+                        .opacity(0.3)
+
+                    SmokeCanvas(intensity: 0.5, color: Theme.murkGreen, reduceMotion: reduceMotion)
+                        .opacity(0.5)
+
+                    // Debris already drifting outward from where the bottle
+                    // sits — even the "empty" open water around it isn't
+                    // really empty, it's just spread thin.
+                    MicroplasticDrift(elapsed: 4.2, center: CGPoint(x: bottleX, y: bottleY), reduceMotion: reduceMotion)
+                        .opacity(0.5)
+
+                    FishSilhouettesCanvas(darkness: 0.55, reduceMotion: reduceMotion)
+
+                    // The bottle itself — small and adrift, dwarfed by open
+                    // water on every side instead of sitting center-frame
+                    // at near-full size, so "lost at sea" actually reads
+                    // as lost rather than just tinted and captioned.
+                    BottleView(vibrancy: 0.3, dirt: game.grime, showEyes: false, width: 30, height: 74)
+                        .saturation(0.3)
+                        .rotationEffect(.degrees(tiltDeg))
+                        .position(x: bottleX, y: bottleY + CGFloat(yBob))
+
+                    if showText {
+                        Text("Waste does not disappear.")
+                            .font(Theme.line(24))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .padding(.horizontal, 26)
+                            .padding(.vertical, 12)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .transition(.opacity)
+                            .position(x: size.width * 0.5, y: size.height * 0.22)
+                    }
+
+                    Vignette(strength: 0.75)
+                }
             }
-
-            Vignette(strength: 0.75)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Waste does not disappear. Returning to the fork.")
+        .accessibilityLabel("Waste does not disappear. A tiny bottle adrift in open water, far from shore.")
         .onAppear(perform: runSequence)
     }
 

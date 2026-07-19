@@ -23,7 +23,7 @@ struct EndingScene: View {
                     // ending answers it, and reads as plastic reshaped — not wood.
                     Text("Same plastic. A new purpose.")
                         .font(Theme.line(15))
-                        .foregroundStyle(Color.black.opacity(0.75))
+                        .foregroundStyle(.white.opacity(0.9))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(.ultraThinMaterial, in: Capsule())
@@ -53,36 +53,21 @@ struct EndingScene: View {
                     Text("Waste does not disappear.\nYou can choose where it goes.")
                         .multilineTextAlignment(.center)
                         .font(Theme.line(24))
-                        .foregroundStyle(Color.black.opacity(0.8))
+                        .foregroundStyle(.white.opacity(0.9))
                         .padding(.horizontal, 30)
 
-                    HStack(spacing: 20) {
-                        Button {
-                            game.playAgain()
-                        } label: {
-                            Label("Play Again", systemImage: "arrow.counterclockwise")
-                                .font(Theme.line(17))
-                                .padding(.horizontal, 22)
-                                .padding(.vertical, 12)
-                                .background(.ultraThinMaterial, in: Capsule())
-                                .overlay(Capsule().stroke(Theme.cleanCyan.opacity(0.7), lineWidth: 1.5))
-                        }
-                        .foregroundStyle(Color.black.opacity(0.85))
-                        .accessibilityLabel("Play again from the beginning")
-
-                        Button {
-                            game.replayJourney()
-                        } label: {
-                            Label("View My Journey", systemImage: "map")
-                                .font(Theme.line(17))
-                                .padding(.horizontal, 22)
-                                .padding(.vertical, 12)
-                                .background(.ultraThinMaterial, in: Capsule())
-                                .overlay(Capsule().stroke(Theme.freshGreen.opacity(0.7), lineWidth: 1.5))
-                        }
-                        .foregroundStyle(Color.black.opacity(0.85))
-                        .accessibilityLabel("Replay the animated summary of the bottle's journey")
+                    Button {
+                        game.playAgain()
+                    } label: {
+                        Label("Play Again", systemImage: "arrow.counterclockwise")
+                            .font(Theme.line(17))
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 12)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .overlay(Capsule().stroke(Theme.cleanCyan.opacity(0.7), lineWidth: 1.5))
                     }
+                    .foregroundStyle(.white.opacity(0.9))
+                    .accessibilityLabel("Play again from the beginning")
 
                     Spacer().frame(height: size.height * 0.06)
                 }
