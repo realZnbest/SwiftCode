@@ -14,7 +14,8 @@ final class GameState: ObservableObject {
     enum Phase: Int, Equatable, Hashable {
         case title
         case factoryOrigin
-        case opening
+        case deliveryTruck
+        case vendingAndDiscard
         case streetToDrain
         case stormDrainTunnel
         case landfillFailure
@@ -80,10 +81,14 @@ final class GameState: ObservableObject {
     }
 
     func advanceFromFactoryOrigin() {
-        goTo(.opening)
+        goTo(.deliveryTruck)
     }
 
-    func advanceFromOpening() {
+    func advanceFromDeliveryTruck() {
+        goTo(.vendingAndDiscard)
+    }
+
+    func advanceFromVendingAndDiscard() {
         goTo(.streetToDrain)
     }
 

@@ -467,7 +467,7 @@ private struct RecyclingTruckShape: View {
 
 /// Scrolling dashed lane markings so the truck reads as driving down a
 /// road rather than floating in place.
-private struct RoadLinesCanvas: View {
+struct RoadLinesCanvas: View {
     var roadTopY: CGFloat
     var reduceMotion: Bool
 
@@ -526,5 +526,639 @@ struct CommunityCleanupScene: View {
             },
             onFinish: { game.advanceFromCommunityCleanup() }
         )
+    }
+}
+
+// MARK: - 10. Delivery truck (factory → city distribution)
+
+/// ~5s auto-advancing scene. A delivery truck drives across the city at
+/// night carrying bottles from the factory to retail. Uses the same road
+/// treatment as TruckDeliveryScene but with a distinct cargo-truck shape
+/// (white box truck with bottle icon instead of recycling arrows).
+struct DeliveryTruckScene: View {
+    @EnvironmentObject var game: GameState
+
+    var body: some View {
+        VignetteScene(
+            line: "Shipped across the city.",
+            accessibilityText: "A delivery truck drives through the city at night, carrying bottles from the factory.",
+            showBottle: false,
+            textPosition: UnitPoint(x: 0.5, y: 0.15),
+            content: { size in
+                let roadTopY = size.height * 0.86
+                return ZStack {
+                    LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
+                    SkylineCanvas().opacity(0.3)
+                    NeonStreakField(colors: [Theme.neonAmber, Theme.neonPink, Theme.neonCyan], reduceMotion: game.reduceMotion)
+
+                    Rectangle()
+                        .fill(Color(red: 0.06, green: 0.06, blue: 0.08))
+                        .frame(height: size.height - roadTopY)
+                        .position(x: size.width * 0.5, y: roadTopY + (size.height - roadTopY) / 2)
+                    RoadLinesCanvas(roadTopY: roadTopY, reduceMotion: game.reduceMotion)
+                        .frame(height: size.height)
+
+                    TimelineView(.animation(minimumInterval: game.reduceMotion ? 1 : 1.0 / 30)) { context in
+                        let t = game.reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                        let bounce = game.reduceMotion ? 0 : sin(t * 9) * 1.6
+                        DeliveryTruckShape()
+                            .position(x: size.width * 0.5, y: roadTopY - 54 + bounce)
+                    }
+
+                    SparkleCanvas(count: 12, color: .white, reduceMotion: game.reduceMotion).opacity(0.25)
+                }
+            },
+            onFinish: { game.advanceFromDeliveryTruck() }
+        )
+    }
+}
+
+/// A side-profile delivery/cargo truck: a tall white box trailer with a
+/// water-bottle icon on the side, a cab, two wheel sets, and headlights.
+/// Distinct from RecyclingTruckShape — this is a commercial delivery
+/// vehicle, not a recycling collection truck.
+private struct DeliveryTruckShape: View {
+    var body: some View {
+        ZStack {
+            // Cargo box — tall white container with bottle icon
+            RoundedRectangle(cornerRadius: 8)
+                .fill(LinearGradient(colors: [Color(white: 0.92), Color(white: 0.7)], startPoint: .top, endPoint: .bottom))
+                .frame(width: 120, height: 82)
+                .overlay(
+                    Image(systemName: "waterbottle.fill")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundStyle(Theme.bottleBlue.opacity(0.7))
+                )
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1.5))
+                .offset(x: -22, y: -8)
+
+            // Cab — darker than the cargo, with a windshield
+            RoundedRectangle(cornerRadius: 8)
+                .fill(LinearGradient(colors: [Color(white: 0.65), Color(white: 0.4)], startPoint: .top, endPoint: .bottom))
+                .frame(width: 50, height: 56)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Theme.neonCyan.opacity(0.4))
+                        .frame(width: 28, height: 20)
+                        .offset(y: -13)
+                )
+                .offset(x: 58, y: 2)
+
+            // Chassis
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.black.opacity(0.55))
+                .frame(width: 178, height: 8)
+                .offset(y: 35)
+
+            // Wheels
+            truckWheel.offset(x: -40, y: 42)
+            truckWheel.offset(x: -10, y: 42)
+            truckWheel.offset(x: 48, y: 42)
+
+            // Headlights
+            Circle().fill(Theme.neonAmber.opacity(0.9)).frame(width: 7, height: 7)
+                .glow(Theme.neonAmber, radius: 8, opacity: 0.7)
+                .offset(x: 82, y: 12)
+            Circle().fill(Color.red.opacity(0.7)).frame(width: 5, height: 5)
+                .glow(.red, radius: 4, opacity: 0.4)
+                .offset(x: -82, y: 12)
+        }
+    }
+
+    private var truckWheel: some View {
+        ZStack {
+            Circle()
+                .fill(RadialGradient(colors: [Color(white: 0.3), .black], center: .center, startRadius: 0, endRadius: 15))
+                .frame(width: 26, height: 26)
+            Circle().fill(Color(white: 0.55)).frame(width: 8, height: 8)
+        }
+    }
+}
+
+// MARK: - 11. Vending and discard (unified scene — person buys, drinks, player discards)
+
+/// A unified interactive scene. A vending machine glows on the right side
+/// of a rainy city street. A person walks up, presses a button, picks up the
+/// bottle from the dispensing hatch, drinks it (auto-animated), and then
+/// holds the empty bottle out to the left for the player to drag-and-discard.
+struct VendingAndDiscardScene: View {
+    @EnvironmentObject var game: GameState
+
+    /// Timeline stages of the scene
+    private enum Stage: Int, Comparable {
+        case personEnters = 0      // person walks in from left
+        case buyBottle = 1         // person presses button, bottle drops
+        case takeBottle = 2        // person reaches down to pick up bottle
+        case personDrinks = 3      // stands up, drinks (auto-animated)
+        case bottleEmpty = 4       // holds out empty bottle, waiting for flick
+        case discarded = 5         // player flicked bottle → falls to ground
+        case exiting = 6           // person walks away, text shows up
+
+        static func < (lhs: Stage, rhs: Stage) -> Bool { lhs.rawValue < rhs.rawValue }
+    }
+
+    @State private var stage: Stage = .personEnters
+    @State private var personX: CGFloat = 0.1
+    @State private var personOpacity: Double = 1
+    @State private var drinkProgress: Double = 0    // 0...1
+    @State private var showText = false
+    @State private var impactBurst = false
+    @State private var arrowOffset: CGFloat = 0
+
+    // Bottle visibility toggles inside the vending machine
+    @State private var heroInGridVisible = true
+    @State private var heroInHatchVisible = false
+    @State private var heroInHandVisible = false
+
+    @State private var bottlePos = CGPoint.zero
+    
+    // Joystick and Interaction States
+    @State private var joystickOffset: CGSize = .zero
+    @State private var isMoving = false
+    @State private var legTimer: Double = 0
+    @State private var canBuy = false
+    @State private var sequenceStarted = false
+
+    let timer = Timer.publish(every: 0.02, on: .main, in: .common).autoconnect()
+
+    private let groundFrac: CGFloat = 0.82
+    private let groundHeight: CGFloat = 160
+
+    private var reduceMotion: Bool { game.reduceMotion }
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = geo.size
+            let footY = size.height - groundHeight
+            let px = personX * size.width
+            let machineX = size.width * 0.72
+
+            // Shoulder anchor point in global coordinates:
+            // The person's frame is 160x260 positioned at (px, footY - 130).
+            // Left shoulder is at local (51, 56), so global (px - 80 + 51, footY - 260 + 56) = (px - 29, footY - 204)
+            let shoulderX = px - 29.0
+            let shoulderY = footY - 204.0
+
+            ZStack {
+                // Background: rainy city street at night
+                cityBackground
+
+                // Vending Machine (height: 300, width: 200)
+                // Positioned on the right side on top of the pavement
+                VendingMachineCanvas(
+                    heroCol: 2, heroRow: 1,
+                    vibrancy: game.vibrancy, dirt: game.grime,
+                    heroVisible: heroInGridVisible,
+                    hatchVisible: heroInHatchVisible,
+                    reduceMotion: game.reduceMotion
+                )
+                .position(x: machineX, y: footY - 150)
+
+                // Ground plane
+                streetGround
+
+                // Person (walks in, buys, takes, drinks, exits)
+                personView(size: size)
+
+                // Bottle held in hand during drinking animation
+                if heroInHandVisible && stage == .personDrinks {
+                    let armAngleDeg = 40.0 + drinkProgress * 40.0 // swings left-up towards face
+                    let armRad = armAngleDeg * .pi / 180.0
+                    let handX = shoulderX - 60.0 * sin(armRad)
+                    let handY = shoulderY + 60.0 * cos(armRad)
+
+                    let bottleTiltDeg = 30.0 + drinkProgress * 30.0
+                    let tiltRad = bottleTiltDeg * .pi / 180.0
+                    let cdx = 40.0 * sin(tiltRad)
+                    let cdy = -40.0 * cos(tiltRad)
+
+                    BottleView(
+                        vibrancy: game.vibrancy, dirt: game.grime,
+                        showEyes: false, glow: 0,
+                        width: 32, height: 80,
+                        tilt: .degrees(bottleTiltDeg) // mouth points right (towards face), bottom points left
+                    )
+                    .position(x: handX + cdx, y: handY + cdy)
+                    .transition(.opacity)
+                }
+
+                // Discarded bottle state
+                if stage >= .bottleEmpty {
+                    BottleView(
+                        vibrancy: game.vibrancy, dirt: game.grime,
+                        showEyes: stage == .bottleEmpty,
+                        glow: stage == .bottleEmpty ? 0.2 : 0,
+                        width: 52, height: 130,
+                        tilt: stage >= .discarded ? .degrees(78) : .zero
+                    )
+                    .position(bottlePos)
+                }
+
+                // Tutorial Arrow
+                if !sequenceStarted {
+                    Image(systemName: "triangle.fill")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 24, height: 24)
+                        .foregroundColor(Theme.neonAmber)
+                        .rotationEffect(.degrees(180))
+                        .offset(y: arrowOffset)
+                        .position(x: machineX, y: footY - 350)
+                        .onAppear {
+                            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                                arrowOffset = -12
+                            }
+                        }
+                }
+
+                // Impact burst when bottle hits ground
+                if impactBurst {
+                    Circle()
+                        .fill(RadialGradient(colors: [.white.opacity(0.5), .clear], center: .center, startRadius: 0, endRadius: 50))
+                        .frame(width: 110, height: 35)
+                        .position(x: bottlePos.x, y: footY + 10)
+                        .transition(.opacity)
+                }
+
+                // Narrative text after discard
+                if showText {
+                    Text("Used once. Left behind.")
+                        .font(Theme.line(24))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .padding(.horizontal, 26)
+                        .padding(.vertical, 13)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .glow(Theme.neonCyan, radius: 10, opacity: 0.2)
+                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                        .position(x: size.width * 0.5, y: size.height * 0.42)
+                }
+
+                Vignette(strength: 0.5)
+            }
+            .contentShape(Rectangle())
+            .onReceive(timer) { _ in
+                guard !sequenceStarted else { return }
+                
+                if joystickOffset.width != 0 {
+                    isMoving = true
+                    legTimer += 0.02
+                    let speed: CGFloat = 0.005 // screen fraction per tick
+                    let direction = joystickOffset.width > 0 ? 1.0 : -1.0
+                    
+                    personX += direction * speed
+                    personX = max(0.05, min(0.65, personX))
+                    
+                    if personX > 0.52 {
+                        withAnimation { canBuy = true }
+                    } else {
+                        withAnimation { canBuy = false }
+                    }
+                } else {
+                    isMoving = false
+                }
+            }
+            .overlay(
+                VStack {
+                    Spacer()
+                    HStack {
+                        if !sequenceStarted {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.white.opacity(0.1))
+                                    .frame(width: 140, height: 140)
+                                Circle()
+                                    .fill(Color.white.opacity(0.4))
+                                    .frame(width: 60, height: 60)
+                                    .offset(joystickOffset)
+                                    .gesture(
+                                        DragGesture(minimumDistance: 0)
+                                            .onChanged { value in
+                                                let maxDist: CGFloat = 50
+                                                let dx = value.translation.width
+                                                let dist = min(abs(dx), maxDist)
+                                                let sign = dx > 0 ? 1.0 : -1.0
+                                                joystickOffset = CGSize(width: sign * dist, height: 0)
+                                            }
+                                            .onEnded { _ in
+                                                withAnimation(.interactiveSpring) {
+                                                    joystickOffset = .zero
+                                                }
+                                            }
+                                    )
+                            }
+                            .padding(.leading, 60)
+                            .padding(.bottom, 80)
+                            .transition(.opacity)
+                            
+                            Spacer()
+                            
+                            if canBuy {
+                                Button(action: {
+                                    buySequence(size: size)
+                                }) {
+                                    Text("BUY")
+                                        .font(Theme.title(22))
+                                        .padding(.horizontal, 30)
+                                        .padding(.vertical, 15)
+                                        .background(Theme.neonCyan)
+                                        .foregroundColor(.black)
+                                        .clipShape(Capsule())
+                                }
+                                .padding(.trailing, 60)
+                                .padding(.bottom, 80)
+                                .transition(.scale.combined(with: .opacity))
+                            }
+                        }
+                    }
+                }
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Vending machine on a rainy street. A person buys a bottle of water, drinks it, and leaves the empty bottle for you to discard.")
+    }
+
+    private var cityBackground: some View {
+        ZStack {
+            LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
+            NeonStreakField(colors: [Theme.neonPink, Theme.neonCyan, Theme.neonPurple], reduceMotion: reduceMotion)
+            SkylineCanvas()
+            SparkleCanvas(count: 20, color: .white, reduceMotion: reduceMotion).opacity(0.35)
+            RainCanvas(intensity: 0.4, reduceMotion: reduceMotion)
+        }
+    }
+
+    private var streetGround: some View {
+        ZStack(alignment: .top) {
+            LinearGradient(
+                colors: [Color(red: 0.05, green: 0.06, blue: 0.08), Color(red: 0.02, green: 0.02, blue: 0.03)],
+                startPoint: .top, endPoint: .bottom
+            )
+            Rectangle().fill(Color.white.opacity(0.12)).frame(height: 2)
+            HStack(spacing: 70) {
+                ForEach(0..<5, id: \.self) { i in
+                    Capsule()
+                        .fill([Theme.neonCyan, Theme.neonPink, Theme.neonPurple][i % 3].opacity(0.16))
+                        .frame(width: 46, height: 120)
+                        .blur(radius: 10)
+                }
+            }
+            .offset(y: 6)
+        }
+        .frame(height: groundHeight)
+        .frame(maxHeight: .infinity, alignment: .bottom)
+    }
+
+    private func personView(size: CGSize) -> some View {
+        let skin = Color(red: 0.55, green: 0.4, blue: 0.3)
+        let shirt = Theme.neonCyan.opacity(0.7)
+        let pants = Color(red: 0.2, green: 0.16, blue: 0.14)
+        let legAngle = (stage == .personEnters && isMoving) || stage == .exiting
+            ? sin(legTimer * 15) * 22 : 0.0
+        
+        let frontArmAngle: Double
+        let backArmAngle: Double
+
+        if stage == .buyBottle {
+            frontArmAngle = -45.0 // reaching forward to press machine button
+            backArmAngle = 0.0
+        } else if stage == .takeBottle {
+            frontArmAngle = 135.0 // reaching down to dispensing hatch
+            backArmAngle = -10.0
+        } else if stage == .personDrinks {
+            frontArmAngle = 40.0 + drinkProgress * 40.0 // swings left-up towards face
+            backArmAngle = 10.0
+        } else if stage == .bottleEmpty {
+            frontArmAngle = -90.0 // outstretched holding the bottle to discard
+            backArmAngle = 0.0
+        } else if stage == .personEnters || stage == .exiting {
+            frontArmAngle = -legAngle * 0.8
+            backArmAngle = legAngle * 0.8
+        } else {
+            frontArmAngle = 0.0
+            backArmAngle = 0.0
+        }
+
+        return ZStack(alignment: .topLeading) {
+            // 1. Back arm (right arm, drawn behind torso) - Shoulder at (109, 56)
+            Capsule().fill(skin).frame(width: 14, height: 60)
+                .rotationEffect(.degrees(backArmAngle), anchor: .top)
+                .position(x: 109, y: 86)
+
+            // 2. Contact shadow
+            Ellipse()
+                .fill(Color.black.opacity(0.35))
+                .frame(width: 90, height: 20)
+                .position(x: 80, y: 250)
+
+            // 3. Legs
+            Capsule().fill(pants).frame(width: 20, height: 110)
+                .rotationEffect(.degrees(legAngle), anchor: .top)
+                .position(x: 64, y: 195)
+            Capsule().fill(pants).frame(width: 20, height: 110)
+                .rotationEffect(.degrees(-legAngle), anchor: .top)
+                .position(x: 96, y: 195)
+
+            // 4. Torso + Head (Head at y=0..50, Torso at y=56..142)
+            Circle().fill(skin).frame(width: 50, height: 50)
+                .position(x: 80, y: 25)
+            RoundedRectangle(cornerRadius: 10).fill(shirt)
+                .frame(width: 58, height: 86)
+                .position(x: 80, y: 99)
+
+            // 5. Front arm (left arm, drawn in front of torso) - Shoulder at (51, 56)
+            Capsule().fill(skin).frame(width: 14, height: 60)
+                .rotationEffect(.degrees(frontArmAngle), anchor: .top)
+                .position(x: 51, y: 86)
+        }
+        .frame(width: 160, height: 260)
+        .position(x: personX * size.width, y: size.height - groundHeight - 130)
+        .opacity(personOpacity)
+    }
+
+    private func buySequence(size: CGSize) {
+        sequenceStarted = true
+        canBuy = false
+        isMoving = false
+        
+        let scale = reduceMotion ? 0.65 : 1.0
+        Task { @MainActor in
+            withAnimation(.easeInOut(duration: 0.3)) { stage = .buyBottle }
+            
+            try? await Task.sleep(for: .seconds(0.4 * scale))
+            game.sound.impactThud()
+            Haptics.collision()
+            
+            try? await Task.sleep(for: .seconds(0.2 * scale))
+            withAnimation(.easeInOut(duration: 0.3)) { heroInGridVisible = false }
+            game.sound.splash()
+            withAnimation(.easeInOut(duration: 0.2)) { heroInHatchVisible = true }
+            
+            try? await Task.sleep(for: .seconds(0.6 * scale))
+            withAnimation(.easeInOut(duration: 0.4)) { stage = .takeBottle }
+            
+            try? await Task.sleep(for: .seconds(0.5 * scale))
+            withAnimation(.easeInOut(duration: 0.2)) {
+                heroInHatchVisible = false
+                heroInHandVisible = true
+            }
+            
+            try? await Task.sleep(for: .seconds(0.3 * scale))
+            withAnimation(.easeInOut(duration: 0.4)) { stage = .personDrinks }
+            
+            try? await Task.sleep(for: .seconds(0.5 * scale))
+            withAnimation(.easeInOut(duration: 2.0 * scale)) { drinkProgress = 1 }
+            
+            try? await Task.sleep(for: .seconds(1.0 * scale))
+            
+            let footY = size.height - groundHeight
+            let px = personX * size.width
+            withAnimation(.easeInOut(duration: 0.4)) {
+                stage = .bottleEmpty
+                heroInHandVisible = false
+                // Positioned so the hand holds the base of the bottle
+                bottlePos = CGPoint(x: px - 85, y: footY - 248)
+            }
+            
+            try? await Task.sleep(for: .seconds(0.4 * scale))
+            withAnimation(.easeIn(duration: reduceMotion ? 0.3 : 0.5)) {
+                stage = .discarded
+                bottlePos = CGPoint(x: bottlePos.x - 20, y: footY + 10)
+            }
+
+            try? await Task.sleep(for: .seconds(reduceMotion ? 0.35 : 0.55))
+            game.sound.impactThud()
+            Haptics.collision()
+            withAnimation(.easeOut(duration: 0.2)) { impactBurst = true }
+            try? await Task.sleep(for: .seconds(0.2))
+            withAnimation(.easeOut(duration: 0.3)) { impactBurst = false }
+
+            try? await Task.sleep(for: .seconds(0.4))
+            withAnimation(.easeInOut(duration: 0.3)) { stage = .exiting }
+            withAnimation(.easeIn(duration: reduceMotion ? 0.7 : 1.2)) {
+                personX = -0.2
+                personOpacity = 0
+            }
+
+            try? await Task.sleep(for: .seconds(0.6))
+            withAnimation(.easeIn(duration: 0.5)) { showText = true }
+
+            try? await Task.sleep(for: .seconds(reduceMotion ? 1.5 : 2.8))
+            game.advanceFromVendingAndDiscard()
+        }
+    }
+}
+
+private struct VendingMachineCanvas: View {
+    var heroCol: Int
+    var heroRow: Int
+    var vibrancy: Double
+    var dirt: Double
+    var heroVisible: Bool
+    var hatchVisible: Bool
+    var reduceMotion: Bool
+
+    private let cols = 5
+    private let rows = 4
+    private let machineWidth: CGFloat = 200
+    private let machineHeight: CGFloat = 300
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(LinearGradient(
+                    colors: [Color(red: 0.7, green: 0.15, blue: 0.2), Color(red: 0.4, green: 0.05, blue: 0.1)],
+                    startPoint: .top, endPoint: .bottom
+                ))
+                .frame(width: machineWidth, height: machineHeight)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 2)
+                )
+
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white.opacity(0.04))
+                .frame(width: machineWidth - 24, height: machineHeight * 0.60)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Theme.neonCyan.opacity(0.15), lineWidth: 1.2)
+                )
+                .offset(y: -30)
+
+            bottleGrid
+                .offset(y: -30)
+
+            RoundedRectangle(cornerRadius: 2)
+                .fill(LinearGradient(colors: [Theme.neonCyan.opacity(0.5), Theme.neonPurple.opacity(0.4)], startPoint: .leading, endPoint: .trailing))
+                .frame(width: machineWidth - 32, height: 5)
+                .blur(radius: 2)
+                .offset(y: -(machineHeight / 2 - 18))
+
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.black.opacity(0.6))
+                .frame(width: 80, height: 36)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+                .overlay(
+                    Group {
+                        if hatchVisible {
+                            BottleView(vibrancy: vibrancy, dirt: dirt, showEyes: false, width: 12, height: 30, tilt: .degrees(90))
+                                .opacity(0.8)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                )
+                .offset(y: machineHeight / 2 - 32)
+
+            RoundedRectangle(cornerRadius: 1)
+                .fill(Color(white: 0.3))
+                .frame(width: 14, height: 4)
+                .offset(x: machineWidth / 2 - 24, y: -15)
+
+            VStack(spacing: 6) {
+                ForEach(0..<4, id: \.self) { i in
+                    Circle()
+                        .fill([Theme.neonCyan, Theme.neonPink, Theme.neonAmber, Theme.neonPurple][i].opacity(0.5))
+                        .frame(width: 7, height: 7)
+                }
+            }
+            .offset(x: machineWidth / 2 - 23, y: 10)
+        }
+    }
+
+    private var bottleGrid: some View {
+        let cellW: CGFloat = (machineWidth - 40) / CGFloat(cols)
+        let cellH: CGFloat = (machineHeight * 0.56) / CGFloat(rows)
+
+        return VStack(spacing: 3) {
+            ForEach(0..<rows, id: \.self) { row in
+                HStack(spacing: 3) {
+                    ForEach(0..<cols, id: \.self) { col in
+                        let isHero = col == heroCol && row == heroRow
+                        ZStack {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.06))
+                                .frame(height: 1)
+                                .offset(y: cellH / 2 - 2)
+
+                            if !isHero || heroVisible {
+                                BottleView(
+                                    vibrancy: isHero ? vibrancy : 0.35,
+                                    dirt: isHero ? dirt : 0,
+                                    showEyes: isHero,
+                                    glow: isHero ? 0.45 : 0,
+                                    width: isHero ? 18 : 14,
+                                    height: isHero ? 42 : 36
+                                )
+                                .saturation(isHero ? 1 : 0.3)
+                                .opacity(isHero ? 1 : 0.4)
+                            }
+                        }
+                        .frame(width: cellW, height: cellH)
+                    }
+                }
+            }
+        }
     }
 }

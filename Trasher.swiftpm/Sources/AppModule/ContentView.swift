@@ -15,8 +15,10 @@ struct RootView: View {
                     TitleScene()
                 case .factoryOrigin:
                     FactoryOriginScene()
-                case .opening:
-                    OpeningScene()
+                case .deliveryTruck:
+                    DeliveryTruckScene()
+                case .vendingAndDiscard:
+                    VendingAndDiscardScene()
                 case .streetToDrain:
                     StreetToDrainScene()
                 case .stormDrainTunnel:

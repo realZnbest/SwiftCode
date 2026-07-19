@@ -274,8 +274,10 @@ final class SoundEngine {
             target = [.city: 0.22, .rain: 0, .deepWater: 0, .machinery: 0, .birds: 0]
         case .factoryOrigin:
             target = [.city: 0.06, .rain: 0, .deepWater: 0, .machinery: 0.28, .birds: 0]
-        case .opening:
-            target = [.city: 0.4, .rain: 0, .deepWater: 0, .machinery: 0, .birds: 0]
+        case .deliveryTruck:
+            target = [.city: 0.18, .rain: 0, .deepWater: 0, .machinery: 0.12, .birds: 0]
+        case .vendingAndDiscard:
+            target = [.city: 0.3, .rain: 0.15, .deepWater: 0, .machinery: 0.08, .birds: 0]
         case .streetToDrain:
             target = [.city: 0.15, .rain: 0.5, .deepWater: 0, .machinery: 0, .birds: 0]
         case .stormDrainTunnel:

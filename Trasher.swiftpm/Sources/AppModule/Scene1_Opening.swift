@@ -176,7 +176,7 @@ struct OpeningScene: View {
             withAnimation(.easeIn(duration: 0.6)) { showText = true }
 
             try? await Task.sleep(for: .seconds(3.4 * scale))
-            game.advanceFromOpening()
+            game.advanceFromVendingAndDiscard()
         }
     }
 }
