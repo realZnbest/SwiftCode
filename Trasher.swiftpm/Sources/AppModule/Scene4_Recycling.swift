@@ -33,8 +33,15 @@ struct RecyclingScene: View {
                 machineryGlow(size: size)
 
                 if stage == .choosing || stage == .arriving {
-                    binView(rect: landfillRect, size: size, kind: .landfill, bright: false, warning: wrongDropFeedback, reduceMotion: reduceMotion)
-                    binView(rect: recyclingRect, size: size, kind: .recycling, bright: misses > 0, warning: false, reduceMotion: reduceMotion)
+                    // Live hover feedback as the bottle is dragged, the same
+                    // way the street and canal forks react — without this,
+                    // dragging the bottle around did nothing until the drop
+                    // actually landed, which read as the bins having no
+                    // animation at all.
+                    let hoveringLandfill = stage == .choosing && landfillRect.contains(bottlePos)
+                    let hoveringRecycling = stage == .choosing && recyclingRect.contains(bottlePos)
+                    binView(rect: landfillRect, size: size, kind: .landfill, bright: hoveringLandfill, warning: wrongDropFeedback, reduceMotion: reduceMotion)
+                    binView(rect: recyclingRect, size: size, kind: .recycling, bright: hoveringRecycling || misses > 0, warning: false, reduceMotion: reduceMotion)
                 }
 
                 stageContent(size: size)
@@ -211,7 +218,7 @@ struct RecyclingScene: View {
             }
             .frame(width: frame.width, height: frame.height)
             .glow(glowColor, radius: bright || warning ? 20 : 6, opacity: bright || warning ? 0.55 : (kind == .landfill ? 0.08 : 0.2))
-            .scaleEffect(warning ? 1.035 : 1)
+            .scaleEffect(warning ? 1.035 : (bright ? 1.06 : 1))
             .animation(.easeInOut(duration: 0.25), value: bright)
             .animation(.easeInOut(duration: 0.18), value: warning)
 

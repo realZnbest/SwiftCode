@@ -149,7 +149,6 @@ final class GameState: ObservableObject {
 
     func finishRecycling() {
         vibrancy = 1
-        sound.success()
         Haptics.success()
         goTo(.pelletReveal)
     }

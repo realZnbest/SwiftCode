@@ -74,7 +74,7 @@ struct StreetToDrainScene: View {
             let size = geo.size
 
             ZStack {
-                background
+                background(size: size)
 
                 RainCanvas(intensity: 1, reduceMotion: reduceMotion)
                 GutterFlowCanvas(reduceMotion: reduceMotion, bottleRowFrac: bottleRowFrac)
@@ -84,7 +84,7 @@ struct StreetToDrainScene: View {
                     TimelineView(.animation(minimumInterval: reduceMotion ? 0.2 : 1.0 / 45)) { context in
                         let raw = context.date.timeIntervalSince(sceneStart)
                         let elapsed = reduceMotion ? min(raw * 2.2, sequenceDuration) : raw
-                        let s = introState(at: elapsed)
+                        let s = introState(at: elapsed, size: size)
 
                         ZStack {
                             ForEach(Array(kicks.enumerated()), id: \.offset) { _, kick in
@@ -108,7 +108,7 @@ struct StreetToDrainScene: View {
                                 .frame(width: 184 * s.dogScale, height: 140 * s.dogScale) // scaled by ~1.4x
                                 .scaleEffect(x: -1, y: 1)
                                 .opacity(s.dogOpacity)
-                                .position(x: s.dogPos.x * size.width, y: s.dogPos.y * size.height - 0.42 * 140 * s.dogScale)
+                                .position(x: s.dogPos.x * size.width, y: s.dogPos.y * size.height - 0.26 * 140 * s.dogScale)
 
                             BottleView(
                                 vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, glow: 0,
@@ -158,15 +158,18 @@ struct StreetToDrainScene: View {
         .onAppear(perform: setup)
     }
 
-    private var background: some View {
-        ZStack {
+    private func background(size: CGSize) -> some View {
+        let groundY = size.height * bottleRowFrac
+        return ZStack {
             LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
             SkylineCanvas()
                 .opacity(0.55)
             NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple, Theme.neonPink], reduceMotion: reduceMotion)
                 .opacity(0.85)
 
+            RoadsideTreesCanvas(roadTopY: groundY)
             groundPlane
+            StreetLampRow(roadTopY: groundY, direction: 1)
 
             // Wet pavement: a soft reflective band across the lower third.
             LinearGradient(colors: [.clear, Color.white.opacity(0.05), Color.white.opacity(0.02)],
@@ -401,10 +404,11 @@ struct StreetToDrainScene: View {
     /// one timeline instead of a pile of manually-toggled animation state.
     /// The dog's feet stay on `bottleRowFrac` throughout; only its X
     /// changes as it runs in from the right and off the left.
-    private func introState(at elapsed: Double) -> SnatchState {
+    private func introState(at elapsed: Double, size: CGSize) -> SnatchState {
         let groundY = Double(bottleRowFrac)
         let dogStartX = 1.15
         let exitX = -0.25
+        let bottleLift = 55.0 / max(1.0, Double(size.height))
 
         var dogX = dogStartX
         var dogScale = 0.6
@@ -440,7 +444,7 @@ struct StreetToDrainScene: View {
             dogOpacity = 1
             let mx = dogX - 0.07 * dogScale
             bottleX = mx + sin(shakeT * 30) * 0.025
-            bottleY = groundY - 0.084 * dogScale + cos(shakeT * 22) * 0.02
+            bottleY = groundY - bottleLift * dogScale + cos(shakeT * 22) * 0.02
             tiltDeg = 90 + 25 * sin(shakeT * 34)
             blur = max(0, min(7, shakeT / 0.15 * 5) + 2 * sin(shakeT * 10))
 
@@ -450,7 +454,7 @@ struct StreetToDrainScene: View {
             dogScale = lerp(1.0, 0.8, frac)
             dogOpacity = 1
             bottleX = dogX - 0.07 * dogScale
-            bottleY = groundY - 0.084 * dogScale
+            bottleY = groundY - bottleLift * dogScale
             tiltDeg = 90 + 6 * sin(elapsed * 20)
             let settleT = min(1, (elapsed - shakeEnd) / 0.3)
             blur = max(0.8, 4 * (1 - settleT))
@@ -461,7 +465,7 @@ struct StreetToDrainScene: View {
             dogScale = 0.8
             dogOpacity = 1 - frac
             bottleX = exitX - 0.07 * dogScale
-            bottleY = groundY - 0.084 * dogScale
+            bottleY = groundY - bottleLift * dogScale
             tiltDeg = 90
             blur = 0.8 * (1 - frac)
 
@@ -665,7 +669,7 @@ private struct StrayDogView: View {
                 Ellipse()
                     .fill(Color.black.opacity(0.4))
                     .frame(width: w * 0.75, height: h * 0.14)
-                    .position(x: w * 0.52, y: h * 0.92)
+                    .position(x: w * 0.52, y: h * 0.76)
                     .blur(radius: 2)
 
                 leg(originX: w * 0.24, phase: legPhase, w: w, h: h)

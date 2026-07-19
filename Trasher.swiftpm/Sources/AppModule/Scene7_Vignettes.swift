@@ -78,8 +78,26 @@ struct VignetteScene<Content: View>: View {
 
 struct FactoryOriginScene: View {
     @EnvironmentObject var game: GameState
-    @State private var heroBottleX: CGFloat = 1.2
-    @State private var nozzleY: CGFloat = -0.3
+
+    // The machine — and so the bottle's birth point — sits toward the left
+    // of the line, leaving the rest of the belt for it to travel along
+    // before it exits, rather than being born dead-center.
+    private let birthXFrac: CGFloat = 0.25
+
+    // The hero bottle doesn't exist until the machine produces it — it
+    // starts invisible, pops into being at the machine's head the instant
+    // it stamps down, then drops to the conveyor line and finally slides
+    // off to the right.
+    @State private var heroBottleX: CGFloat = 0.25
+    @State private var heroBottleY: CGFloat = 0.77
+    @State private var heroBottleVisible = false
+    @State private var heroBottleScale: CGFloat = 0.3
+    // The capping head's own Y position (as a fraction of scene height) —
+    // not a composite-assembly center. Idle sits fully above the visible
+    // frame (negative) so the machine genuinely isn't there yet when the
+    // scene opens, instead of its head already peeking in at the top edge;
+    // producing extends it down to the birth point.
+    @State private var nozzleY: CGFloat = -0.03
     @State private var flashOpacity: Double = 0
     @State private var bgBottleOffset: CGFloat = 0
 
@@ -87,6 +105,11 @@ struct FactoryOriginScene: View {
         VignetteScene(
             line: "Made to be used once.",
             accessibilityText: "A factory line. The bottle is filled and sealed, brand new.",
+            // Timed to the birth-and-travel sequence below (roughly 6.1s
+            // from appearing to sliding off the right edge, including the
+            // 2s opening pause) so the scene cuts away right after the
+            // bottle exits, instead of lingering on an empty belt.
+            hold: 5.3,
             showBottle: false, // We'll render it ourselves in the ZStack
             textPosition: UnitPoint(x: 0.5, y: 0.65),
             content: { size in
@@ -113,19 +136,22 @@ struct FactoryOriginScene: View {
                         }
                     }
 
-                    // Hero Bottle
+                    // Hero Bottle — doesn't exist until the machine produces it.
                     BottleView(
                         vibrancy: 1, dirt: 0, showEyes: false,
                         glow: 0.35, width: 60, height: 148, tilt: .zero
                     )
-                    .position(x: size.width * heroBottleX, y: size.height * 0.82)
+                    .scaleEffect(heroBottleScale)
+                    .opacity(heroBottleVisible ? 1 : 0)
+                    .position(x: size.width * heroBottleX, y: size.height * heroBottleY)
 
-                    // Mechanical Nozzle
-                    VStack(spacing: 0) {
-                        Rectangle().fill(Color.black.opacity(0.8)).frame(width: 24, height: size.height * 0.4)
-                        Capsule().fill(Theme.cleanCyan).frame(width: 50, height: 16)
-                    }
-                    .position(x: size.width * 0.5, y: size.height * nozzleY)
+                    // Capping machine: a gantry-mounted piston that
+                    // stamps down and is the bottle's point of origin. The
+                    // housing stays fixed just above the frame and the
+                    // shaft always spans the gap down to the head, so it
+                    // can never look like a short rod floating free of
+                    // anything above it.
+                    CappingMachineView(size: size, xFrac: birthXFrac, headY: size.height * nozzleY, capping: flashOpacity > 0)
 
                     // Cap Flash
                     if flashOpacity > 0 {
@@ -134,7 +160,7 @@ struct FactoryOriginScene: View {
                             .frame(width: 150, height: 150)
                             .blur(radius: 30)
                             .opacity(flashOpacity)
-                            .position(x: size.width * 0.5, y: size.height * 0.75)
+                            .position(x: size.width * birthXFrac, y: size.height * 0.77)
                     }
 
                     LightRaysCanvas(color: Theme.cleanCyan, count: 3, reduceMotion: game.reduceMotion)
@@ -148,44 +174,142 @@ struct FactoryOriginScene: View {
 
     private func runAnimation() {
         let scale = game.reduceMotion ? 0.6 : 1.0
-        
-        // Start hero bottle on the left
-        heroBottleX = -0.2
-        
+
         Task { @MainActor in
-            // 1. Hero bottle slides in from the left
-            withAnimation(.easeOut(duration: 1.2 * scale)) {
-                heroBottleX = 0.5
+            // 1. Only the background bottles run the line at first — the
+            // hero bottle doesn't exist yet.
+            try? await Task.sleep(for: .seconds(2.0 * scale))
+
+            // 2. The machine stamps down to its birth point — 10% quicker
+            // than its previous pace (response lowered from 0.8 to 0.72).
+            withAnimation(.spring(response: 0.72 * scale, dampingFraction: 0.75)) {
+                nozzleY = 0.77
             }
-            try? await Task.sleep(for: .seconds(1.2 * scale))
-            
-            // 2. Nozzle descends to cap it
-            withAnimation(.spring(response: 0.5 * scale, dampingFraction: 0.7)) {
-                nozzleY = 0.54 // Stops right above the bottle
-            }
-            try? await Task.sleep(for: .seconds(0.4 * scale))
-            
-            // 3. Flash & sound
+            try? await Task.sleep(for: .seconds(0.9 * scale))
+
+            // 3. Flash & sound — the bottle is produced right at the head.
+            // The flash itself stays quick (it's a spark, not a motion), but
+            // the bottle eases into being rather than popping instantly.
             game.sound.success()
             withAnimation(.easeOut(duration: 0.1)) {
                 flashOpacity = 0.8
+            }
+            withAnimation(.spring(response: 0.6 * scale, dampingFraction: 0.65)) {
+                heroBottleVisible = true
+                heroBottleScale = 1.0
             }
             try? await Task.sleep(for: .seconds(0.1))
             withAnimation(.easeIn(duration: 0.4)) {
                 flashOpacity = 0
             }
-            
-            // 4. Nozzle retracts
-            withAnimation(.easeIn(duration: 0.6 * scale)) {
-                nozzleY = -0.3
+
+            // 4. The machine retracts fully out of frame as the new bottle
+            // settles onto the conveyor — also 10% quicker.
+            try? await Task.sleep(for: .seconds(0.3 * scale))
+            withAnimation(.easeIn(duration: 0.81 * scale)) {
+                nozzleY = -0.03
             }
-            
-            // 5. Bottle slides out to the right
-            try? await Task.sleep(for: .seconds(1.4 * scale))
-            withAnimation(.easeIn(duration: 1.0 * scale)) {
+            withAnimation(.interpolatingSpring(stiffness: 70, damping: 14)) {
+                heroBottleY = 0.82
+            }
+
+            // 5. Bottle travels the length of the belt and slides out to
+            // the right — slow and steady once moving, but without a long
+            // dead pause between settling onto the belt and setting off.
+            try? await Task.sleep(for: .seconds(0.4 * scale))
+            withAnimation(.easeInOut(duration: 2.4 * scale)) {
                 heroBottleX = 1.2
             }
         }
+    }
+}
+
+/// A capping fixture that reads as actual machinery instead of an
+/// abstract rectangle-and-capsule stamp: a gantry housing bolted to the
+/// rail above, a hydraulic piston shaft banded with a hazard stripe, and a
+/// glowing capping head that brightens at the moment of contact.
+///
+/// The housing is pinned at a fixed point just above the visible frame —
+/// it never moves — and the shaft is drawn to always span exactly from the
+/// housing down to `headY`. A shaft with an independent fixed length used
+/// to visibly detach from the housing whenever the head traveled further
+/// than that length allowed, reading as a short bar floating in mid-air
+/// instead of a piston reaching down from something mounted above.
+private struct CappingMachineView: View {
+    var size: CGSize
+    var xFrac: CGFloat = 0.5
+    var headY: CGFloat
+    var capping: Bool
+
+    private let housingCenterY: CGFloat = -14
+    private let housingHeight: CGFloat = 22
+    private let headHeight: CGFloat = 17
+
+    var body: some View {
+        let shaftTop = housingCenterY + housingHeight / 2
+        let shaftBottom = headY - headHeight / 2
+        let shaftLen = max(4, shaftBottom - shaftTop)
+        let shaftCenterY = shaftTop + shaftLen / 2
+        let midX = size.width * xFrac
+
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(LinearGradient(colors: [Color(white: 0.38), Color(white: 0.16)], startPoint: .top, endPoint: .bottom))
+                .frame(width: 48, height: housingHeight)
+                .overlay(
+                    HStack(spacing: 30) {
+                        Circle().fill(Color.black.opacity(0.55)).frame(width: 4, height: 4)
+                        Circle().fill(Color.black.opacity(0.55)).frame(width: 4, height: 4)
+                    }
+                )
+                .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.white.opacity(0.15), lineWidth: 1))
+                .position(x: midX, y: housingCenterY)
+
+            ZStack {
+                Rectangle()
+                    .fill(LinearGradient(colors: [Color(white: 0.6), Color(white: 0.28), Color(white: 0.55)],
+                                          startPoint: .leading, endPoint: .trailing))
+                    .frame(width: 18, height: shaftLen)
+
+                HazardStripeBand()
+                    .frame(width: 22, height: 9)
+                    .offset(y: -shaftLen * 0.18)
+            }
+            .position(x: midX, y: shaftCenterY)
+
+            ZStack {
+                Capsule()
+                    .fill(LinearGradient(colors: [Theme.cleanCyan, Theme.cleanCyan.opacity(0.55)],
+                                          startPoint: .top, endPoint: .bottom))
+                    .frame(width: 52, height: headHeight)
+                Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1.3).frame(width: 52, height: headHeight)
+            }
+            .glow(Theme.cleanCyan, radius: capping ? 16 : 5, opacity: capping ? 0.9 : 0.45)
+            .position(x: midX, y: headY)
+        }
+    }
+}
+
+/// A repeating black/amber diagonal hazard stripe, used on the capping
+/// piston to read as an industrial safety marking rather than a bare rod.
+private struct HazardStripeBand: View {
+    var body: some View {
+        Canvas { ctx, size in
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black.opacity(0.85)))
+            let stripeW: CGFloat = 4
+            var x: CGFloat = -size.height
+            while x < size.width {
+                var p = Path()
+                p.move(to: CGPoint(x: x, y: size.height))
+                p.addLine(to: CGPoint(x: x + size.height, y: 0))
+                p.addLine(to: CGPoint(x: x + size.height + stripeW, y: 0))
+                p.addLine(to: CGPoint(x: x + stripeW, y: size.height))
+                p.closeSubpath()
+                ctx.fill(p, with: .color(Theme.neonAmber.opacity(0.85)))
+                x += stripeW * 2
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 1.5))
     }
 }
 
@@ -327,13 +451,15 @@ struct FishingNetRescueScene: View {
 private struct HandNetCanvas: View {
     var body: some View {
         Canvas { ctx, size in
-            // Where the mesh actually has to converge — the bottle's own
-            // position in FishingNetRescueScene (bottlePosition: 0.5, 0.46)
-            // — not an arbitrary point off to the side. The hoop can sit
-            // above and to the right (reaching in from an angle), but the
-            // bottom of the pouch must land on the bottle, or the net reads
-            // as scooping empty water next to it.
-            let catchPoint = CGPoint(x: size.width * 0.5, y: size.height * 0.46)
+            // The pouch's bottom sits below the bottle's own position in
+            // FishingNetRescueScene (bottlePosition: 0.5, 0.46; default
+            // bottleHeight 148 means its bottom edge lands around +0.46 +
+            // 74pt) so the bottle rests inside the bag, cradled by mesh
+            // behind and beneath it — converging the mesh exactly at the
+            // bottle's own center instead pinched to a point right through
+            // its middle, reading as speared rather than caught.
+            let bottleCenter = CGPoint(x: size.width * 0.5, y: size.height * 0.46)
+            let catchPoint = CGPoint(x: bottleCenter.x, y: bottleCenter.y + 60)
             let hoopCenter = CGPoint(x: size.width * 0.62, y: size.height * 0.06)
             let hoopRadius = size.width * 0.22
             let hoopRect = CGRect(x: hoopCenter.x - hoopRadius, y: hoopCenter.y - hoopRadius * 0.38,
@@ -357,7 +483,12 @@ private struct HandNetCanvas: View {
                 let rowFrac = CGFloat(row) / CGFloat(rows)
                 let rimX = hoopRect.minX + hoopRect.width * colFrac
                 let rimY = hoopRect.midY
-                let spread = hoopRadius * 0.5 * (1 - rowFrac)
+                // A rounded, never-fully-pinched bottom (minSpread keeps
+                // some width even at rowFrac 1) so the pouch reads as a bag
+                // wrapping around the bottle, not a spike converging to a
+                // single point through it.
+                let minSpread = hoopRadius * 0.3
+                let spread = minSpread + hoopRadius * 0.4 * (1 - rowFrac)
                 let pouchX = catchPoint.x + (colFrac - 0.5) * spread
                 let x = rimX + (pouchX - rimX) * rowFrac
                 let y = rimY + (catchPoint.y - rimY) * (rowFrac * rowFrac)
@@ -481,11 +612,16 @@ struct TruckDeliveryScene: View {
                     SkylineCanvas().opacity(0.3)
                     NeonStreakField(colors: [Theme.neonCyan, Theme.neonAmber], reduceMotion: game.reduceMotion)
 
+                    RoadsideTreesCanvas(roadTopY: roadTopY)
+
                     Rectangle()
                         .fill(Color(red: 0.06, green: 0.06, blue: 0.08))
                         .frame(height: size.height - roadTopY)
                         .position(x: size.width * 0.5, y: roadTopY + (size.height - roadTopY) / 2)
                     RoadLinesCanvas(roadTopY: roadTopY, reduceMotion: game.reduceMotion)
+                        .frame(height: size.height)
+
+                    StreetLampRow(roadTopY: roadTopY, direction: 1)
                         .frame(height: size.height)
 
                     TimelineView(.animation(minimumInterval: game.reduceMotion ? 1 : 1.0 / 30)) { context in
@@ -640,11 +776,16 @@ struct DeliveryTruckScene: View {
                     SkylineCanvas().opacity(0.3)
                     NeonStreakField(colors: [Theme.neonAmber, Theme.neonPink, Theme.neonCyan], reduceMotion: game.reduceMotion)
 
+                    RoadsideTreesCanvas(roadTopY: roadTopY)
+
                     Rectangle()
                         .fill(Color(red: 0.06, green: 0.06, blue: 0.08))
                         .frame(height: size.height - roadTopY)
                         .position(x: size.width * 0.5, y: roadTopY + (size.height - roadTopY) / 2)
                     RoadLinesCanvas(roadTopY: roadTopY, reduceMotion: game.reduceMotion)
+                        .frame(height: size.height)
+
+                    StreetLampRow(roadTopY: roadTopY, direction: 1)
                         .frame(height: size.height)
 
                     TimelineView(.animation(minimumInterval: game.reduceMotion ? 1 : 1.0 / 30)) { context in
@@ -792,6 +933,13 @@ struct VendingAndDiscardScene: View {
                 // Background: rainy city street at night
                 cityBackground
 
+                // Roadside scenery, sized taller than the vending machine
+                // (300pt) so they read as background landmarks rather than
+                // street clutter, planted on the same ground line the
+                // machine and person stand on.
+                RoadsideTreesCanvas(roadTopY: footY, count: 1, height: 460, positions: [size.width * 0.40])
+                StreetLampRow(roadTopY: footY, count: 1, height: 340, positions: [size.width * 0.16])
+
                 // Vending Machine (height: 300, width: 200)
                 // Positioned on the right side on top of the pavement
                 VendingMachineCanvas(
@@ -877,7 +1025,6 @@ struct VendingAndDiscardScene: View {
                         .padding(.horizontal, 26)
                         .padding(.vertical, 13)
                         .background(.ultraThinMaterial, in: Capsule())
-                        .glow(Theme.neonCyan, radius: 10, opacity: 0.2)
                         .transition(.opacity.combined(with: .scale(scale: 0.92)))
                         .position(x: size.width * 0.5, y: size.height * 0.42)
                 }
@@ -945,13 +1092,7 @@ struct VendingAndDiscardScene: View {
                                 Button(action: {
                                     buySequence(size: size)
                                 }) {
-                                    Text("BUY")
-                                        .font(Theme.title(22))
-                                        .padding(.horizontal, 30)
-                                        .padding(.vertical, 15)
-                                        .background(Theme.neonCyan)
-                                        .foregroundColor(.black)
-                                        .clipShape(Capsule())
+                                    BuyButtonLabel()
                                 }
                                 .padding(.trailing, 60)
                                 .padding(.bottom, 80)
@@ -983,15 +1124,6 @@ struct VendingAndDiscardScene: View {
                 startPoint: .top, endPoint: .bottom
             )
             Rectangle().fill(Color.white.opacity(0.12)).frame(height: 2)
-            HStack(spacing: 70) {
-                ForEach(0..<5, id: \.self) { i in
-                    Capsule()
-                        .fill([Theme.neonCyan, Theme.neonPink, Theme.neonPurple][i % 3].opacity(0.16))
-                        .frame(width: 46, height: 120)
-                        .blur(radius: 10)
-                }
-            }
-            .offset(y: 6)
         }
         .frame(height: groundHeight)
         .frame(maxHeight: .infinity, alignment: .bottom)
@@ -1134,6 +1266,23 @@ struct VendingAndDiscardScene: View {
             try? await Task.sleep(for: .seconds(reduceMotion ? 1.5 : 2.8))
             game.advanceFromVendingAndDiscard()
         }
+    }
+}
+
+/// The vending machine's call-to-action — restyled to match the game's own
+/// glass-and-neon language (translucent material, thin cyan stroke, soft
+/// glow) instead of a plain solid-fill button, with the same slow pulse
+/// `TitleScene` uses for "Tap to begin" so it reads as an invitation rather
+/// than a generic UI control.
+private struct BuyButtonLabel: View {
+    var body: some View {
+        Text("BUY")
+            .font(Theme.title(22))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 15)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.25), lineWidth: 1))
     }
 }
 

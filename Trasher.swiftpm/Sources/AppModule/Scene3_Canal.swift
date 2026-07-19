@@ -56,12 +56,22 @@ struct CanalScene: View {
                     SmokeCanvas(intensity: darkness, color: Theme.murkGreen, reduceMotion: reduceMotion)
 
                     if stage == .floating {
-                        BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 60, height: 148)
-                            .position(
-                                x: size.width * (0.15 + 0.35 * min(1, elapsed / introDuration)),
-                                y: size.height * 0.5 + CGFloat(sin(elapsed * 1.6)) * 18
-                            )
-                            .transition(.opacity)
+                        // Layered, out-of-phase sine waves instead of one
+                        // clean oscillation on a dead-straight path — real
+                        // flotation drifts and tips unevenly as it's pushed
+                        // by the water, rather than gliding upright in a
+                        // perfectly rigid line.
+                        let xDrift = 0.15 + 0.35 * min(1, elapsed / introDuration)
+                            + 0.012 * sin(elapsed * 0.55) + 0.006 * sin(elapsed * 1.3 + 1.1)
+                        let yBob = 18 * sin(elapsed * 1.6) + 7 * sin(elapsed * 0.85 + 0.6)
+                        let tiltDeg = 9 * sin(elapsed * 0.7 + 0.3) + 4 * sin(elapsed * 1.9 + 2.0)
+
+                        BottleView(
+                            vibrancy: game.vibrancy, dirt: game.grime, showEyes: false,
+                            width: 60, height: 148, tilt: .degrees(tiltDeg)
+                        )
+                        .position(x: size.width * xDrift, y: size.height * 0.5 + CGFloat(yBob))
+                        .transition(.opacity)
                     }
 
                     if stage == .macro {

@@ -22,10 +22,15 @@ struct RainCanvas: View {
                 let t = context.date.timeIntervalSinceReferenceDate
                 let count = Int(150 * intensity)
                 for i in 0..<count {
+                    // `speed` is meant as points/second directly — an
+                    // earlier `/ 1000` here (as if `t` were milliseconds,
+                    // which it isn't; timeIntervalSinceReferenceDate is
+                    // seconds) throttled every drop to ~1pt/s, so the rain
+                    // was technically animating but imperceptibly frozen.
                     let speed = 900 + rnd(i, 1) * 500
                     let x = rnd(i, 2) * size.width
                     let span = size.height + 80
-                    let y = (CGFloat(t) * speed / 1000 + rnd(i, 3) * span).truncatingRemainder(dividingBy: span) - 40
+                    let y = (CGFloat(t) * speed + rnd(i, 3) * span).truncatingRemainder(dividingBy: span) - 40
                     let length: CGFloat = 12 + rnd(i, 4) * 10
                     var path = Path()
                     path.move(to: CGPoint(x: x, y: y))
@@ -364,29 +369,16 @@ struct PathChoiceIndicator: View {
     var containerSize: CGSize
     var showLabel: Bool = true
 
-    private var tint: Color { kind.tint }
-
     private var glyphWidth: CGFloat { containerSize.width * 0.24 }
     private var glyphHeight: CGFloat { containerSize.height * 0.26 }
-    private var glowDiameter: CGFloat { glyphWidth * 2.3 }
 
     var body: some View {
         VStack(spacing: 6) {
-            ZStack {
-                Circle()
-                    .fill(RadialGradient(colors: [tint.opacity(bright ? 0.55 : 0.28), .clear],
-                                         center: .center, startRadius: 0, endRadius: glowDiameter / 2))
-                    .frame(width: glowDiameter, height: glowDiameter)
-                glyph
-            }
-            // The glow circle is much bigger than the glyph itself (mostly
-            // transparent past its bright center) — without this, its full
-            // diameter drives the VStack's layout height, stranding the
-            // label far below the visibly-drawn bin instead of right under it.
-            .frame(width: glyphWidth, height: glyphHeight)
-            .glow(tint, radius: bright ? 20 : 6, opacity: bright ? 0.6 : 0.15)
-            .scaleEffect(bright ? 1.06 : 1)
-            .animation(.easeInOut(duration: 0.4), value: bright)
+            glyph
+                .frame(width: glyphWidth, height: glyphHeight)
+                .opacity(bright ? 1 : 0.7)
+                .scaleEffect(bright ? 1.06 : 1)
+                .animation(.easeInOut(duration: 0.4), value: bright)
 
             if showLabel {
                 Text(kind.label)
@@ -709,6 +701,136 @@ struct TreeLineCanvas: View {
 
             ctx.fill(Path(CGRect(x: 0, y: baseY, width: size.width, height: size.height - baseY)),
                      with: .color(lightGreen.opacity(0.28)))
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Dark tree silhouettes lining a roadside — cooler and flatter than
+/// `TreeLineCanvas` (which is built for a sunlit park) so they read as
+/// night foliage rather than daytime greenery, with a faint amber rim
+/// catching nearby streetlamp glow. `height` is the target ground-to-canopy-top
+/// height (with slight per-tree jitter) so trees can be matched to the
+/// street lamps standing alongside them.
+struct RoadsideTreesCanvas: View {
+    let roadTopY: CGFloat
+    var count: Int = 5
+    var height: CGFloat = 150
+    /// Explicit x positions (in points) to use instead of automatic even
+    /// spacing — lets a scene place a single tree (or a custom layout)
+    /// rather than a full evenly-spaced row.
+    var positions: [CGFloat]? = nil
+
+    var body: some View {
+        Canvas { ctx, size in
+            let dark = Color(red: 0.03, green: 0.055, blue: 0.04)
+            let rim = Theme.neonAmber.opacity(0.15)
+            let slot = size.width / CGFloat(count)
+            let xs = positions ?? (0..<count).map { i -> CGFloat in
+                var x = slot * (CGFloat(i) + 0.5) + (rnd(i, 512) - 0.5) * slot * 0.4
+                // Shift the leftmost tree to the right to avoid overlapping the first street lamp
+                if i == 0 { x += 50 }
+                return x
+            }
+
+            for (i, x) in xs.enumerated() {
+
+                // H ≈ trunkH + canopyR·1.6, and trunkH = canopyR·1.1, so
+                // canopyR = H / 2.7 keeps the tree's total height at target.
+                let treeH = height * (0.9 + rnd(i, 517) * 0.2)
+                let canopyR = treeH / 2.7
+                let trunkH = canopyR * 1.1
+                let trunkW = max(2, canopyR * 0.12)
+                let canopyCenterY = roadTopY - trunkH - canopyR * 0.55
+
+                ctx.fill(
+                    Path(roundedRect: CGRect(x: x - trunkW / 2, y: canopyCenterY, width: trunkW, height: roadTopY - canopyCenterY),
+                         cornerRadius: trunkW * 0.4),
+                    with: .color(dark.opacity(0.85))
+                )
+
+                for puff in 0..<3 {
+                    let seed = i * 13 + puff
+                    let px = x + (rnd(seed, 514) - 0.5) * canopyR * 0.8
+                    let py = canopyCenterY - rnd(seed, 515) * canopyR * 0.3
+                    let pr = canopyR * (0.7 + rnd(seed, 516) * 0.35)
+                    ctx.fill(Path(ellipseIn: CGRect(x: px - pr / 2, y: py - pr / 2, width: pr, height: pr)),
+                             with: .color(dark))
+                }
+
+                let hlR = canopyR * 0.22
+                ctx.fill(
+                    Path(ellipseIn: CGRect(x: x + canopyR * 0.28 - hlR / 2, y: canopyCenterY - canopyR * 0.3 - hlR / 2, width: hlR, height: hlR)),
+                    with: .color(rim)
+                )
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Street lamps ("ไฟกิ่ง") evenly spaced along a road, all facing the same
+/// direction so the row reads as one consistent streetscape rather than
+/// alternating arms. Drawn on one `Canvas` with pole/arm/bulb all placed
+/// from the same explicit `roadTopY` anchor — a nested-view + `.offset()`
+/// version of this previously let the pole's reported layout frame drift
+/// from its drawn position, so the pole sank below the road and the bulb
+/// floated off the lamp head. Canvas coordinates sidestep that entirely:
+/// the pole base is always exactly `roadTopY`, and the bulb is always
+/// exactly at the arm's end point.
+struct StreetLampRow: View {
+    let roadTopY: CGFloat
+    var count: Int = 4
+    var height: CGFloat = 150
+    /// Which way every lamp's arm reaches: `1` = right, `-1` = left.
+    var direction: CGFloat = 1
+    /// Explicit x positions (in points) to use instead of automatic even
+    /// spacing — lets a scene place a single lamp (or a custom layout)
+    /// rather than a full evenly-spaced row.
+    var positions: [CGFloat]? = nil
+
+    var body: some View {
+        Canvas { ctx, size in
+            let slot = size.width / CGFloat(count)
+            let xs = positions ?? (0..<count).map { slot * (CGFloat($0) + 0.5) }
+
+            for x in xs {
+                let armDir = direction
+                let topY = roadTopY - height
+
+                // Pole: base planted exactly on the road line, rising to topY.
+                ctx.fill(
+                    Path(roundedRect: CGRect(x: x - 2.5, y: topY, width: 5, height: height), cornerRadius: 2.5),
+                    with: .linearGradient(
+                        Gradient(colors: [Color(white: 0.24), Color(white: 0.06)]),
+                        startPoint: CGPoint(x: x, y: topY), endPoint: CGPoint(x: x, y: roadTopY)
+                    )
+                )
+
+                // Arm reaching from the pole top out to the lamp head.
+                let armStart = CGPoint(x: x, y: topY + 14)
+                let headPoint = CGPoint(x: x + armDir * 32, y: topY + 6)
+                var arm = Path()
+                arm.move(to: armStart)
+                arm.addLine(to: headPoint)
+                ctx.stroke(arm, with: .color(Color(white: 0.14)), style: StrokeStyle(lineWidth: 4, lineCap: .round))
+
+                // Warm glow spilling from the head, and the bulb itself —
+                // both centered on the exact same headPoint as the arm's end.
+                let glowRect = CGRect(x: headPoint.x - 50, y: headPoint.y - 50, width: 100, height: 100)
+                ctx.fill(
+                    Path(ellipseIn: glowRect),
+                    with: .radialGradient(
+                        Gradient(colors: [Theme.neonAmber.opacity(0.5), .clear]),
+                        center: headPoint, startRadius: 2, endRadius: 50
+                    )
+                )
+                let bulbR: CGFloat = 4
+                ctx.fill(
+                    Path(ellipseIn: CGRect(x: headPoint.x - bulbR, y: headPoint.y - bulbR, width: bulbR * 2, height: bulbR * 2)),
+                    with: .color(Theme.neonAmber)
+                )
+            }
         }
         .allowsHitTesting(false)
     }
