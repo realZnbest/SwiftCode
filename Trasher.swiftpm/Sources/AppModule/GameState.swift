@@ -88,6 +88,7 @@ final class GameState: ObservableObject {
     }
 
     func chooseDrain() {
+        sound.splash()
         goTo(.stormDrainTunnel)
     }
 

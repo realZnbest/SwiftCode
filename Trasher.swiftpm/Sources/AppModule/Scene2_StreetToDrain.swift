@@ -348,7 +348,7 @@ struct StreetToDrainScene: View {
         return wobble
     }
 
-    /// The one-shot beat in this sequence: the dog's bite (a thunder crack
+    /// The one-shot beat in this sequence: the dog's bite (a quick chomp
     /// for the surprise grab, plus a grime hit). The kicks themselves stay
     /// silent/cosmetic, same as before. `registerObstacleHit()` already
     /// plays the impact sound/haptic and bumps grime — reused here rather
@@ -358,7 +358,7 @@ struct StreetToDrainScene: View {
         if elapsed >= biteAt && !triggeredEvents.contains("bite") {
             triggeredEvents.insert("bite")
             game.registerObstacleHit()
-            game.sound.thunder()
+            game.sound.chomp()
             withAnimation(.easeOut(duration: 0.06)) { flashOpacity = 0.55 }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                 withAnimation(.easeIn(duration: 0.5)) { flashOpacity = 0 }
@@ -545,6 +545,32 @@ private struct KickerFigure: View {
                         }
                     )
                     .offset(y: -83)
+
+                    // Arms swing opposite the same-side leg — the ordinary
+                    // contralateral walking gait — and flare out for
+                    // balance through the kick instead of just vanishing.
+                    // Drawn *after* the torso (on top of it in z-order)
+                    // and anchored outside the torso's own half-width
+                    // (24.5pt) so they're actually visible hanging beside
+                    // the body instead of tucked behind it.
+                    //
+                    // This ZStack is bottom-aligned, so every child's
+                    // un-rotated, un-offset position starts flush with its
+                    // OWN bottom edge at the ZStack's bottom. The torso
+                    // VStack (116pt tall: 41 head + 7 spacing + 68 torso)
+                    // is shifted up 83pt to sit on the legs, which puts
+                    // its torso segment spanning 83...151pt above the
+                    // ground and the shoulder (torso top) at 151pt. An arm
+                    // is 52pt tall, so to land its own top at that 151pt
+                    // shoulder line, it needs to move up (151 - 52) = 99pt.
+                    Capsule().fill(skin).frame(width: 12, height: 52)
+                        .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.2))
+                        .rotationEffect(.degrees(backArmAngle), anchor: .top)
+                        .offset(x: -28, y: -99)
+                    Capsule().fill(skin).frame(width: 12, height: 52)
+                        .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.2))
+                        .rotationEffect(.degrees(frontArmAngle), anchor: .top)
+                        .offset(x: 28, y: -99)
                 }
             }
             // Mirrors the whole figure — including which leg (front/back)
@@ -572,6 +598,16 @@ private struct KickerFigure: View {
     private var frontLegAngle: Double {
         if let k = kickPhase { return -55 + k * 100 }
         return -sin(localTime * 9) * 24
+    }
+
+    private var backArmAngle: Double {
+        if kickPhase != nil { return 25 }
+        return -sin(localTime * 9) * 18
+    }
+
+    private var frontArmAngle: Double {
+        if kickPhase != nil { return -35 }
+        return sin(localTime * 9) * 18
     }
 }
 

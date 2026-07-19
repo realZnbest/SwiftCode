@@ -874,12 +874,17 @@ struct PersonFigure: View {
             VStack(spacing: 2) {
                 Circle().fill(skinTone).frame(width: 16, height: 16)
                 ZStack {
+                    // Back arm: hangs at rest normally, swings back
+                    // slightly as a counterbalance while bending.
+                    Capsule().fill(skinTone).frame(width: 5, height: 20)
+                        .rotationEffect(.degrees(bending ? 25 : 0), anchor: .top)
+                        .offset(x: -13, y: 2)
                     RoundedRectangle(cornerRadius: 6).fill(shirt.opacity(0.85)).frame(width: 22, height: 28)
-                    if bending {
-                        Capsule().fill(skinTone).frame(width: 5, height: 20)
-                            .rotationEffect(.degrees(-65), anchor: .top)
-                            .offset(x: 12, y: 2)
-                    }
+                    // Front arm: hangs at rest, reaches down to pick
+                    // something up while bending.
+                    Capsule().fill(skinTone).frame(width: 5, height: 20)
+                        .rotationEffect(.degrees(bending ? -65 : 0), anchor: .top)
+                        .offset(x: 12, y: 2)
                 }
             }
             .rotationEffect(.degrees(bending ? 55 : 0), anchor: .bottom)
