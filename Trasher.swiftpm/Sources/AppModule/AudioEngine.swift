@@ -13,8 +13,10 @@ final class SoundEngine {
     private let sampleRate: Double = 24_000
 
     private var loopPlayers: [Layer: AVAudioPlayerNode] = [:]
+    private var loopBuffers: [Layer: AVAudioPCMBuffer] = [:]
     private var currentVolume: [Layer: Float] = [:]
     private var rampGeneration = 0
+    private var suspended = false
 
     private let impactPlayers = [AVAudioPlayerNode(), AVAudioPlayerNode(), AVAudioPlayerNode()]
     private var nextImpactIndex = 0
@@ -113,6 +115,7 @@ final class SoundEngine {
         let buffers: [Layer: AVAudioPCMBuffer] = [
             .city: city, .rain: rain, .deepWater: deepWater, .machinery: machinery, .birds: birds
         ]
+        loopBuffers = buffers
 
         for layer in Layer.allCases {
             let node = AVAudioPlayerNode()
@@ -299,6 +302,39 @@ final class SoundEngine {
     }
 
     func muffle() {
+    }
+
+    func suspend() {
+        guard !suspended else { return }
+        suspended = true
+        rampGeneration += 1
+
+        for node in loopPlayers.values {
+            node.stop()
+            node.volume = 0
+        }
+        for node in impactPlayers { node.stop() }
+        for node in [successPlayer, chompPlayer, splashPlayer] { node.stop() }
+        for layer in Layer.allCases { currentVolume[layer] = 0 }
+
+        engine.stop()
+        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+    }
+
+    func resume() {
+        guard suspended else { return }
+        suspended = false
+
+        configureSession()
+        engine.prepare()
+        try? engine.start()
+
+        for (layer, node) in loopPlayers {
+            guard let buffer = loopBuffers[layer] else { continue }
+            node.scheduleBuffer(buffer, at: nil, options: .loops)
+            node.volume = 0
+            node.play()
+        }
     }
 }
 

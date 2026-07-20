@@ -34,6 +34,7 @@ struct StreetToDrainScene: View {
     @State private var flashOpacity: Double = 0
     @State private var choiceMade = false
     @State private var introCaptionOpacity: Double = 0
+    @State private var dogCaptionOpacity: Double = 0
 
     @State private var forkBottlePos = CGPoint(x: 0.5, y: 0.22)
     @State private var forkDragBase = CGPoint(x: 0.5, y: 0.22)
@@ -103,12 +104,20 @@ struct StreetToDrainScene: View {
                     .allowsHitTesting(false)
 
                 if stage == .intro {
-                    Text("มันไร้ค่า เกะกะขวางทางทุกคน แม้กระทั่งหมา")
+                    Text("มันไร้ค่า เกะกะขวางทางทุกคน")
                         .font(Theme.line(26))
                         .foregroundStyle(.white.opacity(0.95))
                         .padding(.horizontal, 28)
                         .padding(.vertical, 14)
                         .opacity(introCaptionOpacity)
+                        .position(x: size.width / 2, y: size.height * 0.35)
+
+                    Text("แม้กระทั่งหมา")
+                        .font(Theme.line(26))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 14)
+                        .opacity(dogCaptionOpacity)
                         .position(x: size.width / 2, y: size.height * 0.35)
                 }
             }
@@ -235,6 +244,8 @@ struct StreetToDrainScene: View {
         forkWrongFeedback = false
         triggeredEvents = []
         flashOpacity = 0
+        introCaptionOpacity = 0
+        dogCaptionOpacity = 0
         if game.mustRouteToDrain {
             stage = .fork
         } else {
@@ -301,6 +312,15 @@ struct StreetToDrainScene: View {
                 triggeredEvents.insert(kickId)
                 game.sound.impactThud()
                 Haptics.collision()
+            }
+        }
+
+        if elapsed >= pounceStart && !triggeredEvents.contains("dogCaption") {
+            triggeredEvents.insert("dogCaption")
+            withAnimation(.easeIn(duration: 0.5)) { dogCaptionOpacity = 1 }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2.6))
+                withAnimation(.easeOut(duration: 0.8)) { dogCaptionOpacity = 0 }
             }
         }
 
