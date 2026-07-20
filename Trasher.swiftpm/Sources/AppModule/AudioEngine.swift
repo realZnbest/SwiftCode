@@ -1,25 +1,6 @@
 import AVFoundation
 import UIKit
 
-/// Every sound in Trasher is synthesized at launch — no bundled audio
-/// files — so the whole game stays tiny and fully offline.
-///
-/// Sound design rules, learned the hard way:
-/// - No music. No melodies, chords, or arpeggios anywhere — only
-///   atmosphere and effects.
-/// - Noise-based textures read as an annoying "hiss" unless they are
-///   depicting actual rain on screen. So rain noise exists ONLY in the
-///   street scene where rain visibly falls; every other ambience is
-///   tonal (low drones/hums) or naturalistic (sparse birdsong).
-/// - Nothing may pulse or flutter quickly — fast rhythmic modulation
-///   reads as footsteps/running in the background.
-///
-/// Each scene crossfades to an ambience chosen for its emotion:
-/// lonely night city (hum) -> storm (rain) -> submerged dread (deep
-/// drone) -> industry with purpose (soft machinery) -> hope and daylight
-/// (sparse birds). One-shots (impact, chomp, splash, success) punctuate
-/// the story beats, all run through a shared reverb so everything sits
-/// in the same space instead of sounding like dry test tones.
 @MainActor
 final class SoundEngine {
 
@@ -80,11 +61,7 @@ final class SoundEngine {
     }
 
     private func buildBuffersAndGraph() {
-        // --- Ambient loop layers -------------------------------------------------
 
-        // Night city: a warm low electrical hum, barely moving. The 55Hz
-        // fundamental with a soft octave gives "distant city at night"
-        // without any treble content that could read as hiss.
         let city = makeBuffer(duration: 6.0, fadeEdges: true) { t in
             let hum = 0.55 * sin(2 * .pi * 55 * t)
                 + 0.28 * sin(2 * .pi * 110.5 * t)
@@ -93,9 +70,6 @@ final class SoundEngine {
             return Float(hum * breathe) * 0.18
         }
 
-        // Real rain, used only where rain is visibly falling: darkly
-        // filtered noise (cutoff ~235Hz) so it reads as a soft downpour
-        // bed rather than static.
         var rainLP: Float = 0
         let rain = makeBuffer(duration: 3.0, fadeEdges: true) { _ in
             let n = Float.random(in: -1...1)
@@ -103,11 +77,6 @@ final class SoundEngine {
             return rainLP * 0.6
         }
 
-        // Submerged dread for the drain tunnel / canal / sea: a deep
-        // drone that slowly wobbles in pitch, like pressure against a
-        // hull. Purely tonal — zero noise content — so it can never read
-        // as rain hiss, and slow enough (≤0.13Hz movement) that it can
-        // never read as rhythm.
         let deepWater = makeBuffer(duration: 10.0, fadeEdges: true) { t in
             let wobble = 2.5 * sin(2 * .pi * 0.13 * t)
             let fundamental = sin(2 * .pi * (58 + wobble) * t)
@@ -116,10 +85,6 @@ final class SoundEngine {
             return Float((fundamental + partial) * swell) * 0.24
         }
 
-        // Working machinery: a steady industrial hum plus a soft, slow
-        // thump — deliberately gentle and widely spaced (every 1.6s) so
-        // it reads as heavy equipment breathing in the distance, not a
-        // clanking rhythm track.
         let machinery = makeBuffer(duration: 3.2, fadeEdges: true) { t in
             let hum = 0.14 * sin(2 * .pi * 80 * t) + 0.05 * sin(2 * .pi * 160 * t)
             let phase = t.truncatingRemainder(dividingBy: 1.6)
@@ -127,17 +92,11 @@ final class SoundEngine {
             return Float(hum + thump)
         }
 
-        // Daylight and hope: sparse synthesized birdsong over silence.
-        // Each chirp is a tiny frequency-swept blip; three of them spread
-        // irregularly across a 10-second loop so it stays airy and never
-        // becomes a pattern. This is the "morning after" palette for the
-        // rescue/park/ending stretch.
         func chirp(_ t: Double, start: Double, dur: Double, f0: Double, f1: Double, amp: Double) -> Double {
             let x = (t - start) / dur
             guard x >= 0 && x < 1 else { return 0 }
             let f = f0 + (f1 - f0) * x
             let env = sin(.pi * x)
-            // Warble within the chirp so it sounds like a bird, not a beep.
             let warble = 1 + 0.05 * sin(2 * .pi * 28 * (t - start))
             return sin(2 * .pi * f * warble * (t - start)) * env * amp
         }
@@ -164,10 +123,6 @@ final class SoundEngine {
             currentVolume[layer] = 0
         }
 
-        // --- One-shot SFX ---------------------------------------------------------
-
-        // A dull physical thud for any impact on the bottle (kicks,
-        // collisions, drops): dark filtered noise with a fast decay.
         var impactLP: Float = 0
         impactSample = makeBuffer(duration: 0.18) { t in
             let n = Float.random(in: -1...1)
@@ -177,9 +132,6 @@ final class SoundEngine {
             return impactLP * env * 0.7 + body
         }
 
-        // The dog's bite: a fast falling "chomp" — a pitch drop with a
-        // brief crunch of noise at the front — much more in character
-        // than the thunder crack it replaces.
         var chompLP: Float = 0
         chompSample = makeBuffer(duration: 0.16) { t in
             let n = Float.random(in: -1...1)
@@ -190,13 +142,9 @@ final class SoundEngine {
             return body + crunch
         }
 
-        // The bottle dropping into water (the storm drain): a bright
-        // splash that darkens as it decays, over a low "bloop."
         var splashLP: Float = 0
         splashSample = makeBuffer(duration: 0.55) { t in
             let n = Float.random(in: -1...1)
-            // The filter closes over time: bright at the initial hit,
-            // muffled as the water swallows it.
             let c = Float(min(0.94, 0.6 + t * 1.0))
             splashLP = splashLP * c + n * (1 - c)
             let env = Float(exp(-t * 7))
@@ -205,9 +153,6 @@ final class SoundEngine {
             return splashLP * env * 1.1 + bloop
         }
 
-        // Success: two soft "pops" — the second brighter than the first,
-        // with a small upward blip — a positive, non-melodic sting for
-        // the recycling payoff.
         var popLP: Float = 0
         func pop(_ t: Double, start: Double, coeff: Float, amp: Float) -> Float {
             let x = t - start
@@ -236,9 +181,6 @@ final class SoundEngine {
             engine.connect(node, to: engine.mainMixerNode, format: monoFormat())
         }
 
-        // Shared reverb send: the whole mix passes through a modest plate
-        // reverb so ambience and one-shots share the same space. Kept
-        // fairly dry — a washier mix smears the noise layers into hiss.
         engine.attach(reverb)
         reverb.loadFactoryPreset(.plate)
         reverb.wetDryMix = 18
@@ -254,17 +196,6 @@ final class SoundEngine {
         }
     }
 
-    // MARK: - Public API
-
-    /// Each phase's ambience mix, chosen for its emotion:
-    /// - Night city hum for the lonely urban beats.
-    /// - Rain ONLY in the street scene, where rain visibly falls.
-    /// - A deep submerged drone for the drain/canal/sea stretch — dread
-    ///   and pressure, not splashy noise.
-    /// - Soft machinery for the factory/recycling scenes — industry with
-    ///   a purpose, muffled down for the landfill's bleak dead end.
-    /// - Sparse birdsong once the story turns toward daylight and hope
-    ///   (the rescue, the park, the ending).
     func transition(to phase: GameState.Phase) {
         let target: [Layer: Float]
         var masterVolume: Float = 1.0
@@ -349,14 +280,12 @@ final class SoundEngine {
         node.play()
     }
 
-    /// The dog snatching the bottle — a quick chomp.
     func chomp() {
         chompPlayer.stop()
         chompPlayer.scheduleBuffer(chompSample, at: nil)
         chompPlayer.play()
     }
 
-    /// The bottle dropping into water (storm drain entry).
     func splash() {
         splashPlayer.stop()
         splashPlayer.scheduleBuffer(splashSample, at: nil)
@@ -370,11 +299,9 @@ final class SoundEngine {
     }
 
     func muffle() {
-        // Reserved for future use; failure-route hush is handled by transition(to:).
     }
 }
 
-/// Haptics used only for obstacle collisions and recycling success, per spec.
 enum Haptics {
     static func collision() {
         let generator = UIImpactFeedbackGenerator(style: .medium)

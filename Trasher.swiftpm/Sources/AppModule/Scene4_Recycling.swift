@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// 35-45s. A glowing recycling facility: drag the bottle into the right
-/// bin, then watch it get rinsed, shredded into flakes, and re-formed into
-/// a recycled-plastic park bench while the world brightens.
 struct RecyclingScene: View {
     @EnvironmentObject var game: GameState
 
@@ -17,8 +14,6 @@ struct RecyclingScene: View {
     @State private var wrongDropFeedback = false
     @State private var showBenchCaption = false
 
-    private var reduceMotion: Bool { game.reduceMotion }
-
     private let landfillRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let recyclingRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
 
@@ -32,15 +27,10 @@ struct RecyclingScene: View {
                 machineryGlow(size: size)
 
                 if stage == .choosing || stage == .arriving {
-                    // Live hover feedback as the bottle is dragged, the same
-                    // way the street and canal forks react — without this,
-                    // dragging the bottle around did nothing until the drop
-                    // actually landed, which read as the bins having no
-                    // animation at all.
                     let hoveringLandfill = stage == .choosing && landfillRect.contains(bottlePos)
                     let hoveringRecycling = stage == .choosing && recyclingRect.contains(bottlePos)
-                    binView(rect: landfillRect, size: size, kind: .landfill, bright: hoveringLandfill, warning: wrongDropFeedback, reduceMotion: reduceMotion)
-                    binView(rect: recyclingRect, size: size, kind: .recycling, bright: hoveringRecycling || misses > 0, warning: false, reduceMotion: reduceMotion)
+                    binView(rect: landfillRect, size: size, kind: .landfill, bright: hoveringLandfill, warning: wrongDropFeedback)
+                    binView(rect: recyclingRect, size: size, kind: .recycling, bright: hoveringRecycling || misses > 0, warning: false)
                 }
 
                 stageContent(size: size)
@@ -57,10 +47,6 @@ struct RecyclingScene: View {
                 }
 
                 if showBenchCaption && stage == .done {
-                    // Names the payoff at the exact moment it appears — the
-                    // shredded flakes were just reforming a second ago, so
-                    // without this it's easy to miss that the bench sitting
-                    // there now *is* the bottle, not a separate prop.
                     Text("ดูนี่สิ! ตอนนี้มันกลายเป็นม้านั่งที่ทำจากพลาสติกรีไซเคิลแล้ว")
                         .font(Theme.line(20))
                         .foregroundStyle(.white.opacity(0.95))
@@ -89,14 +75,8 @@ struct RecyclingScene: View {
                 : nil
             )
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(stage == .choosing
-            ? "Recycling facility. Drag the bottle into the glowing recycling bin, not the trash bin."
-            : "Recycling facility. The bottle is being cleaned, shredded, and remade into a bench made of recycled plastic.")
         .onAppear(perform: setup)
     }
-
-    // MARK: Background
 
     private func background(brighten: Double) -> some View {
         ZStack {
@@ -107,24 +87,20 @@ struct RecyclingScene: View {
                 ],
                 startPoint: .top, endPoint: .bottom
             )
-            FactorySilhouetteCanvas(reduceMotion: reduceMotion)
+            FactorySilhouetteCanvas()
                 .opacity(0.7)
             balesRow
                 .opacity(0.55)
-            LightRaysCanvas(color: Theme.cleanCyan, count: 3, reduceMotion: reduceMotion)
+            LightRaysCanvas(color: Theme.cleanCyan, count: 3)
                 .opacity(0.5 + brighten * 0.2)
-            NeonStreakField(colors: [Theme.cleanCyan, Theme.freshGreen], reduceMotion: reduceMotion)
+            NeonStreakField(colors: [Theme.cleanCyan, Theme.freshGreen])
                 .opacity(0.5 + brighten * 0.3)
-            ConveyorBeltCanvas(reduceMotion: reduceMotion)
-            SparkleCanvas(count: Int(20 + brighten * 40), color: Theme.cleanWhite, reduceMotion: reduceMotion)
+            ConveyorBeltCanvas()
+            SparkleCanvas(count: Int(20 + brighten * 40), color: Theme.cleanWhite)
                 .opacity(0.3 + brighten * 0.5)
         }
     }
 
-    /// Stacked bales of already-compacted material along the back wall —
-    /// the one purely "recycling facility" signifier that the shared
-    /// factory silhouette can't provide, so this scene reads as a distinct
-    /// place and not just a re-tinted copy of the origin factory.
     private var balesRow: some View {
         GeometryReader { geo in
             let size = geo.size
@@ -135,8 +111,6 @@ struct RecyclingScene: View {
                         .fill(tint.opacity(0.16))
                         .overlay(RoundedRectangle(cornerRadius: 2).stroke(tint.opacity(0.3), lineWidth: 1))
                         .overlay(
-                            // Baling-wire crosses, the detail that reads as
-                            // "compacted block" instead of a plain crate.
                             Path { p in
                                 p.move(to: CGPoint(x: 0, y: 0)); p.addLine(to: CGPoint(x: size.width * 0.05, y: size.height * 0.08))
                                 p.move(to: CGPoint(x: size.width * 0.05, y: 0)); p.addLine(to: CGPoint(x: 0, y: size.height * 0.08))
@@ -154,8 +128,8 @@ struct RecyclingScene: View {
     }
 
     private func machineryGlow(size: CGSize) -> some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 0.4 : 1.0 / 20)) { context in
-            let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
             Canvas { ctx, canvasSize in
                 for i in 0..<4 {
                     let y = canvasSize.height * (0.15 + CGFloat(i) * 0.22)
@@ -170,33 +144,22 @@ struct RecyclingScene: View {
         .allowsHitTesting(false)
     }
 
-    // MARK: Bins
-
     private enum BinKind { case landfill, recycling }
 
-    /// Each choice is a real illustrated object, not a bare icon in a
-    /// translucent panel — a grimy overflowing dumpster you can tell is a
-    /// dead end at a glance, next to a glowing bin that's obviously part of
-    /// the machinery around it. The murky haze/upward sparks behind each one
-    /// foreshadow what happens next, so the choice reads on sight.
-    private func binView(rect: CGRect, size: CGSize, kind: BinKind, bright: Bool, warning: Bool, reduceMotion: Bool) -> some View {
+    private func binView(rect: CGRect, size: CGSize, kind: BinKind, bright: Bool, warning: Bool) -> some View {
         let frame = CGRect(x: rect.minX * size.width, y: rect.minY * size.height,
                             width: rect.width * size.width, height: rect.height * size.height)
         let glowColor = warning ? Theme.neonAmber : (kind == .landfill ? Theme.smokeOrange : Theme.freshGreen)
-        // "Recycling", not "Recycling bin" — dropping the bottle here starts
-        // the whole cleaning/shredding/reforming process, not a passive
-        // receptacle like the trash side. Matches PathChoiceIndicator's own
-        // label for the same choice at the street and canal forks.
         let label = kind == .landfill ? "ถังขยะ" : "รีไซเคิล"
 
         return VStack(spacing: 6) {
             ZStack {
                 if kind == .landfill {
-                    SmokeCanvas(intensity: 0.5, color: Theme.murkGreen, reduceMotion: reduceMotion)
+                    SmokeCanvas(intensity: 0.5, color: Theme.murkGreen)
                         .frame(width: frame.width * 1.6, height: frame.height * 1.6)
                         .opacity(0.5)
                 } else {
-                    RisingSparksCanvas(color: Theme.freshGreen, reduceMotion: reduceMotion)
+                    RisingSparksCanvas(color: Theme.freshGreen)
                         .frame(width: frame.width * 1.4, height: frame.height * 1.8)
                         .opacity(0.6)
                 }
@@ -229,19 +192,13 @@ struct RecyclingScene: View {
         .position(x: frame.midX, y: frame.midY)
     }
 
-    // MARK: - Bin illustrations
-
-    /// Small motes drifting upward and fading — placed behind the recycling
-    /// bin so it visibly leads onward/upward, the opposite of the landfill
-    /// bin's low, sinking smoke.
     private struct RisingSparksCanvas: View {
         var color: Color
-        var reduceMotion: Bool = false
 
         var body: some View {
-            TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 24)) { context in
+            TimelineView(.animation(minimumInterval: 1.0 / 24)) { context in
                 Canvas { ctx, size in
-                    let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                    let t = context.date.timeIntervalSinceReferenceDate
                     for i in 0..<10 {
                         let cycle = 2.4 + rnd(i, 70) * 1.2
                         let phase = (t / cycle + rnd(i, 71)).truncatingRemainder(dividingBy: 1.0)
@@ -258,8 +215,6 @@ struct RecyclingScene: View {
         }
     }
 
-    // MARK: Stage content
-
     @ViewBuilder
     private func stageContent(size: CGSize) -> some View {
         switch stage {
@@ -269,10 +224,10 @@ struct RecyclingScene: View {
 
         case .cleaning:
             let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
-            TimelineView(.animation(minimumInterval: reduceMotion ? 0.3 : 1.0 / 30)) { context in
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                 let elapsed = context.date.timeIntervalSince(stageStart)
                 ZStack {
-                    RinseRipples(elapsed: elapsed, center: center, reduceMotion: reduceMotion)
+                    RinseRipples(elapsed: elapsed, center: center)
                     BottleView(
                         vibrancy: min(1, game.vibrancy + elapsed * 0.22),
                         dirt: max(0, game.grime - elapsed * 0.3),
@@ -285,18 +240,15 @@ struct RecyclingScene: View {
 
         case .shredding:
             let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
-            TimelineView(.animation(minimumInterval: reduceMotion ? 0.3 : 1.0 / 30)) { context in
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                 let elapsed = context.date.timeIntervalSince(stageStart)
-                // shredProgress: 0 = still a whole bottle, 1 = fully scattered flakes.
                 let shredProgress = min(1, elapsed / 1.6)
                 ZStack {
                     BottleView(vibrancy: 1, dirt: 0, showEyes: false, width: 64, height: 156)
                         .position(center)
                         .opacity(1 - shredProgress)
-                    // FlakeField's `mix` of 1 means "at target" (clustered at center),
-                    // so we count it down as shredProgress rises to fly the flakes outward.
                     FlakeField(
-                        count: 80, scatterCenter: center, scatterRadius: reduceMotion ? 40 : 130,
+                        count: 80, scatterCenter: center, scatterRadius: 130,
                         target: Array(repeating: center, count: 80),
                         mix: 1 - shredProgress, color: Theme.bottleBlue, opacity: shredProgress
                     )
@@ -306,14 +258,14 @@ struct RecyclingScene: View {
 
         case .reforming:
             let origin = CGPoint(x: size.width * 0.5 - size.width * 0.16, y: size.height * 0.42)
-            TimelineView(.animation(minimumInterval: reduceMotion ? 0.3 : 1.0 / 30)) { context in
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                 let elapsed = context.date.timeIntervalSince(stageStart)
                 let mix = min(1, elapsed / 3.0)
                 let targets = benchTargetPoints(count: 80, width: size.width * 0.32, height: size.height * 0.32, origin: origin)
                 ZStack {
                     FlakeField(
                         count: 80, scatterCenter: CGPoint(x: size.width * 0.5, y: size.height * 0.5),
-                        scatterRadius: reduceMotion ? 40 : 130,
+                        scatterRadius: 130,
                         target: targets, mix: mix, color: Theme.freshGreen.opacity(0.9), opacity: 1 - max(0, mix - 0.85) / 0.15
                     )
                     BenchView(width: size.width * 0.45, height: size.height * 0.18)
@@ -332,8 +284,6 @@ struct RecyclingScene: View {
                 .glow(Theme.freshGreen, radius: 20, opacity: 0.4)
         }
     }
-
-    // MARK: Flow control
 
     private func setup() {
         stage = .arriving
@@ -383,7 +333,6 @@ struct RecyclingScene: View {
         if next == .done {
             withAnimation(.easeIn(duration: 0.3)) { showBenchCaption = true }
             Task { @MainActor in
-                // Long enough to actually read the caption, not just glimpse it.
                 try? await Task.sleep(for: .seconds(5.5))
                 game.finishRecycling()
             }
@@ -391,16 +340,12 @@ struct RecyclingScene: View {
     }
 }
 
-// MARK: - Reusable pieces
-
 struct RinseRipples: View {
     var elapsed: Double
     var center: CGPoint
-    var reduceMotion: Bool
 
     var body: some View {
         Canvas { ctx, size in
-            guard !reduceMotion else { return }
             for i in 0..<3 {
                 let delay = Double(i) * 0.5
                 let t = elapsed - delay
@@ -451,41 +396,21 @@ private struct RectSpec {
     let x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat
 }
 
-/// A wide, front-on park-bench silhouette matching the classic recycled-
-/// plastic lumber bench: two dark trapezoidal end supports (wider at
-/// bottom, narrower at top) with brown seat plank overhanging both sides
-/// and two brown backrest slats separated by a gap.
-///
-/// `benchRectSpecs` approximates the filled area for particle-target
-/// distribution during the recycling animation; the actual drawing uses
-/// trapezoids via Canvas for the supports.
 private let benchRectSpecs: [RectSpec] = [
-    // ── Left support (rectangle approximation of trapezoid) ──
     RectSpec(x: 0.15, y: 0.0, w: 0.09, h: 1.0),
-    // ── Right support ──
     RectSpec(x: 0.76, y: 0.0, w: 0.09, h: 1.0),
-    // ── Seat slab (thick, full-width, overhangs supports) ──
     RectSpec(x: 0.0,  y: 0.52, w: 1.0,  h: 0.16),
-    // ── Top backrest slat ──
     RectSpec(x: 0.08, y: 0.06, w: 0.84, h: 0.14),
-    // ── Bottom backrest slat ──
     RectSpec(x: 0.08, y: 0.26, w: 0.84, h: 0.14),
 ]
 
-/// A park-bench silhouette used both at the end of the recycling scene and
-/// again in the closing park scene. Drawn with Canvas so the end supports
-/// can be proper trapezoids — the shape that immediately reads "bench" at
-/// any scale. Two-tone: dark supports + warm brown planks with recycled-
-/// plastic speckle effect.
 struct BenchView: View {
     var width: CGFloat
     var height: CGFloat
 
-    // Support colors (dark charcoal, like molded recycled HDPE)
     private let supportDark  = Color(red: 0.12, green: 0.12, blue: 0.14)
     private let supportLight = Color(red: 0.22, green: 0.22, blue: 0.24)
 
-    // Plank colors (warm brown, like recycled plastic lumber)
     private let plankLight = Color(red: 0.46, green: 0.33, blue: 0.26)
     private let plankDark  = Color(red: 0.30, green: 0.19, blue: 0.14)
 
@@ -501,22 +426,17 @@ struct BenchView: View {
             let supportGrad = Gradient(colors: [supportLight, supportDark])
             let plankGrad   = Gradient(colors: [plankLight, plankDark])
 
-            // ── 1. Trapezoidal end supports (drawn first, behind planks) ──
-            // Left support: wider at bottom, narrower at top
             drawTrapezoid(ctx: ctx, w: w, h: h,
                           bL: 0.15, bR: 0.24, tL: 0.17, tR: 0.22,
                           gradient: supportGrad)
-            // Right support (mirror)
             drawTrapezoid(ctx: ctx, w: w, h: h,
                           bL: 0.76, bR: 0.85, tL: 0.78, tR: 0.83,
                           gradient: supportGrad)
 
-            // ── 2. Seat plank (thick, overhangs supports on both sides) ──
             let seatRect = CGRect(x: 0.0 * w, y: 0.50 * h,
                                   width: 1.0 * w, height: 0.16 * h)
             drawPlank(ctx: ctx, rect: seatRect, gradient: plankGrad, cr: 3, seed: 500)
 
-            // ── 3. Backrest slats (two planks with a gap) ──
             let topSlat = CGRect(x: 0.08 * w, y: 0.04 * h,
                                  width: 0.84 * w, height: 0.14 * h)
             drawPlank(ctx: ctx, rect: topSlat, gradient: plankGrad, cr: 2.5, seed: 600)
@@ -529,40 +449,32 @@ struct BenchView: View {
         .frame(width: width, height: height)
     }
 
-    /// Draws a trapezoid (wider at bottom, narrower at top) filled with a
-    /// vertical linear gradient plus a subtle edge highlight.
     private func drawTrapezoid(ctx: GraphicsContext, w: CGFloat, h: CGFloat,
                                bL: CGFloat, bR: CGFloat,
                                tL: CGFloat, tR: CGFloat,
                                gradient: Gradient) {
         var path = Path()
-        path.move(to:    CGPoint(x: bL * w, y: h))        // bottom-left
-        path.addLine(to: CGPoint(x: tL * w, y: 0))        // top-left
-        path.addLine(to: CGPoint(x: tR * w, y: 0))        // top-right
-        path.addLine(to: CGPoint(x: bR * w, y: h))        // bottom-right
+        path.move(to:    CGPoint(x: bL * w, y: h))
+        path.addLine(to: CGPoint(x: tL * w, y: 0))
+        path.addLine(to: CGPoint(x: tR * w, y: 0))
+        path.addLine(to: CGPoint(x: bR * w, y: h))
         path.closeSubpath()
 
         ctx.fill(path, with: .linearGradient(gradient,
             startPoint: CGPoint(x: 0, y: 0),
             endPoint:   CGPoint(x: 0, y: h)))
-        // Subtle edge highlight for depth
         ctx.stroke(path, with: .color(.white.opacity(0.10)), lineWidth: 0.8)
     }
 
-    /// Draws a rounded-rect plank with gradient fill, highlight stroke, and
-    /// recycled-plastic speckle dots.
     private func drawPlank(ctx: GraphicsContext, rect: CGRect,
                            gradient: Gradient, cr: CGFloat, seed: Int) {
         let rr = Path(roundedRect: rect, cornerRadius: cr)
 
-        // Fill
         ctx.fill(rr, with: .linearGradient(gradient,
             startPoint: CGPoint(x: 0, y: rect.minY),
             endPoint:   CGPoint(x: 0, y: rect.maxY)))
-        // Highlight stroke for 3D sheen
         ctx.stroke(rr, with: .color(.white.opacity(0.30)), lineWidth: 1.0)
 
-        // Recycled-plastic speckle dots (clipped to plank rect)
         let count = max(6, Int(rect.width * rect.height / 80))
         for i in 0..<count {
             let sx = rect.minX + rnd(i, seed)     * rect.width
@@ -570,7 +482,6 @@ struct BenchView: View {
             let sr: CGFloat = 0.5 + rnd(i, seed + 2) * 1.2
             let speckle = Path(ellipseIn: CGRect(x: sx - sr, y: sy - sr,
                                                   width: sr * 2, height: sr * 2))
-            // Only draw if inside the plank bounds
             if rect.contains(CGPoint(x: sx, y: sy)) {
                 let opacity = 0.16 + rnd(i, seed + 3) * 0.22
                 let baseColor = speckleColors[i % speckleColors.count]
@@ -580,8 +491,6 @@ struct BenchView: View {
     }
 }
 
-/// No longer needed as a separate view — speckles are drawn inline in
-/// `BenchView.drawPlank`. Kept as a no-op so any stale references compile.
 private struct PlasticSpeckleCanvas: View {
     var body: some View { Color.clear }
 }

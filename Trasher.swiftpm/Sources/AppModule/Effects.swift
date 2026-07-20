@@ -1,32 +1,16 @@
 import SwiftUI
 
-/// Deterministic, code-only atmosphere effects built on Canvas +
-/// TimelineView. Every particle's position is a pure function of elapsed
-/// time and its own index, so there is no mutable per-particle state to
-/// juggle and reduced-motion just lowers counts / freezes motion.
 func rnd(_ i: Int, _ salt: Int = 0) -> CGFloat { CGFloat(Theme.hash(i, salt)) }
 
 struct RainCanvas: View {
     var intensity: Double = 1
-    var reduceMotion: Bool = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : nil)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             Canvas { ctx, size in
-                guard !reduceMotion else {
-                    // Soft static wash instead of falling streaks.
-                    ctx.fill(Path(CGRect(origin: .zero, size: size)),
-                             with: .color(.white.opacity(0.02)))
-                    return
-                }
                 let t = context.date.timeIntervalSinceReferenceDate
                 let count = Int(150 * intensity)
                 for i in 0..<count {
-                    // `speed` is meant as points/second directly — an
-                    // earlier `/ 1000` here (as if `t` were milliseconds,
-                    // which it isn't; timeIntervalSinceReferenceDate is
-                    // seconds) throttled every drop to ~1pt/s, so the rain
-                    // was technically animating but imperceptibly frozen.
                     let speed = 900 + rnd(i, 1) * 500
                     let x = rnd(i, 2) * size.width
                     let span = size.height + 80
@@ -45,17 +29,16 @@ struct RainCanvas: View {
 
 struct NeonStreakField: View {
     var colors: [Color]
-    var reduceMotion: Bool = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 2 : nil)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             Canvas { ctx, size in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                let t = context.date.timeIntervalSinceReferenceDate
                 let count = 10
                 for i in 0..<count {
                     let color = colors[i % colors.count]
                     let x = rnd(i, 20) * size.width
-                    let drift = reduceMotion ? 0 : sin(t * 0.15 + Double(i)) * 14
+                    let drift = sin(t * 0.15 + Double(i)) * 14
                     let w: CGFloat = 30 + rnd(i, 21) * 70
                     let h = size.height * (0.3 + rnd(i, 22) * 0.5)
                     let rect = CGRect(x: x + drift, y: size.height - h, width: w, height: h)
@@ -72,16 +55,15 @@ struct NeonStreakField: View {
 struct BubbleCanvas: View {
     var count: Int = 18
     var color: Color = .white
-    var reduceMotion: Bool = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : nil)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             Canvas { ctx, size in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
                     let x = rnd(i, 30) * size.width + sin(t * 0.6 + Double(i)) * 8
                     let span = size.height + 40
-                    let rise = reduceMotion ? rnd(i, 31) * span : (CGFloat(t) * (20 + rnd(i, 32) * 30)).truncatingRemainder(dividingBy: span)
+                    let rise = (CGFloat(t) * (20 + rnd(i, 32) * 30)).truncatingRemainder(dividingBy: span)
                     let y = size.height - rise
                     let r = 2 + rnd(i, 33) * 5
                     ctx.opacity = 0.15 + rnd(i, 34) * 0.25
@@ -95,29 +77,23 @@ struct BubbleCanvas: View {
 
 struct FishSilhouettesCanvas: View {
     var darkness: Double
-    var reduceMotion: Bool = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 2 : nil)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             Canvas { ctx, size in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                let t = context.date.timeIntervalSinceReferenceDate
                 let count = 5
                 for i in 0..<count {
                     let dir: CGFloat = i.isMultiple(of: 2) ? 1 : -1
                     let speed = 26.0 + Double(rnd(i, 40)) * 18
                     let span = size.width + 140
-                    let progress = reduceMotion ? Double(rnd(i, 41)) : (t * speed).truncatingRemainder(dividingBy: span)
+                    let progress = (t * speed).truncatingRemainder(dividingBy: span)
                     let x = dir > 0 ? CGFloat(progress) - 70 : size.width - CGFloat(progress) + 70
                     let y = size.height * (0.25 + rnd(i, 42) * 0.5)
                     let scale = 0.6 + rnd(i, 43) * 0.7
                     var path = Path()
                     let w: CGFloat = 34 * scale * dir
                     let h: CGFloat = 12 * scale
-                    // The body is drawn from the trailing edge (x) toward the
-                    // leading edge (x + w, in the direction of travel), so
-                    // the tail fin below must attach at the trailing edge —
-                    // otherwise the fin reads as leading the body and the
-                    // fish appears to swim tail-first.
                     path.move(to: CGPoint(x: x, y: y))
                     path.addQuadCurve(to: CGPoint(x: x + w, y: y), control: CGPoint(x: x + w * 0.5, y: y - h))
                     path.addQuadCurve(to: CGPoint(x: x, y: y), control: CGPoint(x: x + w * 0.5, y: y + h))
@@ -136,16 +112,15 @@ struct FishSilhouettesCanvas: View {
 struct SmokeCanvas: View {
     var intensity: Double
     var color: Color
-    var reduceMotion: Bool = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 2 : nil)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             Canvas { ctx, size in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                let t = context.date.timeIntervalSinceReferenceDate
                 let count = Int(6 * intensity) + 2
                 for i in 0..<count {
                     let baseX = rnd(i, 50) * size.width
-                    let drift = reduceMotion ? 0 : sin(t * 0.2 + Double(i) * 1.3) * 30
+                    let drift = sin(t * 0.2 + Double(i) * 1.3) * 30
                     let y = size.height * (0.5 + rnd(i, 51) * 0.4)
                     let r = 40 + rnd(i, 52) * 60
                     ctx.opacity = 0.10 * intensity + rnd(i, 53) * 0.05
@@ -159,17 +134,13 @@ struct SmokeCanvas: View {
     }
 }
 
-/// A few fragments that leave the bottle during the canal close-up. They
-/// deliberately drift beyond the frame instead of converging back, making
-/// the microplastic consequence readable without adding a separate asset.
 struct MicroplasticDrift: View {
     var elapsed: Double
     var center: CGPoint
-    var reduceMotion: Bool = false
 
     var body: some View {
         Canvas { ctx, size in
-            let t = reduceMotion ? 0.7 : min(max(elapsed / 3.8, 0), 1)
+            let t = min(max(elapsed / 3.8, 0), 1)
             for i in 0..<13 {
                 let angle = Double(rnd(i, 140)) * 2 * .pi
                 let distance = CGFloat(42 + rnd(i, 141) * 300) * CGFloat(t)
@@ -190,12 +161,11 @@ struct MicroplasticDrift: View {
 struct SparkleCanvas: View {
     var count: Int = 40
     var color: Color = .white
-    var reduceMotion: Bool = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : nil)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             Canvas { ctx, size in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
                     let x = rnd(i, 60) * size.width
                     let y = rnd(i, 61) * size.height
@@ -210,7 +180,6 @@ struct SparkleCanvas: View {
     }
 }
 
-/// Soft radial darkening toward the frame edges to keep focus on the bottle.
 struct Vignette: View {
     var strength: Double = 0.55
 
@@ -225,11 +194,6 @@ struct Vignette: View {
     }
 }
 
-/// A tapered dumpster-style body, wider at the rim than the base — shared
-/// by both bin illustrations so they read as the same family of object,
-/// just finished very differently. Also reused (below) at every branching
-/// choice in the game, so a "landfill" or "recycling" outcome always looks
-/// like this same object, not a different improvised icon per scene.
 struct BinBodyShape: Shape {
     func path(in rect: CGRect) -> Path {
         let inset = rect.width * 0.12
@@ -243,11 +207,6 @@ struct BinBodyShape: Shape {
     }
 }
 
-/// A grimy, overflowing dumpster — dull metal, jammed with mismatched junk
-/// poking over the rim, so "landfill" reads as a dead end before you even
-/// drop anything in. Used both at the recycling facility's bin choice and
-/// at the earlier street/canal forks, so every "wrong turn" in the game
-/// looks like this same object.
 struct TrashBinView: View {
     var width: CGFloat
     var height: CGFloat
@@ -285,11 +244,6 @@ struct TrashBinView: View {
     }
 }
 
-/// A clean, glowing bin that reads as active machinery, not a static panel
-/// — an open, tilted lid with the universal recycling arrows glowing
-/// inside it. Used both at the recycling facility and at the earlier
-/// street/canal forks, so every "leads onward" outcome looks like this
-/// same object.
 struct RecycleBinView: View {
     var width: CGFloat
     var height: CGFloat
@@ -319,11 +273,6 @@ struct RecycleBinView: View {
     }
 }
 
-/// What a branching choice leads to — landfill and recycling reuse the
-/// exact bin illustrations from the facility scene, so every occurrence of
-/// the same outcome looks identical; storm drain and sea get their own
-/// glyphs built at the same size and material language (gradient fill,
-/// stroke, drop shadow) so nothing reads as a lower-effort placeholder.
 enum PathKind {
     case landfill, stormDrain, sea, recyclingPoint
 
@@ -336,32 +285,16 @@ enum PathKind {
         }
     }
 
-    /// A short caption under the glyph — the illustrations read fine once
-    /// you already know the story, but a judge seeing this cold shouldn't
-    /// have to guess what a drain grate versus a wave crest means.
     var label: String {
         switch self {
-        case .landfill: return "ฝังกลบ"
+        case .landfill: return "ฝังดิน"
         case .stormDrain: return "ท่อระบายน้ำ"
-        // "Open sea" read as neutral, even pleasant — this is the bad,
-        // dead-end choice (mirrors "Trash bin"), so the label should say so.
         case .sea: return "ล่องลอยต่อไป"
         case .recyclingPoint: return "รีไซเคิล"
         }
     }
 }
 
-/// A glowing waypoint used at every branching choice in the game (the
-/// canal fork, the drain fork). `bright` marks the side the player is
-/// currently leaning/dragging toward; `dim` marks a route the story has
-/// temporarily closed off (e.g. after one detour already used).
-///
-/// `containerSize` is the fork scene's own GeometryReader size, and the
-/// glyph is sized as a fraction of it — the same proportion the recycling
-/// facility uses for its bins (`0.30 * size` framing an `0.8`-scaled bin) —
-/// instead of a fixed point size, so this reads exactly as large and
-/// prominent at every fork as the facility's bins do, not as a shrunken
-/// stand-in.
 struct PathChoiceIndicator: View {
     var kind: PathKind
     var bright: Bool
@@ -401,11 +334,6 @@ struct PathChoiceIndicator: View {
     }
 }
 
-/// A cross-section of a landfill mound — layered dirt strata with a bottle
-/// half-buried in one of the layers — not a trash bin. This is the street
-/// fork's "wrong turn" choice, and the scene it leads to says "Buried is
-/// not gone": a bin (something you'd empty) undersold that permanence, so
-/// this reads as ground the bottle disappears *into*, not a container.
 private struct LandfillMoundGlyph: View {
     var bright: Bool
     var size: CGFloat
@@ -419,9 +347,6 @@ private struct LandfillMoundGlyph: View {
             let baseHalf = s * 0.42
             let topHalf = s * 0.11
 
-            // A pyramid's proportions (wide base, narrow top) built from
-            // jittered points instead of straight edges, so the silhouette
-            // reads as a heaped dirt pile, not a ruler-drawn shape.
             func jaggedEdge(from: CGPoint, to: CGPoint, steps: Int, seed: Int) -> [CGPoint] {
                 (0...steps).map { i in
                     let t = CGFloat(i) / CGFloat(steps)
@@ -450,9 +375,6 @@ private struct LandfillMoundGlyph: View {
             var clipped = ctx
             clipped.clip(to: mound)
 
-            // Strata bands follow the mound's own taper (jittered, not flat
-            // shelves), instead of uniform-width stacked rectangles that
-            // read as drawers.
             let bandColors: [Color] = [
                 Color(red: 0.38, green: 0.29, blue: 0.18),
                 Color(red: 0.27, green: 0.2, blue: 0.12),
@@ -472,7 +394,6 @@ private struct LandfillMoundGlyph: View {
                 clipped.stroke(band, with: .color(color.opacity(0.85)), lineWidth: s * 0.05)
             }
 
-            // Debris flecks scattered through the mound.
             for i in 0..<8 {
                 let x = midX - baseHalf * 0.6 + rnd(i, 700) * baseHalf * 1.2
                 let y = baseY - rnd(i, 701) * (baseY - topY) * 0.8
@@ -480,8 +401,6 @@ private struct LandfillMoundGlyph: View {
                 clipped.fill(Path(ellipseIn: CGRect(x: x - r / 2, y: y - r / 2, width: r, height: r)), with: .color(.black.opacity(0.3)))
             }
 
-            // The bottle, half-swallowed partway up — the whole point of
-            // the icon.
             var bottleLayer = clipped
             bottleLayer.translateBy(x: midX + s * 0.02, y: baseY - (baseY - topY) * 0.5)
             bottleLayer.rotate(by: .degrees(14))
@@ -492,10 +411,6 @@ private struct LandfillMoundGlyph: View {
     }
 }
 
-/// A drain grate over a dark opening — reads as "down and gone" at a
-/// glance, the opposite of the recycling bin's open, upward glow. Built at
-/// the same size and gradient/stroke/shadow language as the bins so it
-/// doesn't read as a lower-effort placeholder next to them.
 private struct StormDrainGlyph: View {
     var bright: Bool
     var size: CGFloat
@@ -521,9 +436,6 @@ private struct StormDrainGlyph: View {
     }
 }
 
-/// Stacked wave crests — the sea path, distinct from the drain's straight
-/// bars so the two "down and gone" routes (landfill, sea) don't blur
-/// together visually across scenes. Same size/shadow language as the bins.
 private struct SeaGlyph: View {
     var bright: Bool
     var size: CGFloat
@@ -577,20 +489,17 @@ struct GlowOrb: View {
     }
 }
 
-/// Soft diagonal light shafts — sunbeams through canal water, or shafts of
-/// facility light — that sway gently rather than sitting static.
 struct LightRaysCanvas: View {
     var color: Color
     var count: Int = 4
-    var reduceMotion: Bool = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 2 : 1.0 / 20)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
             Canvas { ctx, size in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
                     let baseX = (rnd(i, 300) * 0.8 + 0.1) * size.width
-                    let sway = reduceMotion ? 0 : sin(t * 0.18 + Double(i) * 1.7) * 24
+                    let sway = sin(t * 0.18 + Double(i) * 1.7) * 24
                     let width: CGFloat = 46 + rnd(i, 301) * 60
                     let tilt: CGFloat = 26 + rnd(i, 302) * 22
 
@@ -614,27 +523,21 @@ struct LightRaysCanvas: View {
     }
 }
 
-/// Soft drifting cloud clusters for the daylight park ending.
 struct CloudDriftCanvas: View {
-    var reduceMotion: Bool = false
-
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 3 : 1.0 / 12)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 12)) { context in
             Canvas { ctx, size in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<5 {
                     let speed = 5.0 + Double(rnd(i, 320)) * 4
                     let span = size.width + 320
-                    let travel = reduceMotion ? rnd(i, 321) * span : CGFloat((t * speed).truncatingRemainder(dividingBy: Double(span)))
+                    let travel = CGFloat((t * speed).truncatingRemainder(dividingBy: Double(span)))
                     let x = travel - 160
                     let y = size.height * (0.06 + rnd(i, 322) * 0.22)
                     let w = 120 + rnd(i, 323) * 110
                     for puff in 0..<4 {
                         let puffX = x + CGFloat(puff) * w * 0.28
                         let puffW = w * (0.5 + rnd(i * 7 + puff, 324) * 0.4)
-                        // Volume shading: a cooler, dimmer underside beneath
-                        // each puff so the cloud reads as a solid form lit
-                        // from above rather than a flat blurred blob.
                         let shadeRect = CGRect(x: puffX, y: y + puffW * 0.16, width: puffW, height: puffW * 0.5)
                         ctx.opacity = 0.22 + rnd(i, 326) * 0.1
                         ctx.fill(Path(ellipseIn: shadeRect), with: .color(Color(red: 0.55, green: 0.62, blue: 0.72)))
@@ -651,8 +554,6 @@ struct CloudDriftCanvas: View {
     }
 }
 
-/// A horizon line of rounded tree/foliage silhouettes where sky meets
-/// grass, so the park reads as a place rather than a color gradient.
 struct TreeLineCanvas: View {
     var body: some View {
         Canvas { ctx, size in
@@ -684,12 +585,6 @@ struct TreeLineCanvas: View {
     }
 }
 
-/// Draws one naturalistic tree into `ctx`: a tapered trunk with a small
-/// branch fork feeding a layered, many-puffed canopy (a back shadow layer
-/// for bulk, a denser mid layer for silhouette, and a few bright highlight
-/// puffs offset toward one side for volume) — replacing the previous
-/// three-flat-circles-on-a-stick look with something that actually reads
-/// as foliage catching light unevenly.
 private func drawTree(
     in ctx: inout GraphicsContext,
     seedBase: Int, x: CGFloat, baseY: CGFloat, canopyCenterY: CGFloat,
@@ -697,9 +592,6 @@ private func drawTree(
     trunkColor: Color, shadow: Color, mid: Color, highlight: Color,
     canopyOpacity: Double, highlightOpacity: Double
 ) {
-    // Trunk: tapered (wider at the base than where it meets the canopy),
-    // planted exactly on baseY and rising to overlap slightly into the
-    // canopy so there's no visible gap.
     let trunkTop = canopyCenterY + canopyR * 0.32
     let baseHalfW = trunkW * 0.55
     let topHalfW = trunkW * 0.3
@@ -711,8 +603,6 @@ private func drawTree(
     trunkPath.closeSubpath()
     ctx.fill(trunkPath, with: .color(trunkColor.opacity(0.75)))
 
-    // A single small branch fork breaks up the "lollipop" silhouette where
-    // trunk meets canopy.
     let forkDir: CGFloat = rnd(seedBase, 601) > 0.5 ? 1 : -1
     var fork = Path()
     let forkStart = CGPoint(x: x + topHalfW * 0.5 * forkDir, y: trunkTop + trunkH * 0.1)
@@ -720,8 +610,6 @@ private func drawTree(
     fork.addLine(to: CGPoint(x: forkStart.x + forkDir * canopyR * 0.3, y: forkStart.y - canopyR * 0.34))
     ctx.stroke(fork, with: .color(trunkColor.opacity(0.7)), lineWidth: max(1.4, trunkW * 0.3))
 
-    // Back shadow layer — broad, dim puffs that establish the canopy's
-    // overall (slightly irregular) bulk before anything else is drawn.
     for puff in 0..<5 {
         let seed = seedBase * 31 + puff + 900
         let angle = rnd(seed, 1) * .pi * 2
@@ -733,8 +621,6 @@ private func drawTree(
                  with: .color(shadow.opacity(canopyOpacity)))
     }
 
-    // Mid layer — a denser cluster of medium puffs; this is the bulk of
-    // the visible silhouette and where most of the "leafiness" reads from.
     for puff in 0..<7 {
         let seed = seedBase * 47 + puff + 300
         let angle = rnd(seed, 4) * .pi * 2
@@ -746,9 +632,6 @@ private func drawTree(
                  with: .color(mid.opacity(min(1, canopyOpacity * 1.05))))
     }
 
-    // Highlight puffs — small and bright, offset toward one side (an
-    // implied light source) instead of one dead-center top circle, so the
-    // canopy reads with actual volume rather than a flat painted disc.
     for puff in 0..<3 {
         let seed = seedBase * 71 + puff + 60
         let px = x - canopyR * 0.15 + rnd(seed, 7) * canopyR * 0.5
@@ -759,19 +642,10 @@ private func drawTree(
     }
 }
 
-/// Dark tree silhouettes lining a roadside — cooler and flatter than
-/// `TreeLineCanvas` (which is built for a sunlit park) so they read as
-/// night foliage rather than daytime greenery, with a faint amber rim
-/// catching nearby streetlamp glow. `height` is the target ground-to-canopy-top
-/// height (with slight per-tree jitter) so trees can be matched to the
-/// street lamps standing alongside them.
 struct RoadsideTreesCanvas: View {
     let roadTopY: CGFloat
     var count: Int = 5
     var height: CGFloat = 150
-    /// Explicit x positions (in points) to use instead of automatic even
-    /// spacing — lets a scene place a single tree (or a custom layout)
-    /// rather than a full evenly-spaced row.
     var positions: [CGFloat]? = nil
 
     var body: some View {
@@ -781,24 +655,17 @@ struct RoadsideTreesCanvas: View {
             let slot = size.width / CGFloat(count)
             let xs = positions ?? (0..<count).map { i -> CGFloat in
                 var x = slot * (CGFloat(i) + 0.5) + (rnd(i, 512) - 0.5) * slot * 0.4
-                // Shift the leftmost tree to the right to avoid overlapping the first street lamp
                 if i == 0 { x += 50 }
                 return x
             }
 
             for (i, x) in xs.enumerated() {
-                // H ≈ trunkH + canopyR·1.6, and trunkH = canopyR·1.1, so
-                // canopyR = H / 2.7 keeps the tree's total height at target.
                 let treeH = height * (0.9 + rnd(i, 517) * 0.2)
                 let canopyR = treeH / 2.7
                 let trunkH = canopyR * 1.1
                 let trunkW = max(2, canopyR * 0.12)
                 let canopyCenterY = roadTopY - trunkH - canopyR * 0.55
 
-                // No amber highlight puffs here — on a dark silhouette
-                // tree they read as unexplained yellow dots rather than
-                // light catching the leaves, so night trees stay a flat,
-                // legible silhouette instead.
                 drawTree(in: &ctx, seedBase: i, x: x, baseY: roadTopY, canopyCenterY: canopyCenterY,
                          canopyR: canopyR, trunkH: trunkH, trunkW: trunkW, trunkColor: dark,
                          shadow: darkShadow, mid: dark, highlight: Theme.neonAmber,
@@ -809,24 +676,11 @@ struct RoadsideTreesCanvas: View {
     }
 }
 
-/// Street lamps ("ไฟกิ่ง") evenly spaced along a road, all facing the same
-/// direction so the row reads as one consistent streetscape rather than
-/// alternating arms. Drawn on one `Canvas` with pole/arm/bulb all placed
-/// from the same explicit `roadTopY` anchor — a nested-view + `.offset()`
-/// version of this previously let the pole's reported layout frame drift
-/// from its drawn position, so the pole sank below the road and the bulb
-/// floated off the lamp head. Canvas coordinates sidestep that entirely:
-/// the pole base is always exactly `roadTopY`, and the bulb is always
-/// exactly at the arm's end point.
 struct StreetLampRow: View {
     let roadTopY: CGFloat
     var count: Int = 4
     var height: CGFloat = 150
-    /// Which way every lamp's arm reaches: `1` = right, `-1` = left.
     var direction: CGFloat = 1
-    /// Explicit x positions (in points) to use instead of automatic even
-    /// spacing — lets a scene place a single lamp (or a custom layout)
-    /// rather than a full evenly-spaced row.
     var positions: [CGFloat]? = nil
 
     var body: some View {
@@ -838,7 +692,6 @@ struct StreetLampRow: View {
                 let armDir = direction
                 let topY = roadTopY - height
 
-                // Pole: base planted exactly on the road line, rising to topY.
                 ctx.fill(
                     Path(roundedRect: CGRect(x: x - 2.5, y: topY, width: 5, height: height), cornerRadius: 2.5),
                     with: .linearGradient(
@@ -847,7 +700,6 @@ struct StreetLampRow: View {
                     )
                 )
 
-                // Arm reaching from the pole top out to the lamp head.
                 let armStart = CGPoint(x: x, y: topY + 14)
                 let headPoint = CGPoint(x: x + armDir * 32, y: topY + 6)
                 var arm = Path()
@@ -855,8 +707,6 @@ struct StreetLampRow: View {
                 arm.addLine(to: headPoint)
                 ctx.stroke(arm, with: .color(Color(white: 0.14)), style: StrokeStyle(lineWidth: 4, lineCap: .round))
 
-                // Warm glow spilling from the head, and the bulb itself —
-                // both centered on the exact same headPoint as the arm's end.
                 let glowRect = CGRect(x: headPoint.x - 50, y: headPoint.y - 50, width: 100, height: 100)
                 ctx.fill(
                     Path(ellipseIn: glowRect),
@@ -876,19 +726,16 @@ struct StreetLampRow: View {
     }
 }
 
-/// A slowly scrolling dashed conveyor line along the facility floor.
 struct ConveyorBeltCanvas: View {
-    var reduceMotion: Bool = false
-
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 20)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
             Canvas { ctx, size in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+                let t = context.date.timeIntervalSinceReferenceDate
                 let y = size.height * 0.9
                 let dashLength: CGFloat = 30
                 let gap: CGFloat = 22
                 let cycle = dashLength + gap
-                let offset = reduceMotion ? 0 : CGFloat((-t * 70).truncatingRemainder(dividingBy: Double(cycle)))
+                let offset = CGFloat((-t * 70).truncatingRemainder(dividingBy: Double(cycle)))
                 var x = -cycle + offset
                 while x < size.width {
                     var path = Path()
@@ -903,30 +750,19 @@ struct ConveyorBeltCanvas: View {
     }
 }
 
-/// Pipe, crane, and gear silhouettes framing every factory/facility scene
-/// (origin line, sorting line, recycling facility) so they read as one real
-/// industrial space instead of a generic glowing void. The gears actually
-/// turn and the windows actually flicker — a static silhouette reads as a
-/// backdrop painting; a few moving parts read as a place that's running.
 struct FactorySilhouetteCanvas: View {
-    var reduceMotion: Bool = false
-
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 20)) { context in
-            let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
             Canvas { ctx, size in
                 let factoryColor = Color(red: 0.05, green: 0.09, blue: 0.11).opacity(0.8)
                 let highlightColor = Theme.cleanCyan.opacity(0.18)
 
-                // Overhead crane/beam
                 var beam = Path()
                 beam.addRect(CGRect(x: 0, y: size.height * 0.05, width: size.width, height: size.height * 0.08))
                 ctx.fill(beam, with: .color(factoryColor))
                 ctx.stroke(beam, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
 
-                // A slow steam wisp drifting up from the beam — the one
-                // purely atmospheric touch that sells "running machinery"
-                // at a glance, before you even notice the gears or windows.
                 for i in 0..<3 {
                     let phase = (t * 0.05 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
                     let sx = size.width * (0.3 + CGFloat(i) * 0.22)
@@ -938,7 +774,6 @@ struct FactorySilhouetteCanvas: View {
                 }
                 ctx.opacity = 1
 
-                // Hanging central nozzle/crane (aligns above bottle)
                 var nozzle = Path()
                 let nx = size.width * 0.5
                 let ny = size.height * 0.13
@@ -950,7 +785,6 @@ struct FactorySilhouetteCanvas: View {
                 ctx.fill(nozzle, with: .color(factoryColor))
                 ctx.stroke(nozzle, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
 
-                // Pipes, angled struts, and lit port windows down each side.
                 let sides: [CGFloat] = [0.08, 0.92]
                 for side in sides {
                     let x = side * size.width
@@ -973,11 +807,6 @@ struct FactorySilhouetteCanvas: View {
                     }
                 }
 
-                // Background gears, actually turning and actually mounted
-                // to the side pipes via a short bracket — a bare-opacity
-                // dashed ring with nothing visibly holding it up read as an
-                // unexplained floating circle, not machinery, so this is a
-                // filled cog silhouette (real teeth, a hub) bolted in place.
                 let gearSide: [CGFloat] = [0.08, 0.92]
                 let gearY: [CGFloat] = [0.32, 0.56]
                 let gearR: [CGFloat] = [0.075, 0.06]
@@ -1024,13 +853,6 @@ struct FactorySilhouetteCanvas: View {
     }
 }
 
-/// A small head/torso/legs person, used everywhere the game needs a human
-/// figure (the park's community cleanup, the ending's bystanders) instead
-/// of an abstract capsule that reads as an unlabeled blob.
-///
-/// `bending` pivots only the torso+head forward from the hip — the legs
-/// stay planted vertically — with a reaching arm, so it clearly reads as
-/// "picking something up" instead of a whole body just tilting sideways.
 struct PersonFigure: View {
     var shirt: Color
     var bending: Bool = false
@@ -1043,14 +865,10 @@ struct PersonFigure: View {
             VStack(spacing: 2) {
                 Circle().fill(skinTone).frame(width: 16, height: 16)
                 ZStack {
-                    // Back arm: hangs at rest normally, swings back
-                    // slightly as a counterbalance while bending.
                     Capsule().fill(skinTone).frame(width: 5, height: 20)
                         .rotationEffect(.degrees(bending ? 25 : 0), anchor: .top)
                         .offset(x: -13, y: 2)
                     RoundedRectangle(cornerRadius: 6).fill(shirt.opacity(0.85)).frame(width: 22, height: 28)
-                    // Front arm: hangs at rest, reaches down to pick
-                    // something up while bending.
                     Capsule().fill(skinTone).frame(width: 5, height: 20)
                         .rotationEffect(.degrees(bending ? -65 : 0), anchor: .top)
                         .offset(x: 12, y: 2)

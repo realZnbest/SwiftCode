@@ -1,15 +1,9 @@
 import SwiftUI
 
-/// A short, interactive title card before the story begins: the bottle
-/// rests under a streetlamp spotlight while dust drifts through the beam.
-/// Tap anywhere to begin — it waits for that tap rather than moving on by
-/// itself, so the title card never gets skipped before someone's ready.
 struct TitleScene: View {
     @EnvironmentObject var game: GameState
 
     @State private var appear = false
-
-    private var reduceMotion: Bool { game.reduceMotion }
 
     var body: some View {
         GeometryReader { geo in
@@ -18,12 +12,12 @@ struct TitleScene: View {
             ZStack {
                 LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
                 SkylineCanvas().opacity(0.35)
-                NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple], reduceMotion: reduceMotion)
+                NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple])
                     .opacity(0.45)
 
                 spotlightGlow(size: size)
 
-                SparkleCanvas(count: 30, color: .white, reduceMotion: reduceMotion)
+                SparkleCanvas(count: 30, color: .white)
                     .opacity(0.6)
                     .mask(spotlightMask(size: size))
 
@@ -51,23 +45,13 @@ struct TitleScene: View {
             .contentShape(Rectangle())
             .onTapGesture { begin() }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Trasher. A plastic bottle's journey.")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Double tap to begin")
         .onAppear(perform: runSequence)
     }
 
-    /// Driven by a continuous sine wave from `TimelineView` rather than a
-    /// toggled `@State` + `repeatForever` animation — `repeatForever` on an
-    /// imperatively-toggled bool is prone to restarting/jumping whenever the
-    /// surrounding view re-renders (e.g. from the `appear` fade-in), which
-    /// reads as the label glitching back and forth instead of pulsing
-    /// smoothly. A pure function of elapsed time has no state to desync.
     private func tapToBeginLabel(size: CGSize) -> some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
-            let glow = reduceMotion ? 0.7 : 0.4 + 0.55 * (0.5 + 0.5 * sin(t * 1.7))
+            let glow = 0.4 + 0.55 * (0.5 + 0.5 * sin(t * 1.7))
             Text("แตะเพื่อเริ่ม")
                 .font(Theme.line(16))
                 .foregroundStyle(.white.opacity(glow))

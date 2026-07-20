@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// 15-20s. A bright park scene with the finished bench, a short animated
-/// recap of the whole journey, the closing line, and the two exit actions.
 struct EndingScene: View {
     @EnvironmentObject var game: GameState
     @State private var showContent = false
@@ -19,8 +17,6 @@ struct EndingScene: View {
                     .glow(Theme.freshGreen, radius: 14, opacity: endingGlow)
 
                 if showBenchCaption {
-                    // Echoes the opening line ("I still have a purpose.") so the
-                    // ending answers it, and reads as plastic reshaped — not wood.
                     Text("พลาสติกใหม่ที่ทำจากพลาสติกเดิม")
                         .font(Theme.line(15))
                         .foregroundStyle(.white.opacity(0.9))
@@ -42,7 +38,6 @@ struct EndingScene: View {
 
                     JourneyRecapView(
                         replayToken: game.journeyReplayToken,
-                        reduceMotion: game.reduceMotion,
                         waypoints: journeyWaypoints
                     )
                         .frame(height: size.height * 0.22)
@@ -67,7 +62,6 @@ struct EndingScene: View {
                             .overlay(Capsule().stroke(Theme.cleanCyan.opacity(0.7), lineWidth: 1.5))
                     }
                     .foregroundStyle(.white.opacity(0.9))
-                    .accessibilityLabel("Play again from the beginning")
 
                     Spacer().frame(height: size.height * 0.06)
                 }
@@ -91,13 +85,13 @@ struct EndingScene: View {
             )
             GlowOrb(color: Theme.neonAmber, size: 170)
                 .position(x: 90, y: 70)
-            CloudDriftCanvas(reduceMotion: game.reduceMotion)
+            CloudDriftCanvas()
                 .opacity(0.7)
             TreeLineCanvas()
-            SparkleCanvas(count: 16, color: .white, reduceMotion: game.reduceMotion)
+            SparkleCanvas(count: 16, color: .white)
                 .opacity(0.35 - lingeringHaze * 0.2)
             if lingeringHaze > 0 {
-                SmokeCanvas(intensity: lingeringHaze * 0.5, color: Theme.murkGreen, reduceMotion: game.reduceMotion)
+                SmokeCanvas(intensity: lingeringHaze * 0.5, color: Theme.murkGreen)
                     .opacity(lingeringHaze * 0.45)
             }
         }
@@ -141,10 +135,6 @@ struct EndingScene: View {
     }
 
     private func communitySilhouettes(size: CGSize) -> some View {
-        // PersonFigure is 68pt tall; scaled to 0.6 that's 40.8pt, so its
-        // feet sit 20.4pt below the cluster's own center. Positioning that
-        // center 20.4pt above TreeLineCanvas's ground line (baseY = 0.78)
-        // plants the feet on the grass instead of floating above it.
         let groundY = size.height * 0.78 - 20.4
         return ZStack {
             personCluster(shirts: [Theme.neonAmber, Theme.cleanCyan])
@@ -155,10 +145,6 @@ struct EndingScene: View {
         .allowsHitTesting(false)
     }
 
-    /// Flanks the bench rather than sitting in the text/button column below
-    /// it, and stays above the tree line so figures don't blend into the
-    /// dark foliage silhouettes. Uses the same head/torso/legs PersonFigure
-    /// as the community cleanup scene, not an unlabeled dark capsule.
     private func personCluster(shirts: [Color]) -> some View {
         HStack(spacing: 12) {
             ForEach(Array(shirts.enumerated()), id: \.offset) { _, shirt in
@@ -168,8 +154,6 @@ struct EndingScene: View {
         .scaleEffect(0.6)
     }
 }
-
-// MARK: - Journey recap
 
 struct JourneyWaypoint {
     let icon: String
@@ -192,11 +176,8 @@ private struct JourneyPathShape: Shape {
     }
 }
 
-/// A short, replayable animation tracing the bottle's whole route as a
-/// clean line with five waypoint icons — the "journey" the ending recaps.
 struct JourneyRecapView: View {
     var replayToken: Int
-    var reduceMotion: Bool
     var waypoints: [JourneyWaypoint]
 
     @State private var progress: CGFloat = 0
@@ -211,7 +192,7 @@ struct JourneyRecapView: View {
                     .stroke(Color.black.opacity(0.12), lineWidth: 3)
 
                 JourneyPathShape(points: points)
-                    .trim(from: 0, to: reduceMotion ? 1 : progress)
+                    .trim(from: 0, to: progress)
                     .stroke(
                         LinearGradient(colors: [Theme.neonCyan, Theme.cleanCyan, Theme.freshGreen],
                                        startPoint: .leading, endPoint: .trailing),
@@ -220,7 +201,7 @@ struct JourneyRecapView: View {
 
                 ForEach(0..<waypoints.count, id: \.self) { i in
                     let threshold = CGFloat(i) / CGFloat(max(waypoints.count - 1, 1))
-                    let revealed = reduceMotion || progress >= threshold - 0.03
+                    let revealed = progress >= threshold - 0.03
                     ZStack {
                         Circle().fill(waypoints[i].color.opacity(0.22)).frame(width: 38, height: 38)
                         Image(systemName: waypoints[i].icon)
@@ -232,20 +213,16 @@ struct JourneyRecapView: View {
                     .scaleEffect(revealed ? 1 : 0.7)
                 }
 
-                if !reduceMotion {
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 9, height: 9)
-                        .glow(.white, radius: 6, opacity: 0.8)
-                        .position(pointAlong(points: points, progress: progress))
-                        .opacity(progress > 0.01 && progress < 0.99 ? 1 : 0)
-                }
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 9, height: 9)
+                    .glow(.white, radius: 6, opacity: 0.8)
+                    .position(pointAlong(points: points, progress: progress))
+                    .opacity(progress > 0.01 && progress < 0.99 ? 1 : 0)
             }
         }
         .onAppear(perform: animate)
         .onChange(of: replayToken) { _, _ in animate() }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("A path from city street, to storm drain, to canal, to recycling facility, to a bench made of recycled plastic.")
     }
 
     private func waypointPositions(in size: CGSize) -> [CGPoint] {
@@ -269,10 +246,6 @@ struct JourneyRecapView: View {
 
     private func animate() {
         progress = 0
-        guard !reduceMotion else {
-            progress = 1
-            return
-        }
         withAnimation(.easeInOut(duration: 4.0)) { progress = 1 }
     }
 }

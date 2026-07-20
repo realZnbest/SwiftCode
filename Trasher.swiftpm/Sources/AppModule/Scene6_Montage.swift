@@ -11,20 +11,16 @@ private struct MontageVignette {
 private let montageVignettes: [MontageVignette] = [
     MontageVignette(colors: [Theme.smokeOrange, Theme.neonPink], label: "ในเมือง", kind: .city),
     MontageVignette(colors: [Theme.murkGreen, Theme.cleanCyan], label: "ในน้ำ", kind: .river),
-    MontageVignette(colors: [Theme.neonPurple, Theme.deepNavy], label: "ชายฝั่ง.", kind: .coast),
+    MontageVignette(colors: [Theme.neonPurple, Theme.deepNavy], label: "มหาสมุทร", kind: .coast),
     MontageVignette(colors: [Theme.cleanCyan, Theme.freshGreen], label: "ทุกๆที่", kind: .everywhere)
 ]
 
-/// A quick, wordless-almost montage widening the story's scope right
-/// before the park: the same small choice, playing out in other places.
-/// Purely auto-paced — there is nothing to do here but watch it land.
 struct MontageScene: View {
     @EnvironmentObject var game: GameState
 
     @State private var index = 0
     @State private var advanceTask: Task<Void, Never>?
 
-    private var reduceMotion: Bool { game.reduceMotion }
     private let perVignette: Double = 1.7
 
     var body: some View {
@@ -39,8 +35,6 @@ struct MontageScene: View {
                 }
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("A quick montage: the same choice, playing out in other cities, rivers, and coastlines.")
         .onAppear(perform: runSequence)
         .onDisappear { advanceTask?.cancel() }
     }
@@ -54,17 +48,17 @@ struct MontageScene: View {
             switch vignette.kind {
             case .city:
                 SkylineCanvas().opacity(0.7)
-                NeonStreakField(colors: [Theme.neonAmber, Theme.neonPink], reduceMotion: reduceMotion)
+                NeonStreakField(colors: [Theme.neonAmber, Theme.neonPink])
             case .river:
-                FishSilhouettesCanvas(darkness: 0.3, reduceMotion: reduceMotion)
-                BubbleCanvas(count: 20, color: Theme.cleanCyan, reduceMotion: reduceMotion)
+                FishSilhouettesCanvas(darkness: 0.3)
+                BubbleCanvas(count: 20, color: Theme.cleanCyan)
             case .coast:
-                SparkleCanvas(count: 50, color: .white, reduceMotion: reduceMotion)
+                SparkleCanvas(count: 50, color: .white)
                     .opacity(0.5)
-                NeonStreakField(colors: [Theme.neonPurple, Theme.neonCyan], reduceMotion: reduceMotion)
+                NeonStreakField(colors: [Theme.neonPurple, Theme.neonCyan])
                     .opacity(0.6)
             case .everywhere:
-                SparkleCanvas(count: 70, color: Theme.cleanWhite, reduceMotion: reduceMotion)
+                SparkleCanvas(count: 70, color: Theme.cleanWhite)
                 PathChoiceIndicator(kind: .recyclingPoint, bright: true, containerSize: size, showLabel: false)
                     .position(x: size.width / 2, y: size.height * 0.44)
             }
@@ -73,8 +67,6 @@ struct MontageScene: View {
                 .font(Theme.line(26))
                 .foregroundStyle(.white.opacity(0.9))
                 .position(x: size.width / 2, y: size.height * 0.8)
-                // Old label fully clears before the new one fades in, so
-                // the crossfade never overlaps two words on top of each other.
                 .transition(.asymmetric(
                     insertion: .opacity.animation(.easeIn(duration: 0.35).delay(0.25)),
                     removal: .opacity.animation(.easeOut(duration: 0.2))
@@ -89,11 +81,11 @@ struct MontageScene: View {
         advanceTask?.cancel()
         advanceTask = Task { @MainActor in
             for step in 1..<montageVignettes.count {
-                try? await Task.sleep(for: .seconds(reduceMotion ? perVignette * 1.3 : perVignette))
+                try? await Task.sleep(for: .seconds(perVignette))
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeInOut(duration: 0.5)) { index = step }
             }
-            try? await Task.sleep(for: .seconds(reduceMotion ? perVignette * 1.3 : perVignette))
+            try? await Task.sleep(for: .seconds(perVignette))
             guard !Task.isCancelled else { return }
             game.advanceFromMontage()
         }

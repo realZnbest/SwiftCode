@@ -1,16 +1,5 @@
 import SwiftUI
 
-/// One continuous street beat, combining what used to be two separate
-/// scenes: five passersby kick the bottle along, one at a time — each one
-/// fully arrives, kicks, and walks off before the next one enters, never
-/// overlapping — two kicks sending it left, three sending it right, net
-/// drifting right; then a stray dog trots in from the right, grabs it,
-/// gives it a shake, and carries it all the way off the left edge of the
-/// frame. Purely auto-paced, nothing for the player to do but watch it
-/// get kicked around and then stolen. Unhurried on purpose — five distinct
-/// people need room to each have their moment — before the actual choice
-/// (the storm drain fork, down the grate toward the canal or swept toward
-/// a passing garbage truck and landfill) arrives.
 struct StreetToDrainScene: View {
     @EnvironmentObject var game: GameState
 
@@ -23,32 +12,21 @@ struct StreetToDrainScene: View {
 
     private let bottleRowFrac: CGFloat = 0.80
     private let kickStartX: CGFloat = 0.15
-    // Five kicks — right, left, right, left, right — 2 left/3 right, net
-    // drift toward the right so the dog (entering from the right edge)
-    // has somewhere to find the bottle. Spaced 2.3s apart: a KickerFigure
-    // is only ever on screen for about 2s (see its own -1.15...0.85 local
-    // window), so this gap guarantees one walker is fully gone before the
-    // next arrives — never two people kicking at once.
     private let kicks: [Kick] = [
-        Kick(time: 0.3, distance: 0.18),
-        Kick(time: 2.6, distance: -0.08),
-        Kick(time: 4.9, distance: 0.20),
-        Kick(time: 7.2, distance: -0.07),
-        Kick(time: 9.5, distance: 0.35)
+        Kick(time: 0.26, distance: 0.18),
+        Kick(time: 2.26, distance: -0.08),
+        Kick(time: 4.26, distance: 0.20),
+        Kick(time: 6.26, distance: -0.07),
+        Kick(time: 8.26, distance: 0.35)
     ]
     private var kickEndX: CGFloat { kicks.reduce(kickStartX) { $0 + $1.distance } }
 
-    // Phase boundaries, in seconds since the scene appeared — see
-    // `introState(at:)` for what happens in each. Kicks resolve by
-    // `pounceStart` (the last kicker's walked fully off by then); the dog
-    // then does its whole pounce/bite/shake/carry-off-left at an equally
-    // unhurried pace afterward.
-    private let pounceStart: Double = 10.8
-    private let biteAt: Double = 11.4
-    private let shakeEnd: Double = 11.8
-    private let carryEnd: Double = 13.8
-    private let dogExitEnd: Double = 14.2
-    private let sequenceDuration: Double = 14.4
+    private let pounceStart: Double = 9.39
+    private let biteAt: Double = 9.99
+    private let shakeEnd: Double = 10.39
+    private let carryEnd: Double = 12.39
+    private let dogExitEnd: Double = 12.79
+    private let sequenceDuration: Double = 12.99
 
     @State private var stage: Stage = .intro
     @State private var sceneStart = Date()
@@ -57,16 +35,11 @@ struct StreetToDrainScene: View {
     @State private var choiceMade = false
     @State private var introCaptionOpacity: Double = 0
 
-    // Drag-to-drop fork, matching the recycling facility's own bottle-drag
-    // mechanic: the bottle starts up top and the two outcomes sit as real
-    // targets at the bottom, instead of a horizontal swipe-and-launch.
     @State private var forkBottlePos = CGPoint(x: 0.5, y: 0.22)
     @State private var forkDragBase = CGPoint(x: 0.5, y: 0.22)
     @State private var forkWrongFeedback = false
     private let landfillForkRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let drainForkRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
-
-    private var reduceMotion: Bool { game.reduceMotion }
 
     var body: some View {
         GeometryReader { geo in
@@ -75,14 +48,13 @@ struct StreetToDrainScene: View {
             ZStack {
                 background(size: size)
 
-                RainCanvas(intensity: 1, reduceMotion: reduceMotion)
-                GutterFlowCanvas(reduceMotion: reduceMotion, bottleRowFrac: bottleRowFrac)
-                TrafficStreakCanvas(reduceMotion: reduceMotion)
+                RainCanvas(intensity: 1)
+                GutterFlowCanvas(bottleRowFrac: bottleRowFrac)
+                TrafficStreakCanvas()
 
                 if stage == .intro {
-                    TimelineView(.animation(minimumInterval: reduceMotion ? 0.2 : 1.0 / 45)) { context in
-                        let raw = context.date.timeIntervalSince(sceneStart)
-                        let elapsed = reduceMotion ? min(raw * 2.2, sequenceDuration) : raw
+                    TimelineView(.animation(minimumInterval: 1.0 / 45)) { context in
+                        let elapsed = context.date.timeIntervalSince(sceneStart)
                         let s = introState(at: elapsed, size: size)
 
                         ZStack {
@@ -95,16 +67,8 @@ struct StreetToDrainScene: View {
                                 )
                             }
 
-                            // StrayDogView's own feet sit near the bottom of
-                            // its frame (see its contact shadow), not at its
-                            // center — offset upward here so `dogPos.y`
-                            // means "where the paws touch the ground," not
-                            // "where the frame's midpoint is." Mirrored
-                            // horizontally since it was built facing right
-                            // but this time runs in from the right and
-                            // exits left.
                             StrayDogView(legPhase: s.legPhase)
-                                .frame(width: 184 * s.dogScale, height: 140 * s.dogScale) // scaled by ~1.4x
+                                .frame(width: 184 * s.dogScale, height: 140 * s.dogScale)
                                 .scaleEffect(x: -1, y: 1)
                                 .opacity(s.dogOpacity)
                                 .position(x: s.dogPos.x * size.width, y: s.dogPos.y * size.height - 0.26 * 140 * s.dogScale)
@@ -137,7 +101,7 @@ struct StreetToDrainScene: View {
                     .opacity(flashOpacity)
                     .blendMode(.plusLighter)
                     .allowsHitTesting(false)
-                    
+
                 if stage == .intro {
                     Text("มันไร้ค่า เกะกะขวางทางทุกคน แม้กระทั่งหมา")
                         .font(Theme.line(26))
@@ -150,10 +114,6 @@ struct StreetToDrainScene: View {
             }
             .contentShape(Rectangle())
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(stage == .intro
-            ? "A rainy sidewalk. Passersby kick the bottle along, one at a time, until a stray dog runs in, grabs it, shakes it, and carries it off screen."
-            : "The storm drain. Drag the bottle down into the garbage truck on the left, or the drain grate on the right toward the canal.")
         .onAppear(perform: setup)
     }
 
@@ -163,14 +123,13 @@ struct StreetToDrainScene: View {
             LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
             SkylineCanvas()
                 .opacity(0.55)
-            NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple, Theme.neonPink], reduceMotion: reduceMotion)
+            NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple, Theme.neonPink])
                 .opacity(0.85)
 
             RoadsideTreesCanvas(roadTopY: groundY)
             groundPlane
             StreetLampRow(roadTopY: groundY, direction: 1)
 
-            // Wet pavement: a soft reflective band across the lower third.
             LinearGradient(colors: [.clear, Color.white.opacity(0.05), Color.white.opacity(0.02)],
                            startPoint: .top, endPoint: .bottom)
                 .frame(maxHeight: .infinity, alignment: .bottom)
@@ -179,10 +138,6 @@ struct StreetToDrainScene: View {
         }
     }
 
-    /// A concrete sidewalk slab at `bottleRowFrac`, the same treatment as
-    /// the earlier sidewalk-kick beat — without it, the dog and bottle had
-    /// nothing to actually stand on and read as floating in front of the
-    /// skyline instead of running along a street.
     private var groundPlane: some View {
         GeometryReader { geo in
             let size = geo.size
@@ -199,18 +154,12 @@ struct StreetToDrainScene: View {
         }
     }
 
-    /// The bottle starts up top and the two outcomes are real drop targets
-    /// at the bottom — the same drag-a-bottle-into-a-bin mechanic as the
-    /// recycling facility, instead of a horizontal swipe-and-launch, so the
-    /// interaction feels identical everywhere the game asks the player to
-    /// choose a fate for the bottle.
     private func forkView(size: CGSize) -> some View {
         let landfillBlocked = game.mustRouteToDrain
         let hoveringLandfill = !choiceMade && !landfillBlocked && landfillForkRect.contains(forkBottlePos)
         let hoveringDrain = !choiceMade && drainForkRect.contains(forkBottlePos)
 
         return ZStack {
-            // Landfill / garbage truck path (left) — the wrong turn.
             PathChoiceIndicator(
                 kind: .landfill,
                 bright: hoveringLandfill,
@@ -219,7 +168,6 @@ struct StreetToDrainScene: View {
             )
             .position(x: landfillForkRect.midX * size.width, y: landfillForkRect.midY * size.height)
 
-            // Storm drain path (right) — continues the story correctly.
             PathChoiceIndicator(
                 kind: .stormDrain,
                 bright: hoveringDrain,
@@ -228,7 +176,7 @@ struct StreetToDrainScene: View {
             .position(x: drainForkRect.midX * size.width, y: drainForkRect.midY * size.height)
 
             if forkWrongFeedback {
-                Label("A truck already came through. Try the drain.", systemImage: "exclamationmark.triangle.fill")
+                Label("ไม่มีเสียมให้ขุดแล้ว ลองไปดูที่ท่อระบายน้ำสิ", systemImage: "exclamationmark.triangle.fill")
                     .font(Theme.line(16))
                     .foregroundStyle(Theme.neonAmber)
                     .padding(.horizontal, 18)
@@ -295,7 +243,7 @@ struct StreetToDrainScene: View {
                 try? await Task.sleep(for: .seconds(1.5))
                 guard stage == .intro else { return }
                 withAnimation(.easeIn(duration: 1.5)) { introCaptionOpacity = 1 }
-                
+
                 try? await Task.sleep(for: .seconds(4.0))
                 guard stage == .intro else { return }
                 withAnimation(.easeOut(duration: 1.5)) { introCaptionOpacity = 0 }
@@ -305,16 +253,11 @@ struct StreetToDrainScene: View {
 
     private func enterFork() {
         guard stage == .intro else { return }
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.35) : .easeInOut(duration: 0.6)) {
+        withAnimation(.easeInOut(duration: 0.6)) {
             stage = .fork
         }
     }
 
-    /// Where the bottle sits after every kick that's already landed in
-    /// full, with the one currently in flight animating in on an ease-out
-    /// settle. Shared by the bottle's own position and by each
-    /// `KickerFigure`, which times its stride to plant its foot here at
-    /// exactly the kick's timestamp.
     private func kickedXFrac(at t: Double) -> CGFloat {
         var x = kickStartX
         for kick in kicks {
@@ -326,10 +269,6 @@ struct StreetToDrainScene: View {
         return x
     }
 
-    /// A real kicked bottle doesn't just slide — it pops into a short low
-    /// hop before skidding to a stop. Scaled by how hard this particular
-    /// kick sent it, so the big rightward kicks visibly launch it while
-    /// the small ones barely leave the ground.
     private func kickHopOffset(at t: Double) -> CGFloat {
         var offset: CGFloat = 0
         for kick in kicks {
@@ -342,10 +281,6 @@ struct StreetToDrainScene: View {
         return offset
     }
 
-    /// A bottle isn't a wheel — it doesn't roll cleanly, it tumbles
-    /// unevenly off-axis. This layers a fast, sharply-decaying wobble on
-    /// top of the base rolling rotation right as each kick lands, so the
-    /// spin reads as an erratic tumble instead of a perfectly smooth roll.
     private func kickWobble(at t: Double) -> Double {
         var wobble = 0.0
         for kick in kicks {
@@ -359,12 +294,6 @@ struct StreetToDrainScene: View {
         return wobble
     }
 
-    /// The one-shot beat in this sequence: the dog's bite (a quick chomp
-    /// for the surprise grab, plus a grime hit). The kicks themselves stay
-    /// silent/cosmetic, same as before. `registerObstacleHit()` already
-    /// plays the impact sound/haptic and bumps grime — reused here rather
-    /// than adding a parallel method, since a dog's teeth are just another
-    /// physical impact on the bottle.
     private func handleEvents(at elapsed: Double) {
         for (i, kick) in kicks.enumerated() {
             let kickId = "kick_\(i)"
@@ -386,12 +315,6 @@ struct StreetToDrainScene: View {
         }
     }
 
-    /// Every visual in this beat — where the bottle is while being kicked,
-    /// dog position/scale/opacity, how the bottle's tilted/blurred while
-    /// carried — is a pure function of elapsed time, so the whole thing is
-    /// one timeline instead of a pile of manually-toggled animation state.
-    /// The dog's feet stay on `bottleRowFrac` throughout; only its X
-    /// changes as it runs in from the right and off the left.
     private func introState(at elapsed: Double, size: CGSize) -> SnatchState {
         let groundY = Double(bottleRowFrac)
         let dogStartX = 1.15
@@ -402,15 +325,7 @@ struct StreetToDrainScene: View {
         var dogScale = 0.6
         var dogOpacity = 0.0
         var bottleX = Double(kickedXFrac(at: elapsed))
-        // A short hop on top of the ground line, plus a decaying wobble
-        // layered onto the base rolling rotation — see `kickHopOffset`/
-        // `kickWobble` — so getting kicked reads as an actual impact
-        // instead of the bottle gliding flat along the pavement.
         var bottleY = groundY + Double(kickHopOffset(at: elapsed))
-        // While being kicked, the bottle tumbles proportionally to how far
-        // it's traveled from its starting spot — a rolling-tumble read,
-        // not a literal physics spin — plus the wobble for the "not a
-        // wheel" unevenness.
         var tiltDeg = (bottleX - Double(kickStartX)) * 220 + kickWobble(at: elapsed)
         var blur = 0.0
 
@@ -474,23 +389,20 @@ struct StreetToDrainScene: View {
         )
     }
 
-    /// Settles the bottle into the chosen bin and holds briefly — the same
-    /// drop-then-pause beat as the recycling facility's `succeed()` — before
-    /// the scene actually transitions.
     private func resolveFork(towardDrain: Bool) {
         guard !choiceMade else { return }
         choiceMade = true
         stage = .resolving
 
         let target = towardDrain ? drainForkRect : landfillForkRect
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.4) : .easeInOut(duration: 0.6)) {
+        withAnimation(.easeInOut(duration: 0.6)) {
             forkBottlePos = CGPoint(x: target.midX, y: target.midY)
         }
         game.sound.impactThud()
         Haptics.collision()
 
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(reduceMotion ? 0.5 : 0.85))
+            try? await Task.sleep(for: .seconds(0.85))
             if towardDrain {
                 game.chooseDrain()
             } else {
@@ -512,25 +424,13 @@ private struct SnatchState {
     var bottleBlur: CGFloat
 }
 
-/// A full walking figure timed to plant its kicking foot on the bottle at
-/// `localTime == 0`. Outside the kick window it just walks (a simple
-/// two-leg scissor cycle); through the kick window the lead leg swings
-/// from a cocked-back windup into a forward follow-through, so the impact
-/// reads as something a person did, not a disembodied leg popping in.
 private struct KickerFigure: View {
     var localTime: Double
     var footX: CGFloat
     var groundY: CGFloat
-    // +1 for a kick sent rightward, -1 for leftward. Whoever sends the
-    // bottle left has to be walking leftward themselves to plausibly kick
-    // it that way — entering from the right, not strolling in from the
-    // left and somehow booting it backward past themselves.
     var direction: CGFloat = 1
 
     private let walkSpeed: CGFloat = 150
-    // A cool blue-gray rather than flat black — reads as a figure caught
-    // in the street's neon and rain rather than a silhouette cutout that
-    // blends into the near-black background.
     private let skin = Color(red: 0.34, green: 0.37, blue: 0.44)
 
     var body: some View {
@@ -545,22 +445,19 @@ private struct KickerFigure: View {
                     .offset(y: 9)
 
                 ZStack(alignment: .bottom) {
-                    // Back arm (drawn behind body)
                     Capsule().fill(skin).frame(width: 14, height: 52)
                         .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.2))
                         .rotationEffect(.degrees(backArmAngle), anchor: .top)
                         .offset(x: -2, y: -99)
 
-                    // Back leg
                     Capsule().fill(skin).frame(width: 18, height: 83)
                         .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.5))
                         .rotationEffect(.degrees(backLegAngle), anchor: .top)
                         .offset(x: -2)
 
-                    // Torso & Head
                     VStack(spacing: 7) {
                         Circle().fill(skin).frame(width: 36, height: 36)
-                            .offset(x: 4) // head slightly forward for profile
+                            .offset(x: 4)
                         RoundedRectangle(cornerRadius: 10).fill(skin.opacity(0.92)).frame(width: 28, height: 68)
                     }
                     .overlay(
@@ -572,32 +469,23 @@ private struct KickerFigure: View {
                     )
                     .offset(y: -83)
 
-                    // Front leg
                     Capsule().fill(skin).frame(width: 18, height: 83)
                         .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.5))
                         .rotationEffect(.degrees(frontLegAngle), anchor: .top)
                         .offset(x: 2)
 
-                    // Front arm (drawn over body)
                     Capsule().fill(skin).frame(width: 14, height: 52)
                         .overlay(Capsule().stroke(Theme.neonCyan.opacity(0.18), lineWidth: 1.2))
                         .rotationEffect(.degrees(frontArmAngle), anchor: .top)
                         .offset(x: 2, y: -99)
                 }
             }
-            // Mirrors the whole figure — including which leg (front/back)
-            // leads the kick — so it visibly faces and leads with the
-            // direction it's actually walking and kicking.
-            // Scaled by 1.4x from the bottom so the feet stay on the ground.
             .scaleEffect(CGSize(width: direction * 1.4, height: 1.4), anchor: .bottom)
             .opacity(min(fadeIn, fadeOut))
             .position(x: bodyX, y: groundY - 22)
         }
     }
 
-    /// Mid-kick (roughly -0.12...0.26s of local time) overrides the normal
-    /// walk cycle for the front leg with a windup-to-follow-through swing;
-    /// otherwise both legs just scissor back and forth for an ordinary gait.
     private var kickPhase: Double? {
         guard localTime > -0.12 && localTime < 0.26 else { return nil }
         return min(1, max(0, (localTime + 0.12) / 0.38))
@@ -633,14 +521,6 @@ private struct KickerFigure: View {
     }
 }
 
-/// A stray dog rendered from simple layered shapes rather than a Canvas
-/// path. Unlike the human passerby (a cool blue-gray caught in neon), this
-/// needs to read clearly as an animal against the same near-black street —
-/// a warm, muddy fur tone plus a bright rim light and two glinting eyes,
-/// so it doesn't just dissolve into the shadows the way a darker, cooler
-/// silhouette did in testing. Always runs left-to-right, matching the
-/// snatch sequence's blocking, and is sized/posed entirely by the caller
-/// via `.frame()` and `legPhase`.
 private struct StrayDogView: View {
     var legPhase: Double
 
@@ -662,8 +542,6 @@ private struct StrayDogView: View {
                 leg(originX: w * 0.24, phase: legPhase, w: w, h: h)
                 leg(originX: w * 0.19, phase: legPhase + .pi, w: w, h: h)
 
-                // Tail, curved and tapering rather than a straight rod —
-                // reads as a tail instead of another bottle-like capsule.
                 TailShape()
                     .fill(furDark)
                     .frame(width: w * 0.24, height: h * 0.16)
@@ -673,12 +551,6 @@ private struct StrayDogView: View {
                 leg(originX: w * 0.58, phase: legPhase + .pi, w: w, h: h)
                 leg(originX: w * 0.63, phase: legPhase, w: w, h: h)
 
-                // One continuous silhouette for torso, neck, head and
-                // muzzle — an arched back and a tapered snout instead of
-                // two stacked capsules, which is what read as a bottle
-                // with legs rather than an actual dog. Taller relative to
-                // its length than the first pass, which read as too flat
-                // and long — an otter/gator silhouette, not a dog.
                 DogBodyShape()
                     .fill(
                         LinearGradient(colors: [fur, furDark], startPoint: .top, endPoint: .bottom)
@@ -687,9 +559,6 @@ private struct StrayDogView: View {
                     .frame(width: w, height: h * 0.85)
                     .position(x: w * 0.5, y: h * 0.45)
 
-                // Floppy ear, hanging alongside the skull — smaller and
-                // higher than the first pass, which sat low enough to
-                // blob into the neck and read as a second hump.
                 Ellipse()
                     .fill(furDark)
                     .frame(width: w * 0.07, height: h * 0.13)
@@ -713,10 +582,6 @@ private struct StrayDogView: View {
     }
 }
 
-/// A dog's side-profile silhouette in one continuous path — arched back,
-/// sloped neck, a distinct skull-to-muzzle taper, and a tucked belly —
-/// instead of primitive shapes stacked together. Faces right; the caller
-/// mirrors it for leftward travel.
 private struct DogBodyShape: Shape {
     func path(in rect: CGRect) -> Path {
         let w = rect.width, h = rect.height
@@ -742,8 +607,6 @@ private struct DogBodyShape: Shape {
     }
 }
 
-/// A tapered, curved tail — wide at the base, narrowing to a point — used
-/// instead of a straight capsule so it reads as an actual tail.
 private struct TailShape: Shape {
     func path(in rect: CGRect) -> Path {
         let w = rect.width, h = rect.height
@@ -760,17 +623,12 @@ private struct TailShape: Shape {
     }
 }
 
-/// Streaks of gutter water rushing downhill toward the drain, converging
-/// slightly toward center as they near it — visual reinforcement that the
-/// rain is actively carrying the bottle along, not just falling on it.
 private struct GutterFlowCanvas: View {
-    var reduceMotion: Bool
     var bottleRowFrac: CGFloat
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             Canvas { ctx, size in
-                guard !reduceMotion else { return }
                 let t = context.date.timeIntervalSinceReferenceDate
                 let floorY = size.height * bottleRowFrac
                 let span = size.height - floorY + 60
@@ -795,15 +653,10 @@ private struct GutterFlowCanvas: View {
     }
 }
 
-/// Distant cross-traffic sliding along the base of the skyline — a bit of
-/// constant background life so the street never reads as a static void.
 private struct TrafficStreakCanvas: View {
-    var reduceMotion: Bool
-
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 20)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
             Canvas { ctx, size in
-                guard !reduceMotion else { return }
                 let t = context.date.timeIntervalSinceReferenceDate
                 let bandY = size.height * 0.935
                 for i in 0..<3 {
@@ -826,14 +679,9 @@ private struct TrafficStreakCanvas: View {
     }
 }
 
-/// Short (~4-5s), reversible failure beat mirroring the sea route: muted
-/// color, hushed grinding machinery, one line of text, then straight back
-/// to the drain fork — never a full restart.
 struct LandfillFailureScene: View {
     @EnvironmentObject var game: GameState
     @State private var showText = false
-
-    private var reduceMotion: Bool { game.reduceMotion }
 
     var body: some View {
         GeometryReader { geo in
@@ -844,16 +692,12 @@ struct LandfillFailureScene: View {
                 LinearGradient(colors: [Theme.nearBlack, Color(red: 0.09, green: 0.07, blue: 0.05)],
                                startPoint: .top, endPoint: .bottom)
 
-                SmokeCanvas(intensity: 0.5, color: Theme.smokeOrange, reduceMotion: reduceMotion)
+                SmokeCanvas(intensity: 0.5, color: Theme.smokeOrange)
                     .opacity(0.5)
                     .frame(height: groundY)
                     .frame(maxHeight: .infinity, alignment: .top)
                     .clipped()
 
-                // The bottle, tossed in and mostly swallowed — only its
-                // neck pokes above the ground line. Positioned (not just
-                // captioned) as buried: the dirt cross-section below is
-                // drawn after it, covering everything past the ground line.
                 BottleView(
                     vibrancy: 0.3, dirt: min(1, game.grime + 0.3), showEyes: false,
                     width: 54, height: 132, tilt: .degrees(16)
@@ -877,8 +721,6 @@ struct LandfillFailureScene: View {
                 Vignette(strength: 0.75)
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Buried is not gone. The bottle is thrown into a landfill and covered with dirt.")
         .onAppear(perform: runSequence)
     }
 
@@ -886,7 +728,7 @@ struct LandfillFailureScene: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.4))
             withAnimation(.easeIn(duration: 0.6)) { showText = true }
-            try? await Task.sleep(for: .seconds(reduceMotion ? 2.6 : 3.4))
+            try? await Task.sleep(for: .seconds(3.4))
             withAnimation(.easeOut(duration: 0.4)) { showText = false }
             try? await Task.sleep(for: .seconds(0.4))
             game.returnToForkFromLandfill()
@@ -894,13 +736,6 @@ struct LandfillFailureScene: View {
     }
 }
 
-/// A landfill cross-section: layered dirt strata (jittered, not
-/// ruler-straight) filling everything below `groundY`, an irregular
-/// ground-line seam, scattered debris flecks buried in the soil, and a
-/// few loose clumps sitting just above the line — as if freshly shoveled
-/// over whatever's still poking out. Drawn after the bottle in its parent
-/// ZStack, so this is what actually covers it, not just a caption implying
-/// burial over an otherwise plainly-visible bottle.
 private struct LandfillGroundCanvas: View {
     let groundY: CGFloat
 

@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// A stylized plastic-bottle silhouette: cap, tapered neck, shoulder,
-/// gently waisted body, rounded base. Built entirely from curves so the
-/// whole game needs zero image assets for its hero character.
 struct BottleShape: Shape {
     func path(in rect: CGRect) -> Path {
         let w = rect.width
@@ -14,7 +11,6 @@ struct BottleShape: Shape {
             CGPoint(x: midX + xFrac * w, y: minY + yFrac * h)
         }
 
-        // (halfWidthFraction, heightFraction) profile from cap to base, right side only.
         let profile: [(CGFloat, CGFloat)] = [
             (0.10, 0.00),
             (0.115, 0.05),
@@ -74,9 +70,6 @@ struct DirtSpeckleCanvas: View {
     }
 }
 
-/// The bottle, our silent protagonist. A reflected highlight near the
-/// shoulder reads faintly as a pair of eyes without ever becoming a
-/// cartoon face — `showEyes` is only turned on for the close-up beats.
 struct BottleView: View {
     var vibrancy: Double = 1
     var dirt: Double = 0
@@ -90,8 +83,6 @@ struct BottleView: View {
 
     var body: some View {
         ZStack {
-            // Contact shadow: stays grounded regardless of how the bottle
-            // itself tilts, the way a real shadow would.
             Ellipse()
                 .fill(RadialGradient(colors: [Color.black.opacity(0.4), .clear],
                                      center: .center, startRadius: 0, endRadius: width * 0.62))
@@ -121,8 +112,6 @@ struct BottleView: View {
                         )
                         .saturation(0.35 + vibrancy * 0.65)
 
-                    // Ambient occlusion: the seams where light naturally
-                    // gets trapped — under the cap and at the base.
                     Capsule()
                         .fill(Color.black.opacity(0.28))
                         .frame(width: width * 0.5, height: height * 0.035)
@@ -172,8 +161,6 @@ struct BottleView: View {
                 .frame(width: width, height: height)
                 .clipShape(BottleShape())
                 .overlay(
-                    // Fresnel-style rim light: brighter where the curved
-                    // plastic edge catches light, dimmer on the shadow side.
                     BottleShape()
                         .stroke(
                             LinearGradient(

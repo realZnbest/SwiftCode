@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trasher — Bottle Storyline Storyboard</title>
+</head>
+<body>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0b10;
+    --bg-elevated: #12141c;
+    --bg-elevated-2: #171a24;
+    --ink: #eef1f7;
+    --ink-dim: #98a1b5;
+    --ink-faint: #5b6377;
+    --line: rgba(255,255,255,0.09);
+    --line-strong: rgba(255,255,255,0.18);
+    --accent: #38e0e8;
+    --accent-ink: #04191b;
+    --cat-production: #ffb454;
+    --cat-litter: #ff8a5c;
+    --cat-water: #38e0e8;
+    --cat-fail: #ff5d84;
+    --cat-recycle: #5be08a;
+    --cat-community: #8b9dff;
+    --cat-neutral: #5b6377;
+    --shadow: 0 20px 60px -20px rgba(0,0,0,0.65);
+    --shadow-lg: 0 30px 90px -20px rgba(0,0,0,0.75);
+
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+    --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+    --radius-sm: 7px; --radius-md: 12px; --radius-lg: 18px;
+
+    --fs-micro: 11px; --fs-small: 12.5px; --fs-body: 14.5px; --fs-md: 16.5px;
+    --fs-h2: clamp(21px, 2.6vw, 28px);
+    --fs-hero: clamp(42px, 9vw, 92px);
+
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-display: -apple-system, "SF Pro Display", system-ui, "Segoe UI", sans-serif;
+
+    --ease: cubic-bezier(.22,.9,.3,1);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #eef1f6;
+      --bg-elevated: #ffffff;
+      --bg-elevated-2: #e3e7f0;
+      --ink: #14171f;
+      --ink-dim: #4b5468;
+      --ink-faint: #8991a3;
+      --line: rgba(20,23,31,0.11);
+      --line-strong: rgba(20,23,31,0.2);
+      --accent: #0891a8;
+      --accent-ink: #f2fdfe;
+      --cat-production: #a8660a;
+      --cat-litter: #c9531f;
+      --cat-water: #0891a8;
+      --cat-fail: #c92955;
+      --cat-recycle: #1f9c5a;
+      --cat-community: #4a5fd4;
+      --cat-neutral: #8991a3;
+      --shadow: 0 16px 40px -16px rgba(20,23,31,0.16);
+      --shadow-lg: 0 26px 70px -18px rgba(20,23,31,0.22);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0a0b10; --bg-elevated: #12141c; --bg-elevated-2: #171a24;
+    --ink: #eef1f7; --ink-dim: #98a1b5; --ink-faint: #5b6377;
+    --line: rgba(255,255,255,0.09); --line-strong: rgba(255,255,255,0.18);
+    --accent: #38e0e8; --accent-ink: #04191b;
+    --cat-production: #ffb454; --cat-litter: #ff8a5c; --cat-water: #38e0e8;
+    --cat-fail: #ff5d84; --cat-recycle: #5be08a; --cat-community: #8b9dff; --cat-neutral: #5b6377;
+    --shadow: 0 20px 60px -20px rgba(0,0,0,0.65);
+    --shadow-lg: 0 30px 90px -20px rgba(0,0,0,0.75);
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #eef1f6; --bg-elevated: #ffffff; --bg-elevated-2: #e3e7f0;
+    --ink: #14171f; --ink-dim: #4b5468; --ink-faint: #8991a3;
+    --line: rgba(20,23,31,0.11); --line-strong: rgba(20,23,31,0.2);
+    --accent: #0891a8; --accent-ink: #f2fdfe;
+    --cat-production: #a8660a; --cat-litter: #c9531f; --cat-water: #0891a8;
+    --cat-fail: #c92955; --cat-recycle: #1f9c5a; --cat-community: #4a5fd4; --cat-neutral: #8991a3;
+    --shadow: 0 16px 40px -16px rgba(20,23,31,0.16);
+    --shadow-lg: 0 26px 70px -18px rgba(20,23,31,0.22);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  a { color: inherit; }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+  button:focus-visible, .scene-card:focus-visible, .chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
+  }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: var(--space-7) var(--space-5) var(--space-8);
+  }
+
+  /* ---------- Header ---------- */
+  .hero-mark {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--accent);
+    margin-bottom: var(--space-3);
+  }
+  .hero-mark .eyebrow {
+    font-size: var(--fs-micro);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .hero-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: var(--fs-hero);
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    margin: 0 0 var(--space-4);
+    text-wrap: balance;
+    color: var(--ink);
+  }
+  .hero-sub {
+    max-width: 62ch;
+    color: var(--ink-dim);
+    font-size: var(--fs-md);
+    line-height: 1.6;
+    margin: 0 0 var(--space-6);
+  }
+  .hero-sub strong { color: var(--ink); font-weight: 600; }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: var(--space-7);
+  }
+  .stat {
+    background: var(--bg-elevated);
+    padding: var(--space-4);
+  }
+  .stat .num {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .stat .label {
+    font-size: var(--fs-micro);
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  /* ---------- Legend + filters ---------- */
+  .section-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .section-heading h2 {
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    margin: 0;
+    font-weight: 600;
+  }
+  .legend {
+    display: flex;
+    gap: var(--space-4);
+    font-size: var(--fs-micro);
+    color: var(--ink-faint);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot, .legend .diamond { width: 8px; height: 8px; background: var(--ink-faint); border-radius: 50%; }
+  .legend .diamond { border-radius: 2px; transform: rotate(45deg); }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-7);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px 7px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    font-size: var(--fs-small);
+    color: var(--ink-dim);
+    background: var(--bg-elevated);
+    transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+  }
+  .chip .swatch { width: 8px; height: 8px; border-radius: 50%; background: var(--chip-color, var(--ink-faint)); flex: none; }
+  .chip:hover { border-color: var(--chip-color, var(--line-strong)); color: var(--ink); }
+  .chip[aria-pressed="true"] {
+    color: var(--ink);
+    border-color: var(--chip-color, var(--accent));
+    background: color-mix(in srgb, var(--chip-color, var(--accent)) 14%, var(--bg-elevated));
+  }
+  .chip.reset { color: var(--ink-faint); }
+
+  /* ---------- Timeline ---------- */
+  .timeline { display: block; }
+  .beat {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    column-gap: var(--space-4);
+  }
+  .rail {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+  .rail::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--line-strong);
+  }
+  .beat:first-child .rail::before { top: 22px; }
+  .beat:last-child .rail::before { bottom: calc(100% - 22px); }
+  .rail .node {
+    position: relative;
+    z-index: 1;
+    margin-top: 16px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--node-color, var(--ink-faint));
+    border: 3px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--line-strong);
+    flex: none;
+  }
+  .rail .node.decision {
+    border-radius: 3px;
+    transform: rotate(45deg);
+    width: 12px;
+    height: 12px;
+  }
+
+  .beat-body { padding-bottom: var(--space-6); min-width: 0; }
+
+  .scene-card {
+    display: block;
+    width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-5);
+    transition: transform .18s var(--ease), border-color .18s var(--ease), box-shadow .18s var(--ease);
+  }
+  .scene-card:hover { border-color: var(--line-strong); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .scene-card:active { transform: translateY(0); }
+
+  .scene-card.dim, .outcome-card.dim { opacity: 0.32; }
+
+  .scene-top {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: 6px;
+  }
+  .scene-index {
+    font-size: var(--fs-micro);
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+  .scene-cat {
+    font-size: var(--fs-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--cat-color, var(--ink-faint));
+    margin-left: auto;
+  }
+  .scene-name {
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 5px;
+  }
+  .scene-beat {
+    font-size: var(--fs-body);
+    color: var(--ink-dim);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .scene-phase {
+    display: inline-block;
+    margin-top: var(--space-3);
+    font-size: var(--fs-micro);
+    color: var(--ink-faint);
+    background: var(--bg-elevated-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 3px 7px;
+  }
+
+  /* fork */
+  .fork { margin-top: var(--space-3); }
+  .fork-label {
+    font-size: var(--fs-micro);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: var(--space-2);
+    padding-left: 2px;
+  }
+  .fork-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  .outcome-card {
+    display: block;
+    width: 100%;
+    border-radius: var(--radius-sm);
+    padding: var(--space-3) var(--space-4);
+    border: 1px dashed var(--line-strong);
+    background: var(--bg-elevated-2);
+    transition: transform .16s var(--ease), border-color .16s var(--ease);
+  }
+  .outcome-card:hover { transform: translateY(-1px); }
+  .outcome-card .oc-tag {
+    display: block;
+    font-size: var(--fs-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .outcome-card .oc-title { font-weight: 700; font-size: var(--fs-body); color: var(--ink); }
+  .outcome-card .oc-note { font-size: var(--fs-small); color: var(--ink-faint); margin-top: 4px; }
+  .outcome-card.fail { border-color: color-mix(in srgb, var(--cat-fail) 55%, var(--line-strong)); }
+  .outcome-card.fail .oc-tag { color: var(--cat-fail); }
+  .outcome-card.go { border-style: solid; border-color: color-mix(in srgb, var(--cat-recycle) 55%, var(--line-strong)); }
+  .outcome-card.go .oc-tag { color: var(--cat-recycle); }
+
+  @media (max-width: 520px) {
+    .fork-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Panel ---------- */
+  .scrim {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s var(--ease);
+    z-index: 40;
+  }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+
+  .panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(440px, 100vw);
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--line);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(100%);
+    transition: transform .32s var(--ease);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .panel.open { transform: translateX(0); }
+
+  .panel-head {
+    position: sticky; top: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-5) var(--space-4);
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-close {
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    color: var(--ink-dim);
+    flex: none;
+  }
+  .panel-close:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .panel-body { padding: var(--space-5); }
+  .panel-index { font-size: var(--fs-micro); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .panel-phase {
+    font-size: var(--fs-micro);
+    color: var(--ink-faint);
+    display: block;
+    margin-top: 2px;
+  }
+  .panel-title { font-size: 24px; font-weight: 800; margin: var(--space-2) 0 var(--space-2); line-height: 1.15; }
+  .panel-cat {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--cat-color, var(--ink-faint));
+    margin-bottom: var(--space-4);
+  }
+  .panel-cat .swatch { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  .panel-beat {
+    font-size: var(--fs-md);
+    color: var(--ink);
+    line-height: 1.6;
+    margin: 0 0 var(--space-5);
+  }
+
+  .detail-block { margin-bottom: var(--space-5); }
+  .detail-block h3 {
+    display: flex; align-items: center; gap: 8px;
+    font-size: var(--fs-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-faint);
+    margin: 0 0 var(--space-2);
+  }
+  .detail-block h3 svg { width: 15px; height: 15px; color: var(--ink-faint); flex: none; }
+  .detail-block p { margin: 0; color: var(--ink-dim); font-size: var(--fs-body); line-height: 1.6; }
+
+  .detail-block.decision { padding: var(--space-4); background: var(--bg-elevated-2); border-radius: var(--radius-sm); border: 1px solid var(--line); }
+  .detail-block.decision h3 { color: var(--accent); }
+  .detail-block.decision h3 svg { color: var(--accent); }
+  .detail-block.decision p { color: var(--ink); }
+
+  .fork-outcomes { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+  .fo-row { display: flex; gap: var(--space-3); align-items: flex-start; font-size: var(--fs-small); }
+  .fo-row .fo-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex: none; }
+  .fo-row.fail .fo-dot { background: var(--cat-fail); }
+  .fo-row.go .fo-dot { background: var(--cat-recycle); }
+  .fo-row b { color: var(--ink); }
+  .fo-row span { color: var(--ink-dim); }
+
+  .api-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2); }
+  .api-tag {
+    font-size: var(--fs-micro);
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: var(--bg-elevated-2);
+    border: 1px solid var(--line);
+    color: var(--ink-faint);
+  }
+
+  footer.colophon {
+    margin-top: var(--space-8);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--line);
+    color: var(--ink-faint);
+    font-size: var(--fs-small);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-5);
+    justify-content: space-between;
+  }
+  footer.colophon .rule { color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scene-card, .outcome-card, .panel, .scrim, .beat { transition: none !important; animation: none !important; }
+  }
+
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .beat { animation: riseIn .5s var(--ease) both; }
+</style>
+
+<div class="page">
+
+  <header>
+    <div class="hero-mark">
+      <svg width="30" height="30" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <rect x="12" y="2" width="10" height="6" rx="2" fill="currentColor" opacity="0.9"></rect>
+        <path d="M10 10 L10 8 Q10 7 11 7 L23 7 Q24 7 24 8 L24 10 Q27 14 27 19 L27 30 Q27 32 25 32 L9 32 Q7 32 7 30 L7 19 Q7 14 10 10 Z" fill="currentColor" opacity="0.14" stroke="currentColor" stroke-width="1.5"></path>
+        <circle cx="14" cy="20" r="1.5" fill="currentColor"></circle>
+        <circle cx="20" cy="20" r="1.5" fill="currentColor"></circle>
+      </svg>
+      <span class="eyebrow">Storyboard &middot; Interactive Infographic</span>
+    </div>
+    <h1 class="hero-title">TRASHER</h1>
+    <p class="hero-sub">
+      A discarded plastic bottle drifts through one night in a city &mdash; kicked into a drain, swept toward
+      the sea, or pulled back into the system. <strong>Nineteen scenes, three real decisions, one ending
+      that depends on what you do with it.</strong> This page maps every stop in that journey: what plays,
+      what plays underneath it, and where the story actually asks you to choose.
+    </p>
+
+    <div class="stat-strip">
+      <div class="stat"><div class="num">19</div><div class="label">Scenes</div></div>
+      <div class="stat"><div class="num">3</div><div class="label">Real decisions</div></div>
+      <div class="stat"><div class="num">0</div><div class="label">Music tracks &mdash; effects only</div></div>
+      <div class="stat"><div class="num">&sim;3 min</div><div class="label">One playthrough</div></div>
+    </div>
+  </header>
+
+  <div class="section-heading">
+    <h2>Environmental impact scope</h2>
+    <div class="legend">
+      <span><i class="dot" aria-hidden="true"></i> Scene</span>
+      <span><i class="diamond" aria-hidden="true"></i> Decision point</span>
+    </div>
+  </div>
+  <nav class="filters" id="filters" aria-label="Filter scenes by environmental impact"></nav>
+
+  <div class="section-heading">
+    <h2>The bottle&rsquo;s route</h2>
+  </div>
+  <main class="timeline" id="timeline"></main>
+
+  <footer class="colophon">
+    <span>Built to run start to finish with <span class="rule">no internet connection</span> and <span class="rule">no instructions screen</span> &mdash; a cold judge should understand it in the first ten seconds.</span>
+    <span>SwiftUI &middot; Swift Playgrounds &middot; AVAudioEngine</span>
+  </footer>
+
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="panel" id="panel" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="panelTitle">
+  <div class="panel-head">
+    <div>
+      <span class="panel-index" id="panelIndex"></span>
+      <span class="panel-phase" id="panelPhase"></span>
+    </div>
+    <button class="panel-close" id="panelClose" aria-label="Close detail panel">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="panel-body">
+    <h2 class="panel-title" id="panelTitle"></h2>
+    <div class="panel-cat" id="panelCat"><i class="swatch"></i><span id="panelCatText"></span></div>
+    <p class="panel-beat" id="panelBeat"></p>
+
+    <div class="detail-block">
+      <h3>
+        <svg viewBox="0 0 20 20" fill="none"><path d="M2 10c2-4 5-6 8-6s6 2 8 6c-2 4-5 6-8 6s-6-2-8-6Z" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="2.3" fill="currentColor"/></svg>
+        Visual technique
+      </h3>
+      <p id="panelVisual"></p>
+    </div>
+
+    <div class="detail-block">
+      <h3>
+        <svg viewBox="0 0 20 20" fill="none"><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="3" y1="12" x2="3" y2="8"/><line x1="7" y1="15" x2="7" y2="5"/><line x1="11" y1="17" x2="11" y2="3"/><line x1="15" y1="13" x2="15" y2="7"/></g></svg>
+        Audio cue
+      </h3>
+      <p id="panelAudio"></p>
+    </div>
+
+    <div class="detail-block decision" id="panelDecisionBlock" style="display:none;">
+      <h3>
+        <svg viewBox="0 0 20 20" fill="none"><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 2v6" fill="none"/><path d="M10 8 4 16" fill="none"/><path d="M10 8l6 8" fill="none"/></g></svg>
+        Decision logic
+      </h3>
+      <p id="panelDecision"></p>
+      <div class="fork-outcomes" id="panelForkOutcomes"></div>
+    </div>
+
+    <div class="detail-block" id="panelApiBlock">
+      <h3>Built with</h3>
+      <div class="api-tags" id="panelApiTags"></div>
+    </div>
+  </div>
+</aside>
+
+<script>
+(function () {
+  "use strict";
+
+  var CATS = {
+    production: { label: "Production",  color: "var(--cat-production)" },
+    litter:     { label: "Urban litter", color: "var(--cat-litter)" },
+    water:      { label: "Waterway",     color: "var(--cat-water)" },
+    fail:       { label: "Escapes system", color: "var(--cat-fail)" },
+    recycle:    { label: "Recycling",    color: "var(--cat-recycle)" },
+    community:  { label: "Community",    color: "var(--cat-community)" }
+  };
+
+  var SCENES = [
+    {
+      phase: "title", name: "Title", cat: null, decision: false,
+      beat: "The bottle waits under a streetlamp. Tap to begin — nothing happens until you do.",
+      visual: "A radial spotlight gradient masks a slow sparkle drift over the skyline. The “Tap to begin” label pulses on a pure sine of elapsed time rather than a toggled animation, so it never glitches or restarts when the view re-renders.",
+      audio: "Silent. The soundscape only starts once the story does.",
+      api: ["TimelineView", "Canvas"]
+    },
+    {
+      phase: "factoryOrigin", name: "Factory Origin", cat: "production", decision: false,
+      beat: "A capping machine stamps down — and the bottle is born at the exact instant the head makes contact, not placed on the line beforehand.",
+      visual: "A gantry piston, built from real cog and bracket geometry rather than a plain bar, descends on a spring curve. The bottle pops into existence and scales up from that contact point.",
+      audio: "A machinery hum layer fades in under a short, non-melodic ‘success’ chirp on the seal.",
+      api: ["Canvas", "spring animation"]
+    },
+    {
+      phase: "deliveryTruck", name: "Delivery Truck", cat: "production", decision: false,
+      beat: "Boxed and shipped across the city, overnight.",
+      visual: "A parallax skyline scrolls under a bouncing truck silhouette — street lamps, roadside trees, and the road itself all driven from one shared clock.",
+      audio: "A low, distant city hum — the first ambient layer of the night.",
+      api: ["Canvas", "TimelineView"]
+    },
+    {
+      phase: "vendingAndDiscard", name: "Vending & Discard", cat: "litter", decision: false,
+      beat: "Someone buys it, drinks it — then you're the one who has to let it go.",
+      visual: "A joystick-driven walk cycle, a BUY prompt, an auto-animated drink — then a real drag gesture: you flick the empty bottle out of frame yourself.",
+      audio: "Rain begins here, and only in scenes where it's actually falling — filtered noise, never used as generic background texture.",
+      api: ["DragGesture", "AVAudioEngine"]
+    },
+    {
+      phase: "streetToDrain", name: "Street to Drain", cat: "litter", decision: true,
+      beat: "Five strangers kick it down the sidewalk without ever looking down. A stray dog decides what happens next.",
+      visual: "Each passerby is a procedural walk-cycle figure that fully enters, kicks, and exits before the next one arrives — never two at once. The dog's pounce, bite, and carry-off are pure functions of elapsed time, no stored animation state.",
+      audio: "Rain continues; a short ‘chomp’ one-shot lands on the bite. No music.",
+      decisionText: "Drag the bottle into the storm drain or the landfill bin. Choosing wrong is reversible and short — the story insists on the drain on the next attempt.",
+      fork: [
+        { tag: "Dead end", kind: "fail", title: "Landfill", note: "“Buried is not gone.” A real dirt cross-section — jittered strata, loose soil clumps — swallows the bottle until only its neck shows. Loops back to this same choice." },
+        { tag: "Continues", kind: "go", title: "Storm Drain", note: "The correct path. Drops straight into the drain tunnel." }
+      ],
+      api: ["DragGesture", "Canvas"]
+    },
+    {
+      phase: "stormDrainTunnel", name: "Storm Drain Tunnel", cat: "water", decision: false,
+      beat: "Swept into rushing water, tumbling out of the light.",
+      visual: "The bottle spins on a continuous rotation while concentric ripple rings pulse outward, both driven by the same elapsed-time value.",
+      audio: "A deep, purely tonal submerged drone replaces the city hum — no noise texture, so it never reads as rain underwater.",
+      api: ["Canvas", "AVAudioEngine"]
+    },
+    {
+      phase: "secondBottleMirror", name: "Second Bottle, Mirror", cat: "water", decision: false,
+      beat: "Another bottle, already snagged in the debris. A quiet preview of the road not taken.",
+      visual: "Desaturated, motionless, tangled — deliberately static against the water still drifting around it.",
+      audio: "The same submerged drone, slightly duller.",
+      api: ["Canvas"]
+    },
+    {
+      phase: "canal", name: "Canal", cat: "water", decision: true,
+      beat: "The water darkens as the canal carries it onward. Then it's your call again.",
+      visual: "Layered, out-of-phase sine waves drift and tilt the bottle — real flotation physics instead of one clean bob on a straight line.",
+      audio: "The drone deepens with the water; a single ‘darkness’ value drives color, particles, and audio together.",
+      decisionText: "Drag toward the open sea or the recycling point. Choosing the sea loops back — “Waste does not disappear.”",
+      fork: [
+        { tag: "Dead end", kind: "fail", title: "Lost at Sea", note: "The bottle shrinks to a speck in open water, microplastic flecks scattered around it — ‘lost’ rendered as actually small and alone, not just captioned." },
+        { tag: "Continues", kind: "go", title: "Recycling Point", note: "The correct path. Carries the story toward rescue." }
+      ],
+      api: ["DragGesture", "TimelineView"]
+    },
+    {
+      phase: "nightIntoDay", name: "Night Into Day", cat: null, decision: false,
+      beat: "Dawn breaks over the water. The story's tone turns.",
+      visual: "A slow color-temperature crossfade — the same technique used everywhere else in the game, this time aimed at hope instead of dread.",
+      audio: "City hum fades out; the first sparse birdsong enters — the only melodic-adjacent sound in the whole game, used exactly once.",
+      api: ["TimelineView"]
+    },
+    {
+      phase: "fishingNetRescue", name: "Fishing Net Rescue", cat: "recycle", decision: false,
+      beat: "A hand net reaches in. Someone chose to.",
+      visual: "A hand-drawn diamond mesh sags into a real pouch shape around the bottle instead of converging to a point — it visibly holds the bottle rather than skewering it.",
+      audio: "Birdsong continues; a soft splash accents the lift.",
+      api: ["Canvas"]
+    },
+    {
+      phase: "sortingLine", name: "Sorting Line", cat: "recycle", decision: false,
+      beat: "Onto a real sorting facility, among other reclaimed material.",
+      visual: "A conveyor belt with dashed motion lines carries a procession of bottles past in formation.",
+      audio: "Machinery hum returns, brighter and cleaner than the factory's.",
+      api: ["Canvas", "TimelineView"]
+    },
+    {
+      phase: "recycling", name: "Recycling Facility", cat: "recycle", decision: true,
+      beat: "Rinsed — then it's down to a drag: the right bin, or the wrong one, for as many tries as it takes.",
+      visual: "Bins glow and scale up live as you drag the bottle near them — the same hover feedback used at every choice point in the game, so every decision feels consistent.",
+      audio: "A bright, cleaner mix of the facility hum; an impact thud on every miss.",
+      decisionText: "There is no auto-succeed after repeated misses. You have to actually land it in recycling.",
+      fork: [
+        { tag: "Retry", kind: "fail", title: "Trash Bin", note: "A warning label appears; the bottle resets to the top for another try. Nothing advances until recycling is chosen." },
+        { tag: "Continues", kind: "go", title: "Recycling Bin", note: "Cleaned, shredded into flakes, and re-formed into a park bench while the whole scene brightens around it." }
+      ],
+      api: ["DragGesture", "Canvas"]
+    },
+    {
+      phase: "pelletReveal", name: "Pellet Reveal", cat: "recycle", decision: false,
+      beat: "What's left after shredding: raw material, not garbage.",
+      visual: "A field of flake particles converges and settles into pellet form.",
+      audio: "The bright facility hum, held short and unresolved.",
+      api: ["Canvas"]
+    },
+    {
+      phase: "truckDelivery", name: "Truck Delivery", cat: "recycle", decision: false,
+      beat: "The material goes back out — daylight now, the same delivery rig from the opening, recontextualized.",
+      visual: "The same procedural truck and roadside geometry from scene three, now lit for day instead of night: a deliberate visual echo.",
+      audio: "A daytime version of the city ambience — birds in place of hum.",
+      api: ["Canvas", "TimelineView"]
+    },
+    {
+      phase: "montage", name: "Montage", cat: "community", decision: false,
+      beat: "A quick run of hopeful vignettes — the wider system finishing the job.",
+      visual: "Short, auto-advancing beats, each holding just long enough to read before cutting to the next.",
+      audio: "Birdsong, sustained.",
+      api: ["TimelineView"]
+    },
+    {
+      phase: "communityCleanup", name: "Community Cleanup", cat: "community", decision: false,
+      beat: "People, not just machinery, closing the loop.",
+      visual: "Procedural crowd figures move along a park path in the same walk-cycle system used for every human figure in the game.",
+      audio: "Full daylight ambience.",
+      api: ["Canvas"]
+    },
+    {
+      phase: "ending", name: "Ending", cat: "community", decision: false,
+      beat: "The bottle is a bench now. A map recaps everywhere it's been.",
+      visual: "An animated recap path draws itself across every waypoint from the whole playthrough, then settles.",
+      audio: "Birdsong settles; still no music, even here.",
+      decisionText: "Play again — the only button left.",
+      api: ["Canvas", "TimelineView"]
+    }
+  ];
+
+  // ---------- render filter chips ----------
+  var filterState = new Set();
+  var filtersEl = document.getElementById("filters");
+
+  function renderChips() {
+    filtersEl.innerHTML = "";
+    Object.keys(CATS).forEach(function (key) {
+      var c = CATS[key];
+      var btn = document.createElement("button");
+      btn.className = "chip";
+      btn.type = "button";
+      btn.style.setProperty("--chip-color", c.color);
+      btn.setAttribute("aria-pressed", filterState.has(key) ? "true" : "false");
+      btn.innerHTML = '<i class="swatch"></i>' + c.label;
+      btn.addEventListener("click", function () {
+        if (filterState.has(key)) { filterState.delete(key); } else { filterState.add(key); }
+        renderChips();
+        applyFilter();
+      });
+      filtersEl.appendChild(btn);
+    });
+    var reset = document.createElement("button");
+    reset.className = "chip reset";
+    reset.type = "button";
+    reset.textContent = filterState.size ? "Clear filters" : "All scenes";
+    reset.addEventListener("click", function () {
+      filterState.clear();
+      renderChips();
+      applyFilter();
+    });
+    filtersEl.appendChild(reset);
+  }
+
+  function applyFilter() {
+    document.querySelectorAll("[data-cat]").forEach(function (el) {
+      var cat = el.getAttribute("data-cat");
+      if (filterState.size === 0 || cat === "null") {
+        el.classList.remove("dim");
+      } else {
+        el.classList.toggle("dim", !filterState.has(cat));
+      }
+    });
+  }
+
+  // ---------- render timeline ----------
+  var timelineEl = document.getElementById("timeline");
+
+  SCENES.forEach(function (scene, i) {
+    var cat = scene.cat;
+    var catInfo = cat ? CATS[cat] : null;
+
+    var beat = document.createElement("div");
+    beat.className = "beat";
+    beat.style.animationDelay = (i * 35) + "ms";
+
+    var rail = document.createElement("div");
+    rail.className = "rail";
+    var node = document.createElement("div");
+    node.className = "node" + (scene.decision ? " decision" : "");
+    if (catInfo) node.style.setProperty("--node-color", catInfo.color);
+    rail.appendChild(node);
+
+    var body = document.createElement("div");
+    body.className = "beat-body";
+
+    var card = document.createElement("button");
+    card.type = "button";
+    card.className = "scene-card";
+    card.setAttribute("data-cat", cat || "null");
+    card.setAttribute("data-index", i);
+    card.innerHTML =
+      '<div class="scene-top">' +
+        '<span class="scene-index">' + String(i + 1).padStart(2, "0") + '</span>' +
+        (catInfo ? '<span class="scene-cat" style="--cat-color:' + catInfo.color + '">' + catInfo.label + '</span>' : '') +
+      '</div>' +
+      '<p class="scene-name">' + scene.name + '</p>' +
+      '<p class="scene-beat">' + scene.beat + '</p>' +
+      '<span class="scene-phase">.' + scene.phase + '</span>';
+    card.addEventListener("click", function () { openPanel(i); });
+    body.appendChild(card);
+
+    if (scene.fork) {
+      var fork = document.createElement("div");
+      fork.className = "fork";
+      var label = document.createElement("div");
+      label.className = "fork-label";
+      label.textContent = "Your choice";
+      fork.appendChild(label);
+
+      var grid = document.createElement("div");
+      grid.className = "fork-grid";
+      scene.fork.forEach(function (f) {
+        var oc = document.createElement("div");
+        oc.className = "outcome-card " + f.kind;
+        oc.setAttribute("data-cat", f.kind === "fail" ? "fail" : "recycle");
+        oc.innerHTML =
+          '<span class="oc-tag">' + f.tag + '</span>' +
+          '<span class="oc-title">' + f.title + '</span>' +
+          '<div class="oc-note">' + f.note + '</div>';
+        grid.appendChild(oc);
+      });
+      fork.appendChild(grid);
+      body.appendChild(fork);
+    }
+
+    beat.appendChild(rail);
+    beat.appendChild(body);
+    timelineEl.appendChild(beat);
+  });
+
+  // ---------- panel ----------
+  var panel = document.getElementById("panel");
+  var scrim = document.getElementById("scrim");
+  var lastFocused = null;
+
+  function openPanel(i) {
+    var s = SCENES[i];
+    var catInfo = s.cat ? CATS[s.cat] : null;
+
+    document.getElementById("panelIndex").textContent = String(i + 1).padStart(2, "0") + " / " + SCENES.length;
+    document.getElementById("panelPhase").textContent = "GameState.Phase." + s.phase;
+    document.getElementById("panelTitle").textContent = s.name;
+
+    var panelCat = document.getElementById("panelCat");
+    if (catInfo) {
+      panelCat.style.display = "inline-flex";
+      panelCat.style.setProperty("--cat-color", catInfo.color);
+      document.getElementById("panelCatText").textContent = catInfo.label;
+    } else {
+      panelCat.style.display = "none";
+    }
+
+    document.getElementById("panelBeat").innerHTML = s.beat;
+    document.getElementById("panelVisual").innerHTML = s.visual;
+    document.getElementById("panelAudio").innerHTML = s.audio;
+
+    var decisionBlock = document.getElementById("panelDecisionBlock");
+    var forkOutcomes = document.getElementById("panelForkOutcomes");
+    forkOutcomes.innerHTML = "";
+    if (s.decisionText) {
+      decisionBlock.style.display = "block";
+      document.getElementById("panelDecision").innerHTML = s.decisionText;
+      if (s.fork) {
+        s.fork.forEach(function (f) {
+          var row = document.createElement("div");
+          row.className = "fo-row " + f.kind;
+          row.innerHTML = '<i class="fo-dot"></i><span><b>' + f.title + '</b> — ' + f.note + '</span>';
+          forkOutcomes.appendChild(row);
+        });
+      }
+    } else {
+      decisionBlock.style.display = "none";
+    }
+
+    var apiTags = document.getElementById("panelApiTags");
+    apiTags.innerHTML = "";
+    (s.api || []).forEach(function (a) {
+      var tag = document.createElement("span");
+      tag.className = "api-tag";
+      tag.textContent = a;
+      apiTags.appendChild(tag);
+    });
+
+    lastFocused = document.activeElement;
+    panel.classList.add("open");
+    scrim.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
+    document.getElementById("panelClose").focus();
+    document.body.style.overflow = "hidden";
+  }
+
+  function closePanel() {
+    panel.classList.remove("open");
+    scrim.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    if (lastFocused && lastFocused.focus) lastFocused.focus();
+  }
+
+  document.getElementById("panelClose").addEventListener("click", closePanel);
+  scrim.addEventListener("click", closePanel);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
+  });
+
+  renderChips();
+})();
+</script>
+</body>
+</html>
