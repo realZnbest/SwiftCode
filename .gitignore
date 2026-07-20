@@ -35,3 +35,11 @@ Package.resolved
 
 ## Submission artifacts
 *.zip
+
+.GITHUB_PUSH_CHECKLIST.md
+
+.SwiftCode.xcodeproj
+
+.Main
+
+.claude
