@@ -1009,144 +1009,134 @@ struct CommunityCleanupScene: View {
         VignetteScene(
             line: "มีมือบางคู่ เลือกที่จะหยุดไม่ให้มันต้องมาเริ่มเส้นทางนี้อีก",
             showBottle: false,
-            content: { size in CleanupParkView(size: size) },
+            content: { size in CarryBagView(size: size) },
             onFinish: { game.advanceFromCommunityCleanup() }
         )
     }
 }
 
-private struct CleanupParkView: View {
+private struct CarryBagView: View {
     let size: CGSize
 
-    @State private var heroLift: CGFloat = 0
-    @State private var bagFill: CGFloat = 0.35
-    @State private var litterOpacity: [Double] = [1, 1, 1]
-    @State private var sparkleScale: CGFloat = 0
+    @State private var walkT: CGFloat = 0
+    @State private var tossT: CGFloat = 0
+    @State private var binHit = false
+    @State private var start = Date()
 
     var body: some View {
         let groundY = size.height * 0.82
+        let binX = size.width * 0.74
+        let binRimY = groundY - 70
 
-        ZStack {
-            LinearGradient(colors: [Color(red: 0.55, green: 0.8, blue: 0.95), Color(red: 0.78, green: 0.92, blue: 0.72)],
-                           startPoint: .top, endPoint: .bottom)
-            CloudDriftCanvas()
-            TreeLineCanvas()
-            SparkleCanvas(count: 14, color: .white).opacity(0.3)
-
-            Rectangle()
-                .fill(LinearGradient(colors: [Color(red: 0.46, green: 0.72, blue: 0.42), Color(red: 0.3, green: 0.54, blue: 0.28)],
-                                     startPoint: .top, endPoint: .bottom))
-                .frame(height: size.height - groundY + 4)
-                .position(x: size.width / 2, y: groundY + (size.height - groundY) / 2)
-
-            LitterBlob(kind: .bag)
-                .opacity(litterOpacity[0])
-                .position(x: size.width * 0.55, y: groundY + 8)
-            LitterBlob(kind: .can)
-                .opacity(litterOpacity[1])
-                .position(x: size.width * 0.67, y: groundY + 14)
-            LitterBlob(kind: .bottle)
-                .opacity(litterOpacity[2])
-                .position(x: size.width * 0.79, y: groundY + 10)
-
-            RecycleSack(fill: bagFill)
-                .position(x: size.width * 0.88, y: groundY - 20)
-
-            PersonFigure(shirt: Theme.cleanCyan, bending: true)
-                .position(x: size.width * 0.52, y: groundY - 30)
-            PersonFigure(shirt: Theme.neonAmber, bending: true)
-                .position(x: size.width * 0.68, y: groundY - 30)
-            PersonFigure(shirt: Theme.neonPink, bending: true)
-                .position(x: size.width * 0.3, y: groundY - 30)
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+            let t = context.date.timeIntervalSince(start)
+            let walking = walkT < 0.999 && tossT < 0.01
+            let bob = walking ? CGFloat(sin(t * 9)) * 5 : 0
+            let personX = size.width * (0.24 + 0.31 * walkT)
+            let holdX = personX + 34
+            let holdY = groundY - 41 + bob
+            let bagX = holdX + (binX - holdX) * tossT
+            let bagY = holdY + (binRimY - holdY) * tossT - CGFloat(46 * sin(.pi * Double(tossT)))
+            let bagScale = 1 - 0.5 * tossT
+            let bagOpacity = tossT < 0.72 ? 1.0 : max(0, 1 - (Double(tossT) - 0.72) / 0.28)
 
             ZStack {
-                ForEach(0..<6, id: \.self) { i in
-                    let a = Double(i) / 6 * 2 * .pi
-                    Circle()
-                        .fill(Theme.cleanWhite)
-                        .frame(width: 4, height: 4)
-                        .offset(x: CGFloat(cos(a)) * (8 + 20 * sparkleScale),
-                                y: CGFloat(sin(a)) * (8 + 20 * sparkleScale))
-                        .opacity(Double(1 - sparkleScale))
-                }
-                BottleView(vibrancy: 1, dirt: 0.1, showEyes: true, glow: 0.3, width: 26, height: 64,
-                           tilt: .degrees(-16 * Double(heroLift)))
+                LinearGradient(colors: [Color(red: 0.55, green: 0.8, blue: 0.95), Color(red: 0.78, green: 0.92, blue: 0.72)],
+                               startPoint: .top, endPoint: .bottom)
+                CloudDriftCanvas()
+                TreeLineCanvas()
+                SparkleCanvas(count: 14, color: .white).opacity(0.3)
+
+                Rectangle()
+                    .fill(LinearGradient(colors: [Color(red: 0.46, green: 0.72, blue: 0.42), Color(red: 0.3, green: 0.54, blue: 0.28)],
+                                         startPoint: .top, endPoint: .bottom))
+                    .frame(height: size.height - groundY + 4)
+                    .position(x: size.width / 2, y: groundY + (size.height - groundY) / 2)
+
+                TrashBinView(width: 98, height: 122)
+                    .rotationEffect(.degrees(binHit ? -5 : 0), anchor: .bottom)
+                    .position(x: binX, y: groundY - 50)
+
+                BigWalker(shirt: Theme.cleanCyan)
+                    .position(x: personX, y: groundY - 92 + bob)
+
+                TrashBag()
+                    .scaleEffect(bagScale)
+                    .opacity(bagOpacity)
+                    .position(x: bagX, y: bagY)
             }
-            .position(x: size.width * 0.34,
-                      y: (groundY + 4) + ((groundY - 48) - (groundY + 4)) * heroLift)
         }
         .onAppear(perform: run)
     }
 
     private func run() {
+        start = Date()
+        walkT = 0
+        tossT = 0
+        binHit = false
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.8))
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.62)) { heroLift = 1 }
-            withAnimation(.easeOut(duration: 0.9)) { sparkleScale = 1 }
-            try? await Task.sleep(for: .seconds(0.7))
-            withAnimation(.easeIn(duration: 0.5)) { litterOpacity[0] = 0; bagFill = 0.5 }
             try? await Task.sleep(for: .seconds(0.5))
-            withAnimation(.easeIn(duration: 0.5)) { litterOpacity[1] = 0; bagFill = 0.68 }
-            try? await Task.sleep(for: .seconds(0.5))
-            withAnimation(.easeIn(duration: 0.5)) { litterOpacity[2] = 0; bagFill = 0.86 }
+            withAnimation(.easeInOut(duration: 2.4)) { walkT = 1 }
+            try? await Task.sleep(for: .seconds(2.55))
+            withAnimation(.easeInOut(duration: 0.6)) { tossT = 1 }
+            try? await Task.sleep(for: .seconds(0.48))
+            game.sound.impactThud()
+            Haptics.collision()
+            withAnimation(.easeOut(duration: 0.1)) { binHit = true }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.42).delay(0.1)) { binHit = false }
         }
+    }
+
+    @EnvironmentObject private var game: GameState
+}
+
+private struct BigWalker: View {
+    var shirt: Color
+
+    var body: some View {
+        Canvas { ctx, _ in
+            let pants = Color(red: 0.2, green: 0.16, blue: 0.14)
+            let skin = Color(red: 0.55, green: 0.4, blue: 0.3)
+            func limb(_ pts: [CGPoint], _ color: Color, _ w: CGFloat) {
+                var p = Path()
+                p.addLines(pts)
+                ctx.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round))
+            }
+            limb([CGPoint(x: 64, y: 112), CGPoint(x: 54, y: 150), CGPoint(x: 50, y: 186)], pants, 11)
+            limb([CGPoint(x: 64, y: 112), CGPoint(x: 76, y: 150), CGPoint(x: 84, y: 184)], pants, 11)
+            limb([CGPoint(x: 60, y: 64), CGPoint(x: 76, y: 86), CGPoint(x: 90, y: 106)], Color(red: 0.46, green: 0.33, blue: 0.25), 8)
+            limb([CGPoint(x: 64, y: 112), CGPoint(x: 64, y: 58)], shirt, 27)
+            ctx.fill(Path(ellipseIn: CGRect(x: 64 - 19, y: 42 - 19, width: 38, height: 38)), with: .color(skin))
+            limb([CGPoint(x: 68, y: 64), CGPoint(x: 84, y: 86), CGPoint(x: 96, y: 106)], skin, 8)
+        }
+        .frame(width: 130, height: 190)
     }
 }
 
-private struct LitterBlob: View {
-    enum Kind { case bag, can, bottle }
-    let kind: Kind
-
+private struct TrashBag: View {
     var body: some View {
-        switch kind {
-        case .bag:
-            RoundedRectangle(cornerRadius: 5)
-                .fill(Color(white: 0.85))
-                .frame(width: 24, height: 14)
-                .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color(white: 0.6).opacity(0.5), lineWidth: 1))
-                .rotationEffect(.degrees(-12))
-        case .can:
-            Capsule()
-                .fill(LinearGradient(colors: [Color(red: 0.8, green: 0.82, blue: 0.85), Color(red: 0.55, green: 0.57, blue: 0.6)],
-                                     startPoint: .top, endPoint: .bottom))
-                .frame(width: 11, height: 20)
-                .rotationEffect(.degrees(72))
-        case .bottle:
-            BottleView(vibrancy: 0.5, dirt: 0.45, showEyes: false, width: 16, height: 40, tilt: .degrees(74))
-                .saturation(0.5)
+        Canvas { ctx, size in
+            let w = size.width
+            let h = size.height
+            let bag = Color(red: 0.13, green: 0.16, blue: 0.14)
+            let bagHi = Color(red: 0.24, green: 0.28, blue: 0.25)
+            let neckX = w * 0.5
+            var p = Path()
+            p.move(to: CGPoint(x: neckX - 6, y: 10))
+            p.addQuadCurve(to: CGPoint(x: 5, y: h * 0.5), control: CGPoint(x: -4, y: h * 0.14))
+            p.addQuadCurve(to: CGPoint(x: neckX, y: h - 4), control: CGPoint(x: 4, y: h - 2))
+            p.addQuadCurve(to: CGPoint(x: w - 5, y: h * 0.5), control: CGPoint(x: w - 4, y: h - 2))
+            p.addQuadCurve(to: CGPoint(x: neckX + 6, y: 10), control: CGPoint(x: w + 4, y: h * 0.14))
+            p.closeSubpath()
+            ctx.fill(p, with: .linearGradient(Gradient(colors: [bagHi, bag]),
+                                              startPoint: CGPoint(x: 0, y: 0), endPoint: CGPoint(x: 0, y: h)))
+            ctx.fill(Path(ellipseIn: CGRect(x: neckX - 8, y: 0, width: 16, height: 14)), with: .color(bagHi))
+            var tie = Path()
+            tie.move(to: CGPoint(x: neckX - 7, y: 7))
+            tie.addLine(to: CGPoint(x: neckX + 7, y: 7))
+            ctx.stroke(tie, with: .color(.black.opacity(0.35)), lineWidth: 2)
         }
-    }
-}
-
-private struct RecycleSack: View {
-    var fill: CGFloat
-
-    var body: some View {
-        let w: CGFloat = 48
-        let h: CGFloat = 58
-        ZStack(alignment: .bottom) {
-            RoundedRectangle(cornerRadius: 9)
-                .fill(Color(red: 0.12, green: 0.34, blue: 0.26))
-                .frame(width: w, height: h)
-
-            RoundedRectangle(cornerRadius: 7)
-                .fill(Theme.freshGreen.opacity(0.6))
-                .frame(width: w - 8, height: max(6, (h - 10) * fill))
-                .padding(.bottom, 4)
-
-            RoundedRectangle(cornerRadius: 9)
-                .stroke(.white.opacity(0.4), lineWidth: 1.5)
-                .frame(width: w, height: h)
-        }
-        .overlay(
-            Circle()
-                .stroke(Theme.cleanWhite.opacity(0.8), lineWidth: 2)
-                .frame(width: 18, height: 18)
-                .overlay(Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Theme.cleanWhite.opacity(0.85)))
-                .offset(y: -6)
-        )
+        .frame(width: 62, height: 78)
     }
 }
 
