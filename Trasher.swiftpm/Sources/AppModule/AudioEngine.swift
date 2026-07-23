@@ -17,6 +17,8 @@ final class SoundEngine {
     private var currentVolume: [Layer: Float] = [:]
     private var rampGeneration = 0
     private var suspended = false
+    private var observers: [Any] = []
+    private var currentPhase: GameState.Phase = .title
 
     private let impactPlayers = [AVAudioPlayerNode(), AVAudioPlayerNode(), AVAudioPlayerNode()]
     private var nextImpactIndex = 0
@@ -32,6 +34,7 @@ final class SoundEngine {
     init() {
         configureSession()
         buildBuffersAndGraph()
+        setupNotificationObservers()
     }
 
     private func configureSession() {
@@ -200,6 +203,7 @@ final class SoundEngine {
     }
 
     func transition(to phase: GameState.Phase) {
+        currentPhase = phase
         let target: [Layer: Float]
         var masterVolume: Float = 1.0
 
@@ -335,6 +339,72 @@ final class SoundEngine {
             node.volume = 0
             node.play()
         }
+        
+        transition(to: currentPhase)
+    }
+
+    private func setupNotificationObservers() {
+        let center = NotificationCenter.default
+        
+        let stopResign = center.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.suspend()
+            }
+        }
+        
+        let stopBackground = center.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.suspend()
+            }
+        }
+        
+        let stopTerminate = center.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.suspend()
+            }
+        }
+        
+        let startActive = center.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.resume()
+            }
+        }
+        
+        observers = [stopResign, stopBackground, stopTerminate, startActive]
+    }
+
+    deinit {
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        for node in loopPlayers.values {
+            node.stop()
+        }
+        for node in impactPlayers {
+            node.stop()
+        }
+        successPlayer.stop()
+        chompPlayer.stop()
+        splashPlayer.stop()
+        engine.stop()
+        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 }
 

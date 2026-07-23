@@ -63,6 +63,9 @@ struct RootView: View {
         .onAppear {
             game.begin()
         }
+        .onDisappear {
+            game.sound.suspend()
+        }
         .onChange(of: game.phase) { _, _ in
             withAnimation(.easeIn(duration: 0.16)) { cutPulse = 0.32 }
             withAnimation(.easeOut(duration: 0.5).delay(0.16)) { cutPulse = 0 }
