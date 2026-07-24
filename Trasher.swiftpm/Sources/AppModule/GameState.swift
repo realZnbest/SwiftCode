@@ -36,6 +36,9 @@ final class GameState: ObservableObject {
 
     let sound = SoundEngine()
 
+    /// Debug-only: launch straight into this phase instead of `.title`. Set back to `nil` before shipping.
+    private let debugStartPhase: Phase? = .communityCleanup
+
     var mustRouteToRecycling: Bool { seaAttempts >= 1 }
 
     var mustRouteToDrain: Bool { landfillAttempts >= 1 }
@@ -46,7 +49,7 @@ final class GameState: ObservableObject {
         seaAttempts = 0
         landfillAttempts = 0
         binMisses = 0
-        goTo(.title)
+        goTo(debugStartPhase ?? .title)
     }
 
     func goTo(_ next: Phase) {

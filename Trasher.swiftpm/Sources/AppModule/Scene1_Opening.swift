@@ -6,13 +6,16 @@ struct OpeningScene: View {
     @State private var stage = 0
     @State private var fallProgress: CGFloat = 0
     @State private var bottleRotation: Angle = .degrees(-8)
-    @State private var handOffset: CGFloat = 0
-    @State private var handOpacity: Double = 1
+    @State private var sceneStart = Date()
     @State private var showText = false
     @State private var pushIn = false
     @State private var impactBurst = false
 
     private let groundHeight: CGFloat = 170
+    private let walkInDuration: Double = 1.0
+    private let dropAt: Double = 1.8
+    private let walkOutStart: Double = 2.0
+    private let walkOutEnd: Double = 3.3
 
     var body: some View {
         GeometryReader { geo in
@@ -27,13 +30,23 @@ struct OpeningScene: View {
                     .frame(height: 240)
                     .frame(maxHeight: .infinity, alignment: .bottom)
 
-                Image(systemName: "hand.point.down.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 84)
-                    .foregroundStyle(.white.opacity(0.5))
-                    .position(x: size.width / 2, y: size.height * 0.3 + handOffset)
-                    .opacity(handOpacity)
+                if stage < 2 {
+                    TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                        let elapsed = context.date.timeIntervalSince(sceneStart)
+                        if elapsed < walkOutEnd {
+                            let s = littererState(at: elapsed)
+                            LittererFigure(
+                                anchorX: s.x * size.width,
+                                anchorY: size.height * 0.3 + 46,
+                                legPhase: s.legPhase,
+                                armRaise: s.armRaise,
+                                stride: s.stride
+                            )
+                            .opacity(s.opacity)
+                        }
+                    }
+                    .allowsHitTesting(false)
+                }
 
                 BottleView(
                     vibrancy: 1,
@@ -113,18 +126,13 @@ struct OpeningScene: View {
 
     private func runSequence() {
         let scale = 1.0
+        sceneStart = Date()
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1.1 * scale))
-            withAnimation(.easeIn(duration: 0.6)) { handOffset = 38 }
-
-            try? await Task.sleep(for: .seconds(0.7 * scale))
+            try? await Task.sleep(for: .seconds(1.8 * scale))
             stage = 1
             withAnimation(.easeIn(duration: 0.65)) {
                 fallProgress = 1
                 bottleRotation = .degrees(70)
-            }
-            withAnimation(.easeOut(duration: 0.4).delay(0.5)) {
-                handOpacity = 0
             }
 
             try? await Task.sleep(for: .seconds(0.75))
@@ -148,6 +156,143 @@ struct OpeningScene: View {
             try? await Task.sleep(for: .seconds(3.4 * scale))
             game.advanceFromVendingAndDiscard()
         }
+    }
+
+    private func littererState(at elapsed: Double) -> LittererState {
+        let startX: CGFloat = -0.12
+        let standX: CGFloat = 0.5
+        let exitX: CGFloat = 1.15
+
+        var x = startX
+        var legPhase = 0.0
+        var armRaise = 0.0
+        var stride: Double = 0
+        var opacity = 1.0
+
+        switch elapsed {
+        case ..<walkInDuration:
+            let t = max(0, elapsed / walkInDuration)
+            let eased = 1 - pow(1 - t, 3)
+            x = startX + (standX - startX) * CGFloat(eased)
+            legPhase = elapsed * 9.5
+            armRaise = min(1, t * 1.6)
+            stride = min(1, t * 5)
+            opacity = min(1, elapsed / 0.25)
+
+        case walkInDuration..<dropAt:
+            x = standX
+            legPhase = walkInDuration * 9.5
+            let t = max(0, min(1, (elapsed - walkInDuration) / (dropAt - walkInDuration)))
+            armRaise = 1 - t
+            stride = max(0, 1 - t * 6)
+
+        case dropAt..<walkOutStart:
+            x = standX
+            legPhase = walkInDuration * 9.5
+            armRaise = 0
+            stride = 0
+
+        case walkOutStart..<walkOutEnd:
+            let t = max(0, min(1, (elapsed - walkOutStart) / (walkOutEnd - walkOutStart)))
+            let eased = t * t
+            x = standX + (exitX - standX) * CGFloat(eased)
+            legPhase = (walkInDuration + (elapsed - walkOutStart)) * 9.5
+            armRaise = 0
+            stride = min(1, t * 6)
+            opacity = 1 - max(0, (elapsed - (walkOutEnd - 0.3)) / 0.3)
+
+        default:
+            opacity = 0
+        }
+
+        return LittererState(x: x, legPhase: legPhase, armRaise: armRaise, stride: stride, opacity: opacity)
+    }
+}
+
+private struct LittererState {
+    var x: CGFloat
+    var legPhase: Double
+    var armRaise: Double
+    var stride: Double
+    var opacity: Double
+}
+
+private struct LittererFigure: View {
+    var anchorX: CGFloat
+    var anchorY: CGFloat
+    var legPhase: Double
+    var armRaise: Double
+    var stride: Double
+
+    private let skin = Color(red: 0.34, green: 0.37, blue: 0.44)
+    private let legHeight: CGFloat = 40
+
+    /// Sharper than a plain sine so the limb snaps through the swing and eases into contact,
+    /// which reads as an actual step instead of a metronome.
+    private func gait(_ phase: Double) -> Double {
+        let s = sin(phase)
+        return (s < 0 ? -1.0 : 1.0) * pow(abs(s), 0.72)
+    }
+
+    private var backLegAngle: Double { gait(legPhase + .pi) * 28 * stride }
+    private var frontLegAngle: Double { gait(legPhase) * 28 * stride }
+    private var backArmAngle: Double { -gait(legPhase) * 22 * stride }
+    private var frontArmAngle: Double {
+        -70 * armRaise + gait(legPhase) * 22 * stride * (1 - armRaise)
+    }
+
+    // Knee/elbow-bend illusion: shorten the limb slightly while it's swinging forward.
+    private func foreshorten(_ phase: Double) -> CGFloat {
+        CGFloat(1 - 0.14 * max(0, sin(phase)) * stride)
+    }
+
+    private var bob: CGFloat { CGFloat(-abs(gait(legPhase * 2)) * 2.2 * stride) }
+    private var lean: Double { -4 * stride }
+    private var shadowScaleX: CGFloat { CGFloat(1 - 0.08 * stride) }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Ellipse()
+                .fill(Color.black.opacity(0.3))
+                .frame(width: 30, height: 8)
+                .scaleEffect(x: shadowScaleX)
+
+            // back leg — hangs straight from the hip, no extra lift
+            Capsule().fill(skin).frame(width: 8, height: legHeight)
+                .scaleEffect(x: 1, y: foreshorten(legPhase + .pi), anchor: .top)
+                .rotationEffect(.degrees(backLegAngle), anchor: .top)
+                .offset(x: -3)
+
+            // back arm
+            Capsule().fill(skin).frame(width: 6, height: 24)
+                .rotationEffect(.degrees(backArmAngle), anchor: .top)
+                .offset(x: -4, y: -legHeight + 8)
+
+            VStack(spacing: 3) {
+                Circle().fill(skin).frame(width: 16, height: 16)
+                RoundedRectangle(cornerRadius: 5).fill(skin.opacity(0.92)).frame(width: 15, height: 33)
+            }
+            .overlay(
+                VStack(spacing: 3) {
+                    Circle().stroke(Theme.neonCyan.opacity(0.25), lineWidth: 1).frame(width: 16, height: 16)
+                    RoundedRectangle(cornerRadius: 5).stroke(Theme.neonCyan.opacity(0.25), lineWidth: 1).frame(width: 15, height: 33)
+                }
+            )
+            .rotationEffect(.degrees(lean), anchor: .bottom)
+            .offset(y: -legHeight + bob)
+
+            // front leg
+            Capsule().fill(skin).frame(width: 8, height: legHeight)
+                .scaleEffect(x: 1, y: foreshorten(legPhase), anchor: .top)
+                .rotationEffect(.degrees(frontLegAngle), anchor: .top)
+                .offset(x: 3)
+
+            // front arm — raised holding the bottle, swings down as armRaise falls to 0
+            Capsule().fill(skin).frame(width: 6, height: 24)
+                .rotationEffect(.degrees(frontArmAngle), anchor: .top)
+                .offset(x: 4, y: -legHeight + 8)
+        }
+        .position(x: anchorX, y: anchorY)
     }
 }
 
