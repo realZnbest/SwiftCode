@@ -37,7 +37,7 @@ final class GameState: ObservableObject {
     let sound = SoundEngine()
 
     /// Debug-only: launch straight into this phase instead of `.title`. Set back to `nil` before shipping.
-    private let debugStartPhase: Phase? = nil
+    private let debugStartPhase: Phase? = .communityCleanup
 
     var mustRouteToRecycling: Bool { seaAttempts >= 1 }
 

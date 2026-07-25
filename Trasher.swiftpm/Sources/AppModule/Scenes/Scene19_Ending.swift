@@ -12,6 +12,27 @@ struct EndingScene: View {
             ZStack {
                 parkBackground
 
+                ParkGroundCanvas(groundY: size.height * 0.78)
+
+                ParkPathCanvas(groundY: size.height * 0.78, topXFraction: 0.5)
+
+                BushClusterView(width: size.width * 0.09, flowerColors: [Theme.neonPink, .white, Theme.neonAmber])
+                    .position(x: size.width * 0.16, y: size.height * 0.80)
+                BushClusterView(width: size.width * 0.08, flowerColors: [Theme.cleanCyan, .white])
+                    .position(x: size.width * 0.86, y: size.height * 0.79)
+
+                GroundShadowView(width: size.width * 0.05)
+                    .position(x: size.width * 0.30, y: size.height * 0.775)
+                ParkLampPostView(height: size.height * 0.22)
+                    .position(x: size.width * 0.30, y: size.height * 0.67)
+
+                GroundShadowView(width: size.width * 0.05)
+                    .position(x: size.width * 0.70, y: size.height * 0.775)
+                ParkLampPostView(height: size.height * 0.22)
+                    .position(x: size.width * 0.70, y: size.height * 0.67)
+
+                GroundShadowView(width: size.width * 0.32)
+                    .position(x: size.width * 0.5, y: size.height * 0.775)
                 BenchView(width: size.width * 0.35, height: size.height * 0.14)
                     .position(x: size.width * 0.5, y: size.height * 0.71)
                     .glow(Theme.freshGreen, radius: 14, opacity: endingGlow)
@@ -88,6 +109,7 @@ struct EndingScene: View {
             CloudDriftCanvas()
                 .opacity(0.7)
             TreeLineCanvas()
+            BirdFlockCanvas(count: 5)
             SparkleCanvas(count: 16, color: .white)
                 .opacity(0.35 - lingeringHaze * 0.2)
             if lingeringHaze > 0 {
@@ -137,8 +159,13 @@ struct EndingScene: View {
     private func communitySilhouettes(size: CGSize) -> some View {
         let groundY = size.height * 0.78 - 20.4
         return ZStack {
+            GroundShadowView(width: 60)
+                .position(x: size.width * 0.24, y: groundY + 34)
             personCluster(shirts: [Theme.neonAmber, Theme.cleanCyan])
                 .position(x: size.width * 0.24, y: groundY)
+
+            GroundShadowView(width: 36)
+                .position(x: size.width * 0.78, y: groundY + 34)
             personCluster(shirts: [Theme.neonPink])
                 .position(x: size.width * 0.78, y: groundY)
         }

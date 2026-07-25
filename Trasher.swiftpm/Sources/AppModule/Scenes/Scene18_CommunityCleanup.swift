@@ -40,7 +40,7 @@ private struct CarryBagView: View {
             let bob = walking ? CGFloat(sin(t * 9)) * 5 : 0
             let legPhase = t * 9
             let strideAmt: Double = walking ? 1 : 0
-            let personX = size.width * (0.24 + 0.31 * CGFloat(walkT))
+            let personX = size.width * (0.24 + 0.44 * CGFloat(walkT))
             let holdX = personX + 34
             let holdY = groundY - 52 + bob
             let bagX = holdX + (binX - holdX) * CGFloat(tossT)
@@ -59,17 +59,38 @@ private struct CarryBagView: View {
                 CloudDriftCanvas()
                 TreeLineCanvas()
                 SparkleCanvas(count: 14, color: .white).opacity(0.3)
+                BirdFlockCanvas(count: 4)
 
-                Rectangle()
-                    .fill(LinearGradient(colors: [Color(red: 0.46, green: 0.72, blue: 0.42), Color(red: 0.3, green: 0.54, blue: 0.28)],
-                                         startPoint: .top, endPoint: .bottom))
-                    .frame(height: size.height - groundY + 4)
-                    .position(x: size.width / 2, y: groundY + (size.height - groundY) / 2)
+                ParkGroundCanvas(groundY: groundY)
 
+                BushClusterView(width: 64, flowerColors: [Theme.neonPink, .white, Theme.neonAmber], seed: 1)
+                    .position(x: size.width * 0.06, y: groundY + 58)
+                BushClusterView(width: 52, flowerColors: [Theme.cleanCyan, .white], seed: 2)
+                    .position(x: size.width * 0.35, y: groundY + 60)
+                BushClusterView(width: 58, flowerColors: [Theme.neonAmber, Theme.freshGreen], seed: 3)
+                    .position(x: size.width * 0.92, y: groundY + 62)
+
+                WalkwayStripView(width: size.width, height: 30)
+                    .position(x: size.width * 0.5, y: groundY + 18)
+
+                GroundShadowView(width: 44)
+                    .position(x: size.width * 0.13, y: groundY - 2)
+                ParkLampPostView(height: 130)
+                    .position(x: size.width * 0.13, y: groundY - 65)
+
+                GroundShadowView(width: 84)
+                    .position(x: size.width * 0.90, y: groundY - 14)
+                BenchView(width: 92, height: 34)
+                    .position(x: size.width * 0.90, y: groundY - 30)
+
+                GroundShadowView(width: 90)
+                    .position(x: binX, y: groundY + 4)
                 TrashBinView(width: 98, height: 122)
                     .rotationEffect(.degrees(binTilt), anchor: .bottom)
                     .position(x: binX, y: groundY - 50)
 
+                GroundShadowView(width: 60 + CGFloat(strideAmt) * 6)
+                    .position(x: personX, y: groundY + 6)
                 BigWalker(shirt: Theme.cleanCyan, legPhase: legPhase, stride: strideAmt)
                     .position(x: personX, y: groundY - 92 + bob)
 

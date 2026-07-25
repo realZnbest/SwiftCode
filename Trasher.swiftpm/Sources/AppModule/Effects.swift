@@ -1012,3 +1012,293 @@ struct SkylineCanvas: View {
         }
     }
 }
+
+/// A stone path receding from the foreground up to `groundY`, for scenes viewed straight-on
+/// (e.g. a bench in the distance) rather than scenes where a character walks laterally.
+struct ParkPathCanvas: View {
+    var groundY: CGFloat
+    var bend: CGFloat = 0.06
+    var color: Color = Color(red: 0.80, green: 0.72, blue: 0.56)
+    /// Fraction of width the path has narrowed to by `groundY`. Keep this well below the
+    /// bottom width (0.30) so the taper stays monotonic — widening it past that pinches the
+    /// middle instead of curving smoothly. To have the path visibly reach something sitting
+    /// at the horizon (e.g. a bench), align `topXFraction` to it instead of widening the top.
+    var topWidthFraction: CGFloat = 0.11
+    var topXFraction: CGFloat? = nil
+
+    var body: some View {
+        Canvas { ctx, size in
+            let bottomY = size.height
+            let topY = groundY
+            let bottomWidth = size.width * 0.30
+            let topWidth = size.width * topWidthFraction
+            let baseX = size.width * (0.5 + bend)
+            let curveX = size.width * (topXFraction ?? (0.5 - bend * 1.4))
+
+            var path = Path()
+            path.move(to: CGPoint(x: baseX - bottomWidth / 2, y: bottomY))
+            path.addQuadCurve(
+                to: CGPoint(x: curveX - topWidth / 2, y: topY),
+                control: CGPoint(x: baseX - bottomWidth * 0.2, y: (bottomY + topY) / 2)
+            )
+            path.addLine(to: CGPoint(x: curveX + topWidth / 2, y: topY))
+            path.addQuadCurve(
+                to: CGPoint(x: baseX + bottomWidth / 2, y: bottomY),
+                control: CGPoint(x: baseX + bottomWidth * 0.2, y: (bottomY + topY) / 2)
+            )
+            path.closeSubpath()
+
+            let darker = color.mix(with: Theme.murkBrown, amount: 0.35)
+            ctx.fill(path, with: .linearGradient(
+                Gradient(colors: [color.opacity(0.92), darker.opacity(0.92)]),
+                startPoint: CGPoint(x: 0, y: topY), endPoint: CGPoint(x: 0, y: bottomY)
+            ))
+            ctx.stroke(path, with: .color(darker.opacity(0.5)), lineWidth: 1.5)
+
+            let stoneCount = 5
+            for i in 0..<stoneCount {
+                let t = (CGFloat(i) + 0.5) / CGFloat(stoneCount)
+                let y = bottomY - t * (bottomY - topY)
+                let x = baseX + (curveX - baseX) * t
+                let w = (bottomWidth * (1 - t) + topWidth * t) * 0.5
+                let stoneRect = CGRect(x: x - w / 2, y: y - 5, width: w, height: 10)
+                ctx.stroke(Path(roundedRect: stoneRect, cornerRadius: 4), with: .color(darker.opacity(0.35)), lineWidth: 1)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Small flapping bird silhouettes drifting across the upper sky — visual counterpart to
+/// the `.birds` ambient audio layer, which otherwise plays with nothing on screen making it.
+struct BirdFlockCanvas: View {
+    var count: Int = 4
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 24)) { context in
+            Canvas { ctx, size in
+                let t = context.date.timeIntervalSinceReferenceDate
+
+                for i in 0..<count {
+                    let speed: CGFloat = 16 + rnd(i, 601) * 12
+                    let cycle = size.width + 140
+                    let startOffset = rnd(i, 602) * cycle
+                    let x = (CGFloat(t) * speed + startOffset).truncatingRemainder(dividingBy: cycle) - 70
+                    let baseY = size.height * (0.06 + rnd(i, 603) * 0.24)
+                    let bob = CGFloat(sin(t * 1.4 + Double(rnd(i, 604)) * 6.28)) * 5
+                    let y = baseY + bob
+                    let scale: CGFloat = 0.7 + rnd(i, 606) * 0.5
+                    let flapSpeed = 8.5 + Double(rnd(i, 607)) * 3
+                    let phase = Double(rnd(i, 605)) * 6.28
+                    // Wingtips swing from below the body (downstroke) through flat (glide) to
+                    // above it (upstroke), instead of a fixed upward V that only resizes.
+                    let flap = CGFloat(sin(t * flapSpeed + phase))
+                    let tipLift = flap * 7 * scale
+                    let asymmetry = CGFloat(sin(t * flapSpeed + phase + 0.5)) * 1.5 * scale
+                    let color = Color.black.opacity(0.4)
+                    let lineWidth = max(1, 1.5 * scale)
+
+                    var leftWing = Path()
+                    leftWing.move(to: CGPoint(x: x, y: y))
+                    leftWing.addQuadCurve(
+                        to: CGPoint(x: x - 8 * scale, y: y - tipLift),
+                        control: CGPoint(x: x - 4 * scale, y: y - tipLift * 0.4 - 1.5 * scale)
+                    )
+                    ctx.stroke(leftWing, with: .color(color), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+
+                    var rightWing = Path()
+                    rightWing.move(to: CGPoint(x: x, y: y))
+                    rightWing.addQuadCurve(
+                        to: CGPoint(x: x + 8 * scale, y: y - tipLift + asymmetry),
+                        control: CGPoint(x: x + 4 * scale, y: y - tipLift * 0.4 - 1.5 * scale)
+                    )
+                    ctx.stroke(rightWing, with: .color(color), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - 1.4 * scale, y: y - 1.2 * scale, width: 2.8 * scale, height: 2.4 * scale)),
+                             with: .color(color))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A flat walkway strip along the ground, for scenes where a character walks laterally
+/// across the frame rather than toward/away from camera.
+struct WalkwayStripView: View {
+    var width: CGFloat
+    var height: CGFloat = 32
+    var color: Color = Color(red: 0.80, green: 0.72, blue: 0.56)
+
+    var body: some View {
+        Canvas { ctx, size in
+            let darker = color.mix(with: Theme.murkBrown, amount: 0.3)
+            let rect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+            ctx.fill(Path(rect), with: .linearGradient(
+                Gradient(colors: [color.opacity(0.88), darker.opacity(0.88)]),
+                startPoint: CGPoint(x: 0, y: 0), endPoint: CGPoint(x: 0, y: size.height)
+            ))
+            ctx.stroke(Path(rect), with: .color(darker.opacity(0.5)), lineWidth: 1.2)
+
+            let seamCount = max(3, Int(size.width / 90))
+            for i in 0..<seamCount {
+                let x = size.width * (CGFloat(i) + 0.5) / CGFloat(seamCount)
+                var seam = Path()
+                seam.move(to: CGPoint(x: x, y: 2))
+                seam.addLine(to: CGPoint(x: x, y: size.height - 2))
+                ctx.stroke(seam, with: .color(darker.opacity(0.3)), lineWidth: 1)
+            }
+        }
+        .frame(width: width, height: height)
+        .allowsHitTesting(false)
+    }
+}
+
+/// A rounded-lobe bush, optionally scattered with small flower dots for a flower bed.
+struct BushClusterView: View {
+    var width: CGFloat
+    var flowerColors: [Color] = []
+    var seed: Int = 0
+
+    private let bushDark = Color(red: 0.20, green: 0.38, blue: 0.18)
+    private let bushMid = Color(red: 0.32, green: 0.54, blue: 0.26)
+    private let bushLight = Color(red: 0.48, green: 0.70, blue: 0.36)
+
+    var body: some View {
+        let h = width * 0.62
+        ZStack {
+            lobe(scale: 0.62, dx: -0.30, dy: 0.10, color: bushDark)
+            lobe(scale: 0.72, dx: 0.28, dy: 0.14, color: bushDark)
+            lobe(scale: 0.85, dx: 0, dy: 0, color: bushMid)
+            lobe(scale: 0.5, dx: -0.08, dy: -0.22, color: bushLight.opacity(0.85))
+
+            ForEach(Array(flowerColors.enumerated()), id: \.offset) { i, color in
+                Circle()
+                    .fill(color)
+                    .frame(width: width * 0.09, height: width * 0.09)
+                    .offset(
+                        x: width * (rnd(i, seed + 910) - 0.5) * 0.7,
+                        y: h * (rnd(i, seed + 911) - 0.5) * 0.5 - h * 0.1
+                    )
+            }
+        }
+        .frame(width: width, height: h)
+    }
+
+    private func lobe(scale: CGFloat, dx: CGFloat, dy: CGFloat, color: Color) -> some View {
+        Ellipse()
+            .fill(color)
+            .frame(width: width * scale, height: width * scale * 0.72)
+            .offset(x: width * dx, y: h(for: scale) * dy)
+    }
+
+    private func h(for scale: CGFloat) -> CGFloat { width * scale * 0.72 }
+}
+
+/// A warm-glowing park lamp post.
+struct ParkLampPostView: View {
+    var height: CGFloat = 120
+
+    private var poleColor: Color { Color(red: 0.14, green: 0.16, blue: 0.15) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(
+                        colors: [Theme.neonAmber.opacity(0.9), Theme.neonAmber.opacity(0.1)],
+                        center: .center, startRadius: 0, endRadius: height * 0.14
+                    ))
+                    .frame(width: height * 0.3, height: height * 0.3)
+                Circle()
+                    .fill(Color(red: 0.98, green: 0.92, blue: 0.78))
+                    .frame(width: height * 0.14, height: height * 0.14)
+            }
+            .glow(Theme.neonAmber, radius: 10, opacity: 0.5)
+
+            Capsule()
+                .fill(poleColor)
+                .frame(width: height * 0.045, height: height * 0.78)
+
+            Capsule()
+                .fill(poleColor)
+                .frame(width: height * 0.14, height: height * 0.035)
+        }
+        .frame(height: height)
+    }
+}
+
+/// Textured park ground: a wavy (non-flat) horizon line, a light/dark gradient band,
+/// a soft sunlit patch, and sparse grass tufts — cheap depth cues so the lawn doesn't
+/// read as a single flat-filled rectangle.
+struct ParkGroundCanvas: View {
+    var groundY: CGFloat
+    var baseColor: Color = Color(red: 0.30, green: 0.54, blue: 0.28)
+    var litColor: Color = Color(red: 0.50, green: 0.74, blue: 0.42)
+
+    var body: some View {
+        Canvas { ctx, size in
+            let bottomY = size.height
+
+            var ground = Path()
+            ground.move(to: CGPoint(x: 0, y: groundY))
+            let waveCount = 6
+            for i in 0...waveCount {
+                let t = CGFloat(i) / CGFloat(waveCount)
+                let x = size.width * t
+                let y = groundY + sin(t * .pi * 2.4 + 0.6) * 7 + (rnd(i, 771) - 0.5) * 8
+                ground.addLine(to: CGPoint(x: x, y: y))
+            }
+            ground.addLine(to: CGPoint(x: size.width, y: bottomY))
+            ground.addLine(to: CGPoint(x: 0, y: bottomY))
+            ground.closeSubpath()
+
+            ctx.fill(ground, with: .linearGradient(
+                Gradient(colors: [litColor, baseColor]),
+                startPoint: CGPoint(x: 0, y: groundY), endPoint: CGPoint(x: 0, y: bottomY)
+            ))
+
+            ctx.clip(to: ground)
+
+            let patchRect = CGRect(x: size.width * 0.12, y: groundY + 6,
+                                    width: size.width * 0.42, height: (bottomY - groundY) * 0.55)
+            ctx.fill(Path(ellipseIn: patchRect), with: .color(litColor.opacity(0.22)))
+
+            let shadeRect = CGRect(x: size.width * 0.58, y: groundY + (bottomY - groundY) * 0.35,
+                                    width: size.width * 0.5, height: (bottomY - groundY) * 0.75)
+            ctx.fill(Path(ellipseIn: shadeRect), with: .color(baseColor.mix(with: .black, amount: 0.3).opacity(0.16)))
+
+            let tuftColor = baseColor.mix(with: .black, amount: 0.3)
+            let tuftCount = Int(size.width / 24)
+            for i in 0..<tuftCount {
+                let x = size.width * rnd(i, 501)
+                let y = groundY + (bottomY - groundY) * (0.12 + rnd(i, 502) * 0.82)
+                guard y > groundY else { continue }
+                let h: CGFloat = 5 + rnd(i, 503) * 6
+                var blade = Path()
+                blade.move(to: CGPoint(x: x, y: y))
+                blade.addLine(to: CGPoint(x: x + (rnd(i, 504) - 0.5) * 5, y: y - h))
+                ctx.stroke(blade, with: .color(tuftColor.opacity(0.35)), lineWidth: 1.2)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A soft contact shadow to ground a standing/sitting element and imply it has volume
+/// rather than sitting flush with the background.
+struct GroundShadowView: View {
+    var width: CGFloat
+    var opacity: Double = 0.32
+
+    var body: some View {
+        Ellipse()
+            .fill(RadialGradient(
+                colors: [Color.black.opacity(opacity), Color.black.opacity(0)],
+                center: .center, startRadius: 0, endRadius: width / 2
+            ))
+            .frame(width: width, height: width * 0.3)
+            .blur(radius: width * 0.05)
+            .allowsHitTesting(false)
+    }
+}
