@@ -458,11 +458,11 @@ private struct KickerFigure: View {
             let bodyX = footX + direction * (walkSpeed * CGFloat(localTime) - 13)
             let fadeIn = min(1, max(0, (localTime + 1.15) / 0.3))
             let fadeOut = min(1, max(0, (0.85 - localTime) / 0.3))
-            ZStack {
+            ZStack(alignment: .bottom) {
                 Ellipse()
                     .fill(Color.black.opacity(0.35))
                     .frame(width: 86, height: 20)
-                    .offset(y: 9)
+                    .offset(y: 6)
 
                 ZStack(alignment: .bottom) {
                     Capsule().fill(skin).frame(width: 14, height: 52)
@@ -564,9 +564,9 @@ private struct StrayDogView: View {
 
                 TailShape()
                     .fill(furDark)
-                    .frame(width: w * 0.24, height: h * 0.16)
-                    .rotationEffect(.degrees(-18 + 10 * sin(legPhase)), anchor: .trailing)
-                    .position(x: w * 0.02, y: h * 0.35)
+                    .frame(width: w * 0.36, height: h * 0.32)
+                    .rotationEffect(.degrees(-22 + 12 * sin(legPhase)), anchor: .trailing)
+                    .position(x: w * -0.04, y: h * 0.28)
 
                 leg(originX: w * 0.58, phase: legPhase + .pi, w: w, h: h)
                 leg(originX: w * 0.63, phase: legPhase, w: w, h: h)
@@ -628,16 +628,20 @@ private struct DogBodyShape: Shape {
 }
 
 private struct TailShape: Shape {
+    /// A tapering tail arcing up from a wide base (attached to the body, the `1.0` edge)
+    /// to a narrow tip — a stubby curled blob was reading as no tail at all.
     func path(in rect: CGRect) -> Path {
         let w = rect.width, h = rect.height
         func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * w, y: rect.minY + y * h) }
 
         var p = Path()
-        p.move(to: pt(1.0, 0.35))
-        p.addQuadCurve(to: pt(0.55, 0.0), control: pt(0.85, 0.0))
-        p.addQuadCurve(to: pt(0.0, 0.45), control: pt(0.2, 0.05))
-        p.addQuadCurve(to: pt(0.42, 0.7), control: pt(0.15, 0.75))
-        p.addQuadCurve(to: pt(1.0, 0.55), control: pt(0.75, 0.85))
+        p.move(to: pt(1.0, 0.62))
+        p.addQuadCurve(to: pt(0.62, 0.18), control: pt(0.92, 0.10))
+        p.addQuadCurve(to: pt(0.10, 0.02), control: pt(0.40, 0.0))
+        p.addQuadCurve(to: pt(0.0, 0.16), control: pt(0.0, 0.04))
+        p.addQuadCurve(to: pt(0.48, 0.34), control: pt(0.14, 0.28))
+        p.addQuadCurve(to: pt(0.86, 0.82), control: pt(0.62, 0.55))
+        p.addQuadCurve(to: pt(1.0, 0.62), control: pt(1.0, 0.78))
         p.closeSubpath()
         return p
     }
