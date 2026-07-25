@@ -82,48 +82,21 @@ struct RecyclingScene: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Theme.deepNavy.mix(with: Theme.cleanWhite, amount: brighten * 0.35),
-                    Theme.nearBlack.mix(with: Theme.freshGreen, amount: brighten * 0.15)
+                    Color(red: 0.03, green: 0.10, blue: 0.09).mix(with: Theme.cleanWhite, amount: brighten * 0.4),
+                    Color(red: 0.02, green: 0.05, blue: 0.05).mix(with: Theme.freshGreen, amount: brighten * 0.18)
                 ],
                 startPoint: .top, endPoint: .bottom
             )
-            FactorySilhouetteCanvas()
-                .opacity(0.7)
-            balesRow
-                .opacity(0.55)
-            LightRaysCanvas(color: Theme.cleanCyan, count: 3)
+            RecyclingEmblemGlow(brighten: brighten)
+            RecyclingGreenhouseRoof()
+            LightRaysCanvas(color: Theme.freshGreen, count: 3)
                 .opacity(0.5 + brighten * 0.2)
-            NeonStreakField(colors: [Theme.cleanCyan, Theme.freshGreen])
-                .opacity(0.5 + brighten * 0.3)
-            ConveyorBeltCanvas()
+            NeonStreakField(colors: [Theme.freshGreen, Theme.cleanCyan])
+                .opacity(0.4 + brighten * 0.3)
+            SortingBeltStructure(beltYFrac: 0.9)
+            SortingFloorGlow()
             SparkleCanvas(count: Int(20 + brighten * 40), color: Theme.cleanWhite)
                 .opacity(0.3 + brighten * 0.5)
-        }
-    }
-
-    private var balesRow: some View {
-        GeometryReader { geo in
-            let size = geo.size
-            HStack(alignment: .bottom, spacing: size.width * 0.015) {
-                ForEach(0..<6, id: \.self) { i in
-                    let tint = [Theme.freshGreen, Theme.cleanCyan, Theme.smokeOrange][i % 3]
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(tint.opacity(0.16))
-                        .overlay(RoundedRectangle(cornerRadius: 2).stroke(tint.opacity(0.3), lineWidth: 1))
-                        .overlay(
-                            Path { p in
-                                p.move(to: CGPoint(x: 0, y: 0)); p.addLine(to: CGPoint(x: size.width * 0.05, y: size.height * 0.08))
-                                p.move(to: CGPoint(x: size.width * 0.05, y: 0)); p.addLine(to: CGPoint(x: 0, y: size.height * 0.08))
-                            }
-                            .stroke(tint.opacity(0.35), lineWidth: 1)
-                        )
-                        .frame(width: size.width * 0.05, height: size.height * (0.16 + CGFloat((i * 37) % 5) * 0.025))
-                }
-            }
-            .frame(width: size.width, alignment: .leading)
-            .padding(.leading, size.width * 0.015)
-            .frame(maxHeight: .infinity, alignment: .bottom)
-            .padding(.bottom, size.height * 0.14)
         }
     }
 
@@ -137,7 +110,7 @@ struct RecyclingScene: View {
                     var path = Path()
                     path.move(to: CGPoint(x: 0, y: y))
                     path.addLine(to: CGPoint(x: canvasSize.width, y: y))
-                    ctx.stroke(path, with: .color(Theme.cleanCyan.opacity(0.12 * pulse)), lineWidth: 3)
+                    ctx.stroke(path, with: .color(Theme.freshGreen.opacity(0.12 * pulse)), lineWidth: 3)
                 }
             }
         }

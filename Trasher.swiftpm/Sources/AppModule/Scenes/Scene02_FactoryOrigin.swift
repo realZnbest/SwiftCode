@@ -30,6 +30,10 @@ struct FactoryOriginScene: View {
                     )
                     FactoryWindowWall()
                     FactoryTrussRow()
+                    FactoryFloorPanels(beltYFrac: 0.9)
+                    FactorySideColumns()
+                    SteamVentCanvas(xFrac: 0.06)
+                    SteamVentCanvas(xFrac: 0.94)
                     SmokeCanvas(intensity: 0.18, color: Theme.deepNavy).opacity(0.22)
                     ConveyorBeltStructure(beltYFrac: 0.9)
                     HazardStripeBand()
@@ -379,6 +383,112 @@ private struct ConveyorBeltStructure: View {
                     ctx.fill(Path(ellipseIn: rollerRect), with: .color(rail))
                     ctx.stroke(Path(ellipseIn: rollerRect), with: .color(.black.opacity(0.4)), lineWidth: 1.5)
                 }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Riveted metal floor panels beneath the belt, plus a faint reflection of the belt's glow —
+/// a flat gradient down there was reading as empty space under the machinery.
+private struct FactoryFloorPanels: View {
+    var beltYFrac: CGFloat
+
+    var body: some View {
+        Canvas { ctx, size in
+            let floorTop = size.height * beltYFrac + 10
+            let floorColor = Color(red: 0.06, green: 0.07, blue: 0.09)
+            let seamColor = Color.white.opacity(0.05)
+            let floorRect = CGRect(x: 0, y: floorTop, width: size.width, height: size.height - floorTop)
+
+            ctx.fill(Path(floorRect), with: .linearGradient(
+                Gradient(colors: [floorColor, floorColor.mix(with: .black, amount: 0.4)]),
+                startPoint: CGPoint(x: 0, y: floorTop), endPoint: CGPoint(x: 0, y: size.height)
+            ))
+
+            let reflectionRect = CGRect(x: 0, y: floorTop, width: size.width, height: min(26, floorRect.height))
+            ctx.fill(Path(reflectionRect), with: .linearGradient(
+                Gradient(colors: [Theme.cleanCyan.opacity(0.08), .clear]),
+                startPoint: CGPoint(x: 0, y: floorTop), endPoint: CGPoint(x: 0, y: reflectionRect.maxY)
+            ))
+
+            let panelW = size.width / 9
+            var x: CGFloat = panelW
+            while x < size.width {
+                var seam = Path()
+                seam.move(to: CGPoint(x: x, y: floorTop))
+                seam.addLine(to: CGPoint(x: x, y: size.height))
+                ctx.stroke(seam, with: .color(seamColor), lineWidth: 1)
+
+                for riveted in [floorTop + 6, size.height - 6] {
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - 1.6, y: riveted - 1.6, width: 3.2, height: 3.2)),
+                             with: .color(.white.opacity(0.1)))
+                }
+                x += panelW
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Vertical I-beam support columns near the left/right edges, with rivet seams — frames
+/// the scene and reads as an actual factory structure instead of open empty space at the sides.
+private struct FactorySideColumns: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let beamColor = Color(red: 0.11, green: 0.13, blue: 0.15)
+            let highlight = Color.white.opacity(0.06)
+            let columnW: CGFloat = size.width * 0.045
+
+            for edgeX in [CGFloat(0), size.width - columnW] {
+                let rect = CGRect(x: edgeX, y: 0, width: columnW, height: size.height)
+                ctx.fill(Path(rect), with: .linearGradient(
+                    Gradient(colors: [beamColor.opacity(0.95), beamColor.opacity(0.7)]),
+                    startPoint: CGPoint(x: rect.minX, y: 0), endPoint: CGPoint(x: rect.maxX, y: 0)
+                ))
+                ctx.stroke(Path(CGRect(x: rect.maxX - 1.5, y: 0, width: 1.5, height: size.height)),
+                           with: .color(highlight), lineWidth: 1.5)
+
+                var y: CGFloat = 30
+                while y < size.height {
+                    for dx: CGFloat in [6, columnW - 6] {
+                        ctx.fill(Path(ellipseIn: CGRect(x: rect.minX + dx - 2, y: y - 2, width: 4, height: 4)),
+                                 with: .color(.black.opacity(0.4)))
+                    }
+                    y += 46
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A small floor-level vent puffing intermittent steam — distinct from the ambient smoke
+/// haze, reads as an actual piece of machinery venting rather than generic fog.
+private struct SteamVentCanvas: View {
+    var xFrac: CGFloat
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                let x = size.width * xFrac
+                let ventY = size.height * 0.97
+                let ventColor = Color(red: 0.13, green: 0.15, blue: 0.17)
+
+                ctx.fill(Path(roundedRect: CGRect(x: x - 10, y: ventY - 6, width: 20, height: 12), cornerRadius: 2),
+                         with: .color(ventColor))
+
+                let cycle = 2.6
+                let phase = (t + Double(xFrac) * 5).truncatingRemainder(dividingBy: cycle) / cycle
+                guard phase < 0.75 else { return }
+                let rise = CGFloat(phase / 0.75)
+                let puffY = ventY - 6 - rise * size.height * 0.16
+                let puffR = 10 + rise * 22
+                let puffOpacity = (1 - rise) * 0.22
+
+                ctx.fill(Path(ellipseIn: CGRect(x: x - puffR / 2, y: puffY - puffR / 2, width: puffR, height: puffR)),
+                         with: .color(.white.opacity(puffOpacity)))
             }
         }
         .allowsHitTesting(false)

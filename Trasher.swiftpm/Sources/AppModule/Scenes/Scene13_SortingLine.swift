@@ -9,10 +9,15 @@ struct SortingLineScene: View {
             bottlePosition: UnitPoint(x: 0.5, y: 0.8),
             content: { size in
                 ZStack {
-                    LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                    FactorySilhouetteCanvas().opacity(0.6)
-                    ConveyorBeltCanvas()
-                    LightRaysCanvas(color: Theme.cleanCyan, count: 3)
+                    LinearGradient(
+                        colors: [Color(red: 0.03, green: 0.10, blue: 0.09), Color(red: 0.02, green: 0.05, blue: 0.05)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    RecyclingEmblemGlow(brighten: 0)
+                    RecyclingGreenhouseRoof()
+                    SortingBeltStructure(beltYFrac: 0.9)
+                    SortingFloorGlow()
+                    LightRaysCanvas(color: Theme.freshGreen, count: 3)
 
                     TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                         let t = context.date.timeIntervalSinceReferenceDate

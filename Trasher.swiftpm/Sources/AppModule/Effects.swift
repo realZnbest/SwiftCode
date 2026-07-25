@@ -726,133 +726,6 @@ struct StreetLampRow: View {
     }
 }
 
-struct ConveyorBeltCanvas: View {
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
-            Canvas { ctx, size in
-                let t = context.date.timeIntervalSinceReferenceDate
-                let y = size.height * 0.9
-                let dashLength: CGFloat = 30
-                let gap: CGFloat = 22
-                let cycle = dashLength + gap
-                let offset = CGFloat((-t * 70).truncatingRemainder(dividingBy: Double(cycle)))
-                var x = -cycle + offset
-                while x < size.width {
-                    var path = Path()
-                    path.move(to: CGPoint(x: x, y: y))
-                    path.addLine(to: CGPoint(x: x + dashLength, y: y))
-                    ctx.stroke(path, with: .color(Theme.cleanCyan.opacity(0.28)), lineWidth: 3)
-                    x += cycle
-                }
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-struct FactorySilhouetteCanvas: View {
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            Canvas { ctx, size in
-                let factoryColor = Color(red: 0.05, green: 0.09, blue: 0.11).opacity(0.8)
-                let highlightColor = Theme.cleanCyan.opacity(0.18)
-
-                var beam = Path()
-                beam.addRect(CGRect(x: 0, y: size.height * 0.05, width: size.width, height: size.height * 0.08))
-                ctx.fill(beam, with: .color(factoryColor))
-                ctx.stroke(beam, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
-
-                for i in 0..<3 {
-                    let phase = (t * 0.05 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
-                    let sx = size.width * (0.3 + CGFloat(i) * 0.22)
-                    let sy = size.height * 0.05 - size.height * 0.28 * CGFloat(phase)
-                    let r = size.width * (0.04 + 0.05 * CGFloat(phase))
-                    ctx.opacity = (1 - phase) * 0.12
-                    ctx.fill(Path(ellipseIn: CGRect(x: sx - r, y: sy - r * 0.6, width: r * 2, height: r * 1.2)),
-                             with: .color(.white))
-                }
-                ctx.opacity = 1
-
-                var nozzle = Path()
-                let nx = size.width * 0.5
-                let ny = size.height * 0.13
-                nozzle.move(to: CGPoint(x: nx - 30, y: ny))
-                nozzle.addLine(to: CGPoint(x: nx + 30, y: ny))
-                nozzle.addLine(to: CGPoint(x: nx + 15, y: ny + size.height * 0.12))
-                nozzle.addLine(to: CGPoint(x: nx - 15, y: ny + size.height * 0.12))
-                nozzle.closeSubpath()
-                ctx.fill(nozzle, with: .color(factoryColor))
-                ctx.stroke(nozzle, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
-
-                let sides: [CGFloat] = [0.08, 0.92]
-                for side in sides {
-                    let x = side * size.width
-
-                    var pipe = Path()
-                    pipe.addRect(CGRect(x: x - 12, y: size.height * 0.13, width: 24, height: size.height * 0.87))
-                    ctx.fill(pipe, with: .color(factoryColor))
-
-                    var strut = Path()
-                    strut.move(to: CGPoint(x: x + (side < 0.5 ? 12 : -12), y: size.height * 0.3))
-                    strut.addLine(to: CGPoint(x: x + (side < 0.5 ? 60 : -60), y: size.height * 0.13))
-                    ctx.stroke(strut, with: .color(factoryColor), style: StrokeStyle(lineWidth: 16))
-                    ctx.stroke(strut, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1.5))
-
-                    for j in 0..<4 {
-                        let ringY = size.height * 0.25 + CGFloat(j) * size.height * 0.18
-                        let pulse = 0.5 + 0.5 * sin(t * 1.1 + Double(j) + Double(side))
-                        ctx.stroke(Path(CGRect(x: x - 15, y: ringY, width: 30, height: 10)),
-                                   with: .color(highlightColor.opacity(0.4 + pulse * 0.6)), style: StrokeStyle(lineWidth: 2))
-                    }
-                }
-
-                let gearSide: [CGFloat] = [0.08, 0.92]
-                let gearY: [CGFloat] = [0.32, 0.56]
-                let gearR: [CGFloat] = [0.075, 0.06]
-                for i in 0..<2 {
-                    let side = gearSide[i]
-                    let armDir: CGFloat = side < 0.5 ? 1 : -1
-                    let pipeX = side * size.width
-                    let r = size.width * gearR[i]
-                    let gearCenter = CGPoint(x: pipeX + armDir * (r + 20), y: size.height * gearY[i])
-
-                    var bracket = Path()
-                    bracket.move(to: CGPoint(x: pipeX + armDir * 12, y: gearCenter.y))
-                    bracket.addLine(to: CGPoint(x: gearCenter.x, y: gearCenter.y))
-                    ctx.stroke(bracket, with: .color(factoryColor), style: StrokeStyle(lineWidth: 6))
-                    ctx.stroke(bracket, with: .color(highlightColor), style: StrokeStyle(lineWidth: 1))
-
-                    var cog = Path()
-                    let teethCount = 10
-                    for tIdx in 0..<teethCount * 2 {
-                        let angle = Double(tIdx) / Double(teethCount * 2) * 2 * .pi
-                        let radius = tIdx.isMultiple(of: 2) ? r : r * 0.78
-                        let pt = CGPoint(x: gearCenter.x + CGFloat(cos(angle)) * radius,
-                                         y: gearCenter.y + CGFloat(sin(angle)) * radius)
-                        if tIdx == 0 { cog.move(to: pt) } else { cog.addLine(to: pt) }
-                    }
-                    cog.closeSubpath()
-
-                    var spinning = ctx
-                    spinning.translateBy(x: gearCenter.x, y: gearCenter.y)
-                    spinning.rotate(by: .radians(t * (i.isMultiple(of: 2) ? 0.22 : -0.18)))
-                    spinning.translateBy(x: -gearCenter.x, y: -gearCenter.y)
-                    spinning.fill(cog, with: .color(Color(red: 0.08, green: 0.12, blue: 0.14)))
-                    spinning.stroke(cog, with: .color(highlightColor), lineWidth: 1.5)
-
-                    let hubR = r * 0.32
-                    ctx.fill(
-                        Path(ellipseIn: CGRect(x: gearCenter.x - hubR, y: gearCenter.y - hubR, width: hubR * 2, height: hubR * 2)),
-                        with: .color(Theme.cleanCyan.opacity(0.3))
-                    )
-                }
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
 struct PersonFigure: View {
     var shirt: Color
     var bending: Bool = false
@@ -1300,5 +1173,158 @@ struct GroundShadowView: View {
             .frame(width: width, height: width * 0.3)
             .blur(radius: width * 0.05)
             .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Recycling facility (shared between SortingLine and Recycling scenes)
+
+/// Giant faint recycling-arrow watermark in the far background — a distinct visual
+/// signature the recycling facility owns, instead of reusing the production factory's window wall.
+struct RecyclingEmblemGlow: View {
+    var brighten: Double
+
+    var body: some View {
+        Image(systemName: "arrow.3.trianglepath")
+            .font(.system(size: 220, weight: .bold))
+            .foregroundStyle(Theme.freshGreen)
+            .opacity(0.05 + brighten * 0.07)
+            .blur(radius: 2)
+            .allowsHitTesting(false)
+    }
+}
+
+/// Curved glass-panel greenhouse roof, glowing cool green/cyan — an arched glass
+/// ceiling instead of the production factory's flat rectangular amber window band.
+struct RecyclingGreenhouseRoof: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let frameColor = Color(red: 0.05, green: 0.10, blue: 0.09)
+            let archTop = size.height * 0.02
+            let archBottom = size.height * 0.24
+            let paneCount = 7
+
+            func archY(_ t: CGFloat) -> CGFloat {
+                let m = 1 - t
+                return m * m * archBottom + 2 * m * t * archTop + t * t * archBottom
+            }
+
+            var outline = Path()
+            outline.move(to: CGPoint(x: 0, y: archBottom))
+            outline.addQuadCurve(to: CGPoint(x: size.width, y: archBottom), control: CGPoint(x: size.width / 2, y: archTop))
+            outline.addLine(to: CGPoint(x: size.width, y: 0))
+            outline.addLine(to: CGPoint(x: 0, y: 0))
+            outline.closeSubpath()
+            ctx.fill(outline, with: .color(frameColor))
+
+            for i in 0..<paneCount {
+                let t0 = CGFloat(i) / CGFloat(paneCount)
+                let t1 = CGFloat(i + 1) / CGFloat(paneCount)
+                let x0 = size.width * t0
+                let x1 = size.width * t1
+                let y0 = archY(t0)
+                let y1 = archY(t1)
+
+                var pane = Path()
+                pane.move(to: CGPoint(x: x0, y: y0))
+                pane.addLine(to: CGPoint(x: x0, y: 0))
+                pane.addLine(to: CGPoint(x: x1, y: 0))
+                pane.addLine(to: CGPoint(x: x1, y: y1))
+                pane.closeSubpath()
+
+                let glow = Theme.freshGreen.mix(with: Theme.cleanCyan, amount: 0.3 + 0.4 * rnd(i, 4501))
+                ctx.fill(pane, with: .linearGradient(
+                    Gradient(colors: [glow.opacity(0.5), glow.opacity(0.15)]),
+                    startPoint: CGPoint(x: x0, y: 0), endPoint: CGPoint(x: x0, y: max(y0, y1))
+                ))
+
+                // Solar-cell subdivision: rows of small cells inside each glass pane.
+                let cellRows = 4
+                let paneBottom = max(y0, y1)
+                for row in 1..<cellRows {
+                    let ry = paneBottom * CGFloat(row) / CGFloat(cellRows)
+                    var cellLine = Path()
+                    cellLine.move(to: CGPoint(x: x0, y: ry))
+                    cellLine.addLine(to: CGPoint(x: x1, y: ry))
+                    ctx.stroke(cellLine, with: .color(frameColor.opacity(0.6)), lineWidth: 1)
+                }
+                ctx.stroke(pane, with: .color(frameColor), lineWidth: 2)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// The recycling facility's own conveyor belt — sorted material chunks riding a green/cyan
+/// belt, instead of the production factory's plain amber-lined bottle conveyor.
+struct SortingBeltStructure: View {
+    var beltYFrac: CGFloat
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 24)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                let y = size.height * beltYFrac
+                let beltHeight: CGFloat = 14
+                let beltRect = CGRect(x: 0, y: y - beltHeight / 2, width: size.width, height: beltHeight)
+                let rubber = Color(red: 0.06, green: 0.10, blue: 0.09)
+                let rail = Theme.freshGreen.opacity(0.4)
+
+                ctx.fill(Path(beltRect), with: .color(rubber))
+
+                let chevronW: CGFloat = 26
+                let offset = CGFloat((t * 80).truncatingRemainder(dividingBy: Double(chevronW)))
+                var x = -chevronW + offset
+                while x < size.width {
+                    var chevron = Path()
+                    chevron.move(to: CGPoint(x: x, y: beltRect.minY + 2))
+                    chevron.addLine(to: CGPoint(x: x + chevronW * 0.5, y: beltRect.maxY - 2))
+                    chevron.addLine(to: CGPoint(x: x + chevronW * 0.5 + 4, y: beltRect.maxY - 2))
+                    chevron.addLine(to: CGPoint(x: x + 4, y: beltRect.minY + 2))
+                    chevron.closeSubpath()
+                    ctx.fill(chevron, with: .color(Theme.freshGreen.opacity(0.12)))
+                    x += chevronW
+                }
+
+                ctx.fill(Path(CGRect(x: 0, y: beltRect.minY, width: size.width, height: 1.5)), with: .color(rail))
+                ctx.fill(Path(CGRect(x: 0, y: beltRect.maxY - 1.5, width: size.width, height: 1.5)), with: .color(rail))
+
+                for edgeX in [CGFloat(0), size.width] {
+                    let rollerRect = CGRect(x: edgeX - 10, y: y - 10, width: 20, height: 20)
+                    ctx.fill(Path(ellipseIn: rollerRect), with: .color(Color(red: 0.1, green: 0.13, blue: 0.12)))
+                    ctx.stroke(Path(ellipseIn: rollerRect), with: .color(rail), lineWidth: 1.5)
+                }
+
+                // Sorted material chunks riding the belt.
+                let chunkColors = [Theme.freshGreen, Theme.cleanCyan, Theme.neonAmber]
+                let chunkCount = 6
+                let cycle = size.width + 80
+                for i in 0..<chunkCount {
+                    let speed: CGFloat = 44
+                    let startOffset = rnd(i, 7101) * cycle
+                    let cx = (CGFloat(t) * speed + startOffset).truncatingRemainder(dividingBy: cycle) - 40
+                    let cs: CGFloat = 8 + rnd(i, 7102) * 6
+                    let rect = CGRect(x: cx - cs / 2, y: beltRect.minY - cs * 0.7, width: cs, height: cs * 0.8)
+                    ctx.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(chunkColors[i % chunkColors.count].opacity(0.75)))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A soft green LED accent line along the floor edge — replaces the production
+/// factory's amber hazard stripe with the recycling facility's own clean-energy color language.
+struct SortingFloorGlow: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let y = size.height - 4
+            var line = Path()
+            line.move(to: CGPoint(x: 0, y: y))
+            line.addLine(to: CGPoint(x: size.width, y: y))
+            ctx.stroke(line, with: .color(Theme.freshGreen.opacity(0.5)), style: StrokeStyle(lineWidth: 3))
+            ctx.stroke(line, with: .color(Theme.freshGreen.opacity(0.2)), style: StrokeStyle(lineWidth: 10, lineCap: .round))
+        }
+        .blur(radius: 2)
+        .allowsHitTesting(false)
     }
 }

@@ -562,11 +562,7 @@ private struct StrayDogView: View {
                 leg(originX: w * 0.24, phase: legPhase, w: w, h: h)
                 leg(originX: w * 0.19, phase: legPhase + .pi, w: w, h: h)
 
-                TailShape()
-                    .fill(furDark)
-                    .frame(width: w * 0.36, height: h * 0.32)
-                    .rotationEffect(.degrees(-22 + 12 * sin(legPhase)), anchor: .trailing)
-                    .position(x: w * -0.04, y: h * 0.28)
+                tail(w: w, h: h)
 
                 leg(originX: w * 0.58, phase: legPhase + .pi, w: w, h: h)
                 leg(originX: w * 0.63, phase: legPhase, w: w, h: h)
@@ -600,6 +596,23 @@ private struct StrayDogView: View {
             .rotationEffect(.degrees(28 * sin(phase)), anchor: .top)
             .position(x: originX, y: h * 0.53)
     }
+
+    /// Three tapering capsules curling up from the hip, matching how every other limb in
+    /// this figure is built — a filled curled-blob shape read as a clump stuck to the rear
+    /// instead of a tail.
+    private func tail(w: CGFloat, h: CGFloat) -> some View {
+        ZStack {
+            Capsule().fill(furDark).frame(width: w * 0.045, height: w * 0.22)
+                .rotationEffect(.degrees(-25), anchor: .bottom)
+            Capsule().fill(furDark).frame(width: w * 0.032, height: w * 0.19)
+                .rotationEffect(.degrees(-62 + 8 * sin(legPhase)), anchor: .bottom)
+                .offset(x: -w * 0.05, y: -w * 0.16)
+            Capsule().fill(furDark).frame(width: w * 0.022, height: w * 0.15)
+                .rotationEffect(.degrees(-102 + 12 * sin(legPhase)), anchor: .bottom)
+                .offset(x: -w * 0.10, y: -w * 0.24)
+        }
+        .position(x: w * 0.05, y: h * 0.40)
+    }
 }
 
 private struct DogBodyShape: Shape {
@@ -627,25 +640,6 @@ private struct DogBodyShape: Shape {
     }
 }
 
-private struct TailShape: Shape {
-    /// A tapering tail arcing up from a wide base (attached to the body, the `1.0` edge)
-    /// to a narrow tip — a stubby curled blob was reading as no tail at all.
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * w, y: rect.minY + y * h) }
-
-        var p = Path()
-        p.move(to: pt(1.0, 0.62))
-        p.addQuadCurve(to: pt(0.62, 0.18), control: pt(0.92, 0.10))
-        p.addQuadCurve(to: pt(0.10, 0.02), control: pt(0.40, 0.0))
-        p.addQuadCurve(to: pt(0.0, 0.16), control: pt(0.0, 0.04))
-        p.addQuadCurve(to: pt(0.48, 0.34), control: pt(0.14, 0.28))
-        p.addQuadCurve(to: pt(0.86, 0.82), control: pt(0.62, 0.55))
-        p.addQuadCurve(to: pt(1.0, 0.62), control: pt(1.0, 0.78))
-        p.closeSubpath()
-        return p
-    }
-}
 
 private struct GutterFlowCanvas: View {
     var bottleRowFrac: CGFloat
