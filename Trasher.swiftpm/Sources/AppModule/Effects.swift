@@ -884,3 +884,131 @@ struct PersonFigure: View {
         .frame(width: 34, height: 68)
     }
 }
+
+struct VignetteScene<Content: View>: View {
+    @EnvironmentObject var game: GameState
+
+    var line: String
+    var hold: Double = 5.0
+    var vignetteStrength: Double = 0.55
+    var showBottle: Bool = true
+    var bottleWidth: CGFloat = 60
+    var bottleHeight: CGFloat = 148
+    var bottlePosition: UnitPoint = UnitPoint(x: 0.5, y: 0.55)
+    var bottleShowEyes: Bool = false
+    var bottleGlow: Double = 0
+    var bottleTilt: Angle = .zero
+    var textPosition: UnitPoint = UnitPoint(x: 0.5, y: 0.86)
+    var content: (CGSize) -> Content
+    var onFinish: () -> Void
+
+    @State private var showText = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = geo.size
+            ZStack {
+                content(size)
+
+                if showBottle {
+                    BottleView(
+                        vibrancy: game.vibrancy, dirt: game.grime, showEyes: bottleShowEyes,
+                        glow: bottleGlow, width: bottleWidth, height: bottleHeight, tilt: bottleTilt
+                    )
+                    .position(x: bottlePosition.x * size.width, y: bottlePosition.y * size.height)
+                }
+
+                if showText {
+                    Text(line)
+                        .font(Theme.line(22))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 26)
+                        .padding(.vertical, 12)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .transition(.opacity)
+                        .position(x: textPosition.x * size.width, y: textPosition.y * size.height)
+                }
+
+                Vignette(strength: vignetteStrength)
+            }
+        }
+        .onAppear(perform: run)
+    }
+
+    private func run() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.5))
+            withAnimation(.easeIn(duration: 0.5)) { showText = true }
+            try? await Task.sleep(for: .seconds(hold))
+            withAnimation(.easeOut(duration: 0.35)) { showText = false }
+            try? await Task.sleep(for: .seconds(0.3))
+            onFinish()
+        }
+    }
+}
+
+struct RoadLinesCanvas: View {
+    var roadTopY: CGFloat
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
+            Canvas { ctx, size in
+                let dash: CGFloat = 40
+                let gap: CGFloat = 34
+                let cycle = dash + gap
+                let y = roadTopY + 16
+                let offset = CGFloat((context.date.timeIntervalSinceReferenceDate * 260).truncatingRemainder(dividingBy: Double(cycle)))
+                var x = -offset
+                while x < size.width {
+                    ctx.fill(Path(roundedRect: CGRect(x: x, y: y, width: dash, height: 5), cornerRadius: 2),
+                             with: .color(.white.opacity(0.4)))
+                    x += cycle
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+struct SkylineCanvas: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let buildingCount = 9
+            let hazeColor = Color(red: 0.2, green: 0.28, blue: 0.4)
+
+            for i in 0..<buildingCount {
+                let w = size.width / CGFloat(buildingCount)
+                let h = size.height * (0.25 + rnd(i, 80) * 0.35)
+                let x = CGFloat(i) * w
+                let rect = CGRect(x: x, y: size.height - h, width: w * 0.86, height: h)
+
+                let depth = abs(Double(i) - Double(buildingCount - 1) / 2) / (Double(buildingCount - 1) / 2)
+                let fill = Color(red: 0.05, green: 0.07, blue: 0.13).mix(with: hazeColor, amount: depth * 0.55)
+
+                ctx.fill(Path(rect), with: .color(fill))
+                ctx.stroke(Path(rect), with: .color(Theme.neonCyan.opacity(0.1)), lineWidth: 1)
+
+                let rows = Int(h / 22)
+                let cols = 3
+                for r in 0..<rows {
+                    for c in 0..<cols {
+                        guard rnd(i * 31 + r * 7 + c + 1, 81) > 0.62 else { continue }
+                        let wx = x + 6 + CGFloat(c) * (w * 0.86 - 12) / CGFloat(cols)
+                        let wy = size.height - h + 8 + CGFloat(r) * 20
+                        let color = [Theme.neonAmber, Theme.neonCyan, Theme.neonPink][(i + r + c) % 3]
+                        ctx.opacity = 1 - depth * 0.35
+                        ctx.fill(Path(CGRect(x: wx, y: wy, width: 5, height: 8)), with: .color(color.opacity(0.8)))
+                    }
+                }
+            }
+
+            ctx.opacity = 1
+            let hazeBand = CGRect(x: 0, y: size.height * 0.82, width: size.width, height: size.height * 0.18)
+            ctx.fill(Path(hazeBand), with: .linearGradient(
+                Gradient(colors: [.clear, hazeColor.opacity(0.22)]),
+                startPoint: CGPoint(x: 0, y: hazeBand.minY), endPoint: CGPoint(x: 0, y: hazeBand.maxY)
+            ))
+        }
+    }
+}

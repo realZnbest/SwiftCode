@@ -1,0 +1,198 @@
+import SwiftUI
+
+struct CommunityCleanupScene: View {
+    @EnvironmentObject var game: GameState
+
+    var body: some View {
+        VignetteScene(
+            line: "มีมือบางคู่ เลือกที่จะหยุดไม่ให้มันต้องมาเริ่มเส้นทางนี้อีก",
+            showBottle: false,
+            content: { size in CarryBagView(size: size) },
+            onFinish: { game.advanceFromCommunityCleanup() }
+        )
+    }
+}
+
+private struct CarryBagView: View {
+    let size: CGSize
+
+    @State private var start = Date()
+    @State private var impactTriggered = false
+
+    private let walkStart: Double = 0.5
+    private let walkDuration: Double = 2.4
+    private let tossStart: Double = 3.05
+    private let tossDuration: Double = 0.6
+    private let impactAt: Double = 3.53
+
+    private func smoothstep(_ x: Double) -> Double { x * x * (3 - 2 * x) }
+
+    var body: some View {
+        let groundY = size.height * 0.82
+        let binX = size.width * 0.74
+        let binRimY = groundY - 70
+
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+            let t = context.date.timeIntervalSince(start)
+            let walkT = smoothstep(max(0, min(1, (t - walkStart) / walkDuration)))
+            let tossT = smoothstep(max(0, min(1, (t - tossStart) / tossDuration)))
+            let walking = walkT < 0.999 && tossT < 0.01
+            let bob = walking ? CGFloat(sin(t * 9)) * 5 : 0
+            let legPhase = t * 9
+            let strideAmt: Double = walking ? 1 : 0
+            let personX = size.width * (0.24 + 0.31 * CGFloat(walkT))
+            let holdX = personX + 34
+            let holdY = groundY - 52 + bob
+            let bagX = holdX + (binX - holdX) * CGFloat(tossT)
+            let bagY = holdY + (binRimY - holdY) * CGFloat(tossT) - CGFloat(46 * sin(.pi * tossT))
+            let bagScale = CGFloat(1 - 0.5 * tossT)
+            let bagOpacity = tossT < 0.72 ? 1.0 : max(0, 1 - (tossT - 0.72) / 0.28)
+
+            let impactT = t - impactAt
+            let binTilt: Double = (impactT >= 0 && impactT < 0.5)
+                ? cos(impactT * 30) * exp(-impactT * 9) * -6
+                : 0
+
+            ZStack {
+                LinearGradient(colors: [Color(red: 0.55, green: 0.8, blue: 0.95), Color(red: 0.78, green: 0.92, blue: 0.72)],
+                               startPoint: .top, endPoint: .bottom)
+                CloudDriftCanvas()
+                TreeLineCanvas()
+                SparkleCanvas(count: 14, color: .white).opacity(0.3)
+
+                Rectangle()
+                    .fill(LinearGradient(colors: [Color(red: 0.46, green: 0.72, blue: 0.42), Color(red: 0.3, green: 0.54, blue: 0.28)],
+                                         startPoint: .top, endPoint: .bottom))
+                    .frame(height: size.height - groundY + 4)
+                    .position(x: size.width / 2, y: groundY + (size.height - groundY) / 2)
+
+                TrashBinView(width: 98, height: 122)
+                    .rotationEffect(.degrees(binTilt), anchor: .bottom)
+                    .position(x: binX, y: groundY - 50)
+
+                BigWalker(shirt: Theme.cleanCyan, legPhase: legPhase, stride: strideAmt)
+                    .position(x: personX, y: groundY - 92 + bob)
+
+                TrashBag()
+                    .scaleEffect(bagScale)
+                    .opacity(bagOpacity)
+                    .position(x: bagX, y: bagY)
+            }
+            .onChange(of: impactT >= 0) { _, crossed in
+                guard crossed, !impactTriggered else { return }
+                impactTriggered = true
+                game.sound.impactThud()
+                Haptics.collision()
+            }
+        }
+        .onAppear(perform: run)
+    }
+
+    private func run() {
+        start = Date()
+        impactTriggered = false
+    }
+
+    @EnvironmentObject private var game: GameState
+}
+
+private struct BigWalker: View {
+    var shirt: Color
+    var legPhase: Double = 0
+    var stride: Double = 0
+
+    /// Sharper than a plain sine so the leg snaps through the swing and eases into contact.
+    private func gait(_ phase: Double) -> Double {
+        let s = sin(phase)
+        return (s < 0 ? -1.0 : 1.0) * pow(abs(s), 0.72)
+    }
+
+    private func legSway(_ phase: Double) -> (knee: CGSize, foot: CGSize) {
+        let swing = CGFloat(gait(phase) * stride)
+        // Quarter-cycle ahead of the horizontal swing (plain cos, not the sharpened gait curve)
+        // so the foot clears the ground only mid-swing and is flat at both the plant and toe-off
+        // extremes — that mismatch was the tiptoe/hopping look.
+        let lift = CGFloat(max(0, cos(phase)) * stride)
+        return (
+            CGSize(width: swing * 7, height: -lift * 5),
+            CGSize(width: swing * 15, height: -lift * 9)
+        )
+    }
+
+    // Arms swing fore-aft in the same sagittal plane as the legs, opposite the same-side leg
+    // (contralateral, like real gait), instead of sitting frozen in a fixed carry pose.
+    private func armSway(_ phase: Double) -> (elbow: CGSize, hand: CGSize) {
+        let swing = CGFloat(gait(phase) * stride)
+        return (
+            CGSize(width: swing * 5, height: swing * 2),
+            CGSize(width: swing * 10, height: swing * 3)
+        )
+    }
+
+    var body: some View {
+        Canvas { ctx, _ in
+            let pants = Color(red: 0.2, green: 0.16, blue: 0.14)
+            let skin = Color(red: 0.55, green: 0.4, blue: 0.3)
+            func limb(_ pts: [CGPoint], _ color: Color, _ w: CGFloat) {
+                var p = Path()
+                p.addLines(pts)
+                ctx.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round))
+            }
+
+            // Whole figure faces/leans into +x, the direction it actually walks.
+            let hip = CGPoint(x: 64, y: 112)
+            let backSway = legSway(legPhase + .pi)
+            let frontSway = legSway(legPhase)
+            let backKnee = CGPoint(x: 61 + backSway.knee.width, y: 150 + backSway.knee.height)
+            let backFoot = CGPoint(x: 59 + backSway.foot.width, y: 186 + backSway.foot.height)
+            let frontKnee = CGPoint(x: 67 + frontSway.knee.width, y: 150 + frontSway.knee.height)
+            let frontFoot = CGPoint(x: 69 + frontSway.foot.width, y: 184 + frontSway.foot.height)
+
+            // Back arm pairs with the front leg's phase, front arm with the back leg's —
+            // opposite arm/leg forward together, same as the legs' own back/front split.
+            let backArmSway = armSway(legPhase)
+            let frontArmSway = armSway(legPhase + .pi)
+            let backShoulder = CGPoint(x: 60, y: 64)
+            let backElbow = CGPoint(x: 76 + backArmSway.elbow.width, y: 86 + backArmSway.elbow.height)
+            let backHand = CGPoint(x: 90 + backArmSway.hand.width, y: 106 + backArmSway.hand.height)
+            let frontShoulder = CGPoint(x: 68, y: 64)
+            let frontElbow = CGPoint(x: 84 + frontArmSway.elbow.width, y: 86 + frontArmSway.elbow.height)
+            let frontHand = CGPoint(x: 96 + frontArmSway.hand.width, y: 106 + frontArmSway.hand.height)
+
+            limb([hip, backKnee, backFoot], pants, 11)
+            limb([hip, frontKnee, frontFoot], pants, 11)
+            limb([backShoulder, backElbow, backHand], Color(red: 0.46, green: 0.33, blue: 0.25), 8)
+            limb([CGPoint(x: 64, y: 112), CGPoint(x: 64, y: 58)], shirt, 27)
+            ctx.fill(Path(ellipseIn: CGRect(x: 64 - 19, y: 42 - 19, width: 38, height: 38)), with: .color(skin))
+            limb([frontShoulder, frontElbow, frontHand], skin, 8)
+        }
+        .frame(width: 130, height: 190)
+    }
+}
+
+private struct TrashBag: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let w = size.width
+            let h = size.height
+            let bag = Color(red: 0.13, green: 0.16, blue: 0.14)
+            let bagHi = Color(red: 0.24, green: 0.28, blue: 0.25)
+            let neckX = w * 0.5
+            var p = Path()
+            p.move(to: CGPoint(x: neckX - 6, y: 10))
+            p.addQuadCurve(to: CGPoint(x: 5, y: h * 0.5), control: CGPoint(x: -4, y: h * 0.14))
+            p.addQuadCurve(to: CGPoint(x: neckX, y: h - 4), control: CGPoint(x: 4, y: h - 2))
+            p.addQuadCurve(to: CGPoint(x: w - 5, y: h * 0.5), control: CGPoint(x: w - 4, y: h - 2))
+            p.addQuadCurve(to: CGPoint(x: neckX + 6, y: 10), control: CGPoint(x: w + 4, y: h * 0.14))
+            p.closeSubpath()
+            ctx.fill(p, with: .linearGradient(Gradient(colors: [bagHi, bag]),
+                                              startPoint: CGPoint(x: 0, y: 0), endPoint: CGPoint(x: 0, y: h)))
+            ctx.fill(Path(ellipseIn: CGRect(x: neckX - 8, y: 0, width: 16, height: 14)), with: .color(bagHi))
+            var tie = Path()
+            tie.move(to: CGPoint(x: neckX - 7, y: 7))
+            tie.addLine(to: CGPoint(x: neckX + 7, y: 7))
+            ctx.stroke(tie, with: .color(.black.opacity(0.35)), lineWidth: 2)
+        }
+        .frame(width: 62, height: 78)
+    }
+}
