@@ -26,6 +26,10 @@ final class SoundEngine {
     private let chompPlayer = AVAudioPlayerNode()
     private let splashPlayer = AVAudioPlayerNode()
 
+    private let musicPlayer = AVAudioPlayerNode()
+    private var musicBuffer: AVAudioPCMBuffer?
+    private let musicVolume: Float = 0.07
+
     private var impactSample: AVAudioPCMBuffer!
     private var successSample: AVAudioPCMBuffer!
     private var chompSample: AVAudioPCMBuffer!
@@ -193,6 +197,12 @@ final class SoundEngine {
         engine.connect(engine.mainMixerNode, to: reverb, format: nil)
         engine.connect(reverb, to: engine.outputNode, format: nil)
 
+        engine.attach(musicPlayer)
+        if let (buffer, format) = loadMusicBuffer() {
+            musicBuffer = buffer
+            engine.connect(musicPlayer, to: engine.mainMixerNode, format: format)
+        }
+
         engine.prepare()
         try? engine.start()
 
@@ -200,6 +210,30 @@ final class SoundEngine {
             node.scheduleBuffer(buffers[layer]!, at: nil, options: .loops)
             node.play()
         }
+
+        playMusic()
+    }
+
+    /// Background soundtrack, playing continuously and quietly under the ambient
+    /// layers rather than ducking per-phase like they do.
+    private func loadMusicBuffer() -> (AVAudioPCMBuffer, AVAudioFormat)? {
+        guard let url = Bundle.main.url(forResource: "soundtrack", withExtension: "m4a"),
+              let file = try? AVAudioFile(forReading: url) else { return nil }
+        let format = file.processingFormat
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length)) else { return nil }
+        do {
+            try file.read(into: buffer)
+        } catch {
+            return nil
+        }
+        return (buffer, format)
+    }
+
+    private func playMusic() {
+        guard let musicBuffer else { return }
+        musicPlayer.volume = musicVolume
+        musicPlayer.scheduleBuffer(musicBuffer, at: nil, options: .loops)
+        musicPlayer.play()
     }
 
     func transition(to phase: GameState.Phase) {
@@ -320,6 +354,7 @@ final class SoundEngine {
         for node in impactPlayers { node.stop() }
         for node in [successPlayer, chompPlayer, splashPlayer] { node.stop() }
         for layer in Layer.allCases { currentVolume[layer] = 0 }
+        musicPlayer.stop()
 
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
@@ -339,7 +374,8 @@ final class SoundEngine {
             node.volume = 0
             node.play()
         }
-        
+        playMusic()
+
         transition(to: currentPhase)
     }
 
@@ -403,6 +439,7 @@ final class SoundEngine {
         successPlayer.stop()
         chompPlayer.stop()
         splashPlayer.stop()
+        musicPlayer.stop()
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
