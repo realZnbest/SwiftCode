@@ -250,23 +250,35 @@ struct RecycleBinView: View {
 
     var body: some View {
         ZStack {
+            HStack(spacing: width * 0.06) {
+                ForEach(0..<3, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill([Theme.cleanCyan, Theme.freshGreen, Theme.cleanCyan.opacity(0.85)][i % 3])
+                        .frame(width: width * 0.13, height: width * (0.14 + CGFloat(i % 2) * 0.06))
+                        .rotationEffect(.degrees(Double(i) * 10 - 10))
+                }
+            }
+            .offset(y: -height * 0.33)
+
             BinBodyShape()
-                .fill(LinearGradient(colors: [Theme.freshGreen.opacity(0.32), Theme.freshGreen.opacity(0.1)],
-                                      startPoint: .top, endPoint: .bottom))
-                .overlay(BinBodyShape().stroke(Theme.freshGreen.opacity(0.85), lineWidth: 2))
+                .fill(LinearGradient(
+                    colors: [Theme.freshGreen.opacity(0.85), Color(red: 0.04, green: 0.2, blue: 0.12)],
+                    startPoint: .top, endPoint: .bottom
+                ))
+                .overlay(BinBodyShape().stroke(Theme.freshGreen, lineWidth: 1.8))
                 .frame(width: width, height: height * 0.62)
                 .offset(y: height * 0.19)
 
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Theme.freshGreen.opacity(0.55))
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.freshGreen, lineWidth: 1.5))
-                .frame(width: width * 1.05, height: height * 0.08)
-                .rotationEffect(.degrees(-8), anchor: .leading)
-                .offset(x: -width * 0.02, y: -height * 0.15)
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Theme.freshGreen.opacity(0.9))
+                .overlay(RoundedRectangle(cornerRadius: 3).stroke(.white.opacity(0.3), lineWidth: 1))
+                .frame(width: width * 1.05, height: height * 0.07)
+                .offset(y: -height * 0.12)
 
             Image(systemName: "arrow.3.trianglepath")
-                .font(.system(size: width * 0.3, weight: .semibold))
-                .foregroundStyle(Theme.freshGreen)
+                .font(.system(size: width * 0.28, weight: .bold))
+                .foregroundStyle(.white)
+                .glow(Theme.freshGreen, radius: 8, opacity: 0.7)
                 .offset(y: height * 0.2)
         }
         .frame(width: width, height: height)
