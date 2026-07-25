@@ -311,7 +311,6 @@ struct StreetToDrainScene: View {
             if elapsed >= kick.time && !triggeredEvents.contains(kickId) {
                 triggeredEvents.insert(kickId)
                 game.sound.impactThud()
-                Haptics.collision()
             }
         }
 
@@ -419,7 +418,6 @@ struct StreetToDrainScene: View {
             forkBottlePos = CGPoint(x: target.midX, y: target.midY)
         }
         game.sound.impactThud()
-        Haptics.collision()
 
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.85))
@@ -597,9 +595,6 @@ private struct StrayDogView: View {
             .position(x: originX, y: h * 0.53)
     }
 
-    /// Three tapering capsules curling up from the hip, matching how every other limb in
-    /// this figure is built — a filled curled-blob shape read as a clump stuck to the rear
-    /// instead of a tail.
     private func tail(w: CGFloat, h: CGFloat) -> some View {
         ZStack {
             Capsule().fill(furDark).frame(width: w * 0.045, height: w * 0.22)

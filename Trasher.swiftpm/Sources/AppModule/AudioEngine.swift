@@ -214,8 +214,6 @@ final class SoundEngine {
         playMusic()
     }
 
-    /// Background soundtrack, playing continuously and quietly under the ambient
-    /// layers rather than ducking per-phase like they do.
     private func loadMusicBuffer() -> (AVAudioPCMBuffer, AVAudioFormat)? {
         guard let url = Bundle.main.url(forResource: "soundtrack", withExtension: "m4a"),
               let file = try? AVAudioFile(forReading: url) else { return nil }
@@ -442,25 +440,5 @@ final class SoundEngine {
         musicPlayer.stop()
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-    }
-}
-
-enum Haptics {
-    static func collision() {
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.prepare()
-        generator.impactOccurred()
-    }
-
-    static func success() {
-        let generator = UINotificationFeedbackGenerator()
-        generator.prepare()
-        generator.notificationOccurred(.success)
-    }
-
-    static func warning() {
-        let generator = UIImpactFeedbackGenerator(style: .soft)
-        generator.prepare()
-        generator.impactOccurred(intensity: 0.6)
     }
 }

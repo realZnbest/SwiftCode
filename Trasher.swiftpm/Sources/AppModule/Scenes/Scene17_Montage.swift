@@ -89,9 +89,6 @@ struct MontageScene: View {
     }
 }
 
-/// Sea, land, and mountains sharing one frame, with pollution visibly scattered across
-/// both — "everywhere" is a claim this backdrop has to actually earn, not two flat
-/// color blocks and an icon.
 private struct EverywhereBackdrop: View {
     var body: some View {
         GeometryReader { geo in
@@ -210,13 +207,11 @@ private struct LandAndSeaCanvas: View {
                 startPoint: CGPoint(x: 0, y: horizonY), endPoint: CGPoint(x: 0, y: size.height)
             ))
 
-            // Sandy shoreline seam where land meets sea.
             var shore = Path()
             shore.move(to: CGPoint(x: shoreX, y: horizonY))
             shore.addQuadCurve(to: CGPoint(x: shoreX - 34, y: size.height), control: CGPoint(x: shoreX - 6, y: horizonY + 60))
             ctx.stroke(shore, with: .color(Color(red: 0.75, green: 0.68, blue: 0.5).opacity(0.5)), lineWidth: 4)
 
-            // Grass tufts on the land.
             let tuftColor = landColor.mix(with: .black, amount: 0.3)
             let tuftCount = 22
             for i in 0..<tuftCount {
@@ -230,7 +225,6 @@ private struct LandAndSeaCanvas: View {
                 ctx.stroke(blade, with: .color(tuftColor.opacity(0.5)), lineWidth: 1.2)
             }
 
-            // Scattered rocks for ground texture.
             let rockColor = Color(red: 0.3, green: 0.3, blue: 0.28)
             for i in 0..<8 {
                 let rx = size.width * 0.03 + (shoreX - 30) * rnd(i, 621)
@@ -241,7 +235,6 @@ private struct LandAndSeaCanvas: View {
                          with: .color(rockColor.opacity(0.6)))
             }
 
-            // A small forest, two depth bands, mixing pine and rounded trees for variety.
             let farRowCount = 9
             for i in 0..<farRowCount {
                 let tx = size.width * (0.02 + (shoreX / size.width - 0.06) * CGFloat(i) / CGFloat(farRowCount - 1))
@@ -308,8 +301,6 @@ private struct LandAndSeaCanvas: View {
     }
 }
 
-/// Small litter silhouettes — bottles, bags, cans — scattered across both the land and
-/// the sea, making "trash is everywhere" a visible fact rather than only a stated line.
 private struct LitterScatterCanvas: View {
     var horizonY: CGFloat
 
@@ -328,17 +319,14 @@ private struct LitterScatterCanvas: View {
 
                 switch shapeKind {
                 case 0:
-                    // Tiny bottle silhouette.
                     var bottle = Path()
                     bottle.addRoundedRect(in: CGRect(x: x - s * 0.28, y: y - s, width: s * 0.56, height: s), cornerSize: CGSize(width: 1.5, height: 1.5))
                     bottle.addRect(CGRect(x: x - s * 0.12, y: y - s * 1.25, width: s * 0.24, height: s * 0.3))
                     ctx.fill(bottle, with: .color(color.opacity(0.75)))
                 case 1:
-                    // Crumpled bag blob.
                     ctx.fill(Path(ellipseIn: CGRect(x: x - s / 2, y: y - s * 0.4, width: s, height: s * 0.55)),
                              with: .color(color.opacity(0.6)))
                 default:
-                    // Flat can/lid glint.
                     ctx.fill(Path(ellipseIn: CGRect(x: x - s * 0.4, y: y - s * 0.15, width: s * 0.8, height: s * 0.3)),
                              with: .color(color.opacity(0.7)))
                 }

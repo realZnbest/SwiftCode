@@ -31,7 +31,7 @@ struct NeonStreakField: View {
     var colors: [Color]
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
             Canvas { ctx, size in
                 let t = context.date.timeIntervalSinceReferenceDate
                 let count = 10
@@ -57,7 +57,7 @@ struct BubbleCanvas: View {
     var color: Color = .white
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 18)) { context in
             Canvas { ctx, size in
                 let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
@@ -79,7 +79,7 @@ struct FishSilhouettesCanvas: View {
     var darkness: Double
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 18)) { context in
             Canvas { ctx, size in
                 let t = context.date.timeIntervalSinceReferenceDate
                 let count = 5
@@ -114,7 +114,7 @@ struct SmokeCanvas: View {
     var color: Color
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 12)) { context in
             Canvas { ctx, size in
                 let t = context.date.timeIntervalSinceReferenceDate
                 let count = Int(6 * intensity) + 2
@@ -163,7 +163,7 @@ struct SparkleCanvas: View {
     var color: Color = .white
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
             Canvas { ctx, size in
                 let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
@@ -506,7 +506,7 @@ struct LightRaysCanvas: View {
     var count: Int = 4
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
             Canvas { ctx, size in
                 let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
@@ -898,16 +898,10 @@ struct SkylineCanvas: View {
     }
 }
 
-/// A stone path receding from the foreground up to `groundY`, for scenes viewed straight-on
-/// (e.g. a bench in the distance) rather than scenes where a character walks laterally.
 struct ParkPathCanvas: View {
     var groundY: CGFloat
     var bend: CGFloat = 0.06
     var color: Color = Color(red: 0.80, green: 0.72, blue: 0.56)
-    /// Fraction of width the path has narrowed to by `groundY`. Keep this well below the
-    /// bottom width (0.30) so the taper stays monotonic — widening it past that pinches the
-    /// middle instead of curving smoothly. To have the path visibly reach something sitting
-    /// at the horizon (e.g. a bench), align `topXFraction` to it instead of widening the top.
     var topWidthFraction: CGFloat = 0.11
     var topXFraction: CGFloat? = nil
 
@@ -954,8 +948,6 @@ struct ParkPathCanvas: View {
     }
 }
 
-/// Small flapping bird silhouettes drifting across the upper sky — visual counterpart to
-/// the `.birds` ambient audio layer, which otherwise plays with nothing on screen making it.
 struct BirdFlockCanvas: View {
     var count: Int = 4
 
@@ -975,8 +967,6 @@ struct BirdFlockCanvas: View {
                     let scale: CGFloat = 0.7 + rnd(i, 606) * 0.5
                     let flapSpeed = 8.5 + Double(rnd(i, 607)) * 3
                     let phase = Double(rnd(i, 605)) * 6.28
-                    // Wingtips swing from below the body (downstroke) through flat (glide) to
-                    // above it (upstroke), instead of a fixed upward V that only resizes.
                     let flap = CGFloat(sin(t * flapSpeed + phase))
                     let tipLift = flap * 7 * scale
                     let asymmetry = CGFloat(sin(t * flapSpeed + phase + 0.5)) * 1.5 * scale
@@ -1008,8 +998,6 @@ struct BirdFlockCanvas: View {
     }
 }
 
-/// A flat walkway strip along the ground, for scenes where a character walks laterally
-/// across the frame rather than toward/away from camera.
 struct WalkwayStripView: View {
     var width: CGFloat
     var height: CGFloat = 32
@@ -1039,7 +1027,6 @@ struct WalkwayStripView: View {
     }
 }
 
-/// A rounded-lobe bush, optionally scattered with small flower dots for a flower bed.
 struct BushClusterView: View {
     var width: CGFloat
     var flowerColors: [Color] = []
@@ -1080,7 +1067,6 @@ struct BushClusterView: View {
     private func h(for scale: CGFloat) -> CGFloat { width * scale * 0.72 }
 }
 
-/// A warm-glowing park lamp post.
 struct ParkLampPostView: View {
     var height: CGFloat = 120
 
@@ -1113,9 +1099,6 @@ struct ParkLampPostView: View {
     }
 }
 
-/// Textured park ground: a wavy (non-flat) horizon line, a light/dark gradient band,
-/// a soft sunlit patch, and sparse grass tufts — cheap depth cues so the lawn doesn't
-/// read as a single flat-filled rectangle.
 struct ParkGroundCanvas: View {
     var groundY: CGFloat
     var baseColor: Color = Color(red: 0.30, green: 0.54, blue: 0.28)
@@ -1170,8 +1153,6 @@ struct ParkGroundCanvas: View {
     }
 }
 
-/// A soft contact shadow to ground a standing/sitting element and imply it has volume
-/// rather than sitting flush with the background.
 struct GroundShadowView: View {
     var width: CGFloat
     var opacity: Double = 0.32
@@ -1188,10 +1169,7 @@ struct GroundShadowView: View {
     }
 }
 
-// MARK: - Recycling facility (shared between SortingLine and Recycling scenes)
 
-/// Giant faint recycling-arrow watermark in the far background — a distinct visual
-/// signature the recycling facility owns, instead of reusing the production factory's window wall.
 struct RecyclingEmblemGlow: View {
     var brighten: Double
 
@@ -1205,8 +1183,6 @@ struct RecyclingEmblemGlow: View {
     }
 }
 
-/// Curved glass-panel greenhouse roof, glowing cool green/cyan — an arched glass
-/// ceiling instead of the production factory's flat rectangular amber window band.
 struct RecyclingGreenhouseRoof: View {
     var body: some View {
         Canvas { ctx, size in
@@ -1249,7 +1225,6 @@ struct RecyclingGreenhouseRoof: View {
                     startPoint: CGPoint(x: x0, y: 0), endPoint: CGPoint(x: x0, y: max(y0, y1))
                 ))
 
-                // Solar-cell subdivision: rows of small cells inside each glass pane.
                 let cellRows = 4
                 let paneBottom = max(y0, y1)
                 for row in 1..<cellRows {
@@ -1266,8 +1241,6 @@ struct RecyclingGreenhouseRoof: View {
     }
 }
 
-/// The recycling facility's own conveyor belt — sorted material chunks riding a green/cyan
-/// belt, instead of the production factory's plain amber-lined bottle conveyor.
 struct SortingBeltStructure: View {
     var beltYFrac: CGFloat
 
@@ -1306,7 +1279,6 @@ struct SortingBeltStructure: View {
                     ctx.stroke(Path(ellipseIn: rollerRect), with: .color(rail), lineWidth: 1.5)
                 }
 
-                // Sorted material chunks riding the belt.
                 let chunkColors = [Theme.freshGreen, Theme.cleanCyan, Theme.neonAmber]
                 let chunkCount = 6
                 let cycle = size.width + 80
@@ -1324,8 +1296,6 @@ struct SortingBeltStructure: View {
     }
 }
 
-/// A soft green LED accent line along the floor edge — replaces the production
-/// factory's amber hazard stripe with the recycling facility's own clean-energy color language.
 struct SortingFloorGlow: View {
     var body: some View {
         Canvas { ctx, size in

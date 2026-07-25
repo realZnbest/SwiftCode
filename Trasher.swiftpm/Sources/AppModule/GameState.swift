@@ -36,8 +36,7 @@ final class GameState: ObservableObject {
 
     let sound = SoundEngine()
 
-    /// Debug-only: launch straight into this phase instead of `.title`. Set back to `nil` before shipping.
-    private let debugStartPhase: Phase? = .montage
+    private let debugStartPhase: Phase? = nil
 
     var mustRouteToRecycling: Bool { seaAttempts >= 1 }
 
@@ -63,7 +62,6 @@ final class GameState: ObservableObject {
         grime = min(1, grime + 0.18)
         vibrancy = max(0.45, vibrancy - 0.12)
         sound.impactThud()
-        Haptics.collision()
     }
 
     func advanceFromTitle() {
@@ -97,7 +95,6 @@ final class GameState: ObservableObject {
 
     func chooseLandfill() {
         landfillAttempts += 1
-        Haptics.warning()
         goTo(.landfillFailure)
     }
 
@@ -107,7 +104,6 @@ final class GameState: ObservableObject {
 
     func chooseSea() {
         seaAttempts += 1
-        Haptics.warning()
         goTo(.seaFailure)
     }
 
@@ -134,12 +130,10 @@ final class GameState: ObservableObject {
     func registerBinMiss() {
         binMisses += 1
         sound.impactThud()
-        Haptics.collision()
     }
 
     func finishRecycling() {
         vibrancy = 1
-        Haptics.success()
         goTo(.pelletReveal)
     }
 

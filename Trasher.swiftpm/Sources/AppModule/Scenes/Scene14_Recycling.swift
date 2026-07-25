@@ -101,7 +101,7 @@ struct RecyclingScene: View {
     }
 
     private func machineryGlow(size: CGSize) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             Canvas { ctx, canvasSize in
                 for i in 0..<4 {

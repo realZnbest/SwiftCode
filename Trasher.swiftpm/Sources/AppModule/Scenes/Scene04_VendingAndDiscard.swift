@@ -313,7 +313,6 @@ struct VendingAndDiscardScene: View {
 
             try? await Task.sleep(for: .seconds(0.4 * scale))
             game.sound.impactThud()
-            Haptics.collision()
 
             try? await Task.sleep(for: .seconds(0.2 * scale))
             withAnimation(.easeInOut(duration: 0.3)) { heroInGridVisible = false }
@@ -353,7 +352,6 @@ struct VendingAndDiscardScene: View {
 
             try? await Task.sleep(for: .seconds(0.55))
             game.sound.impactThud()
-            Haptics.collision()
             withAnimation(.easeOut(duration: 0.2)) { impactBurst = true }
             try? await Task.sleep(for: .seconds(0.2))
             withAnimation(.easeOut(duration: 0.3)) { impactBurst = false }

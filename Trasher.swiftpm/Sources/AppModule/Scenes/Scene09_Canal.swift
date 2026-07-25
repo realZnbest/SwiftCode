@@ -242,7 +242,6 @@ struct CanalScene: View {
             forkBottlePos = CGPoint(x: target.midX, y: target.midY)
         }
         game.sound.impactThud()
-        Haptics.collision()
 
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.85))

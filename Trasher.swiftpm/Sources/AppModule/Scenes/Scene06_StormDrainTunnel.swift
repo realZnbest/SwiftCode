@@ -33,11 +33,9 @@ struct StormDrainTunnelScene: View {
     }
 }
 
-/// A pulsing point of light at the vanishing point — anchors the sense of falling toward
-/// (or away from) something, instead of just fading into flat black.
 private struct VanishingLightGlow: View {
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             let pulse = 0.6 + 0.4 * sin(t * 0.55)
             Circle()
@@ -52,11 +50,9 @@ private struct VanishingLightGlow: View {
     }
 }
 
-/// Rings continuously spawning at the center and expanding outward while fading — reads as
-/// motion through a tunnel, unlike 5 static rings that never moved.
 private struct TunnelRingsCanvas: View {
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             Canvas { ctx, size in
                 let center = CGPoint(x: size.width / 2, y: size.height / 2)
@@ -78,10 +74,9 @@ private struct TunnelRingsCanvas: View {
     }
 }
 
-/// Faint streaks radiating from center, flickering — the tunnel wall rushing past at speed.
 private struct TunnelWallStreakCanvas: View {
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             Canvas { ctx, size in
                 let center = CGPoint(x: size.width / 2, y: size.height / 2)

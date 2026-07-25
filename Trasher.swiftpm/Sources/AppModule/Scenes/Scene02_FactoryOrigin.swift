@@ -94,7 +94,6 @@ struct FactoryOriginScene: View {
 
     private func stampBeat() {
         game.sound.impactThud()
-        Haptics.collision()
         withAnimation(.spring(response: 0.13, dampingFraction: 0.42)) { headSquash = 0.66 }
         ringScale = 0.35
         ringOpacity = 0.8
@@ -103,7 +102,6 @@ struct FactoryOriginScene: View {
             ringOpacity = 0
         }
         game.sound.success()
-        Haptics.success()
         withAnimation(.easeOut(duration: 0.08)) { flashOpacity = 0.9 }
         withAnimation(.spring(response: 0.55, dampingFraction: 0.6)) {
             heroBottleVisible = true
@@ -253,8 +251,6 @@ private struct HazardStripeBand: View {
     }
 }
 
-/// Row of tall factory windows near the ceiling, warm-lit from outside, with dark mullions —
-/// gives the background an actual structure to read instead of near-black silhouettes on navy.
 private struct FactoryWindowWall: View {
     var body: some View {
         Canvas { ctx, size in
@@ -294,8 +290,6 @@ private struct FactoryWindowWall: View {
     }
 }
 
-/// A ceiling beam with hanging industrial lamps, each casting a soft downward glow —
-/// gives the space an actual light source instead of everything reading flat.
 private struct FactoryTrussRow: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
@@ -344,8 +338,6 @@ private struct FactoryTrussRow: View {
     }
 }
 
-/// An actual conveyor belt — rubber band, moving chevron tread, side rails, end rollers —
-/// instead of a single faint dashed line implying "conveyor."
 private struct ConveyorBeltStructure: View {
     var beltYFrac: CGFloat
 
@@ -389,8 +381,6 @@ private struct ConveyorBeltStructure: View {
     }
 }
 
-/// Riveted metal floor panels beneath the belt, plus a faint reflection of the belt's glow —
-/// a flat gradient down there was reading as empty space under the machinery.
 private struct FactoryFloorPanels: View {
     var beltYFrac: CGFloat
 
@@ -431,8 +421,6 @@ private struct FactoryFloorPanels: View {
     }
 }
 
-/// Vertical I-beam support columns near the left/right edges, with rivet seams — frames
-/// the scene and reads as an actual factory structure instead of open empty space at the sides.
 private struct FactorySideColumns: View {
     var body: some View {
         Canvas { ctx, size in
@@ -463,8 +451,6 @@ private struct FactorySideColumns: View {
     }
 }
 
-/// A small floor-level vent puffing intermittent steam — distinct from the ambient smoke
-/// haze, reads as an actual piece of machinery venting rather than generic fog.
 private struct SteamVentCanvas: View {
     var xFrac: CGFloat
 

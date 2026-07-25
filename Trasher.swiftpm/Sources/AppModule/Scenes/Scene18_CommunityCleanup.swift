@@ -103,7 +103,6 @@ private struct CarryBagView: View {
                 guard crossed, !impactTriggered else { return }
                 impactTriggered = true
                 game.sound.impactThud()
-                Haptics.collision()
             }
         }
         .onAppear(perform: run)
@@ -122,7 +121,6 @@ private struct BigWalker: View {
     var legPhase: Double = 0
     var stride: Double = 0
 
-    /// Sharper than a plain sine so the leg snaps through the swing and eases into contact.
     private func gait(_ phase: Double) -> Double {
         let s = sin(phase)
         return (s < 0 ? -1.0 : 1.0) * pow(abs(s), 0.72)
@@ -130,9 +128,6 @@ private struct BigWalker: View {
 
     private func legSway(_ phase: Double) -> (knee: CGSize, foot: CGSize) {
         let swing = CGFloat(gait(phase) * stride)
-        // Quarter-cycle ahead of the horizontal swing (plain cos, not the sharpened gait curve)
-        // so the foot clears the ground only mid-swing and is flat at both the plant and toe-off
-        // extremes — that mismatch was the tiptoe/hopping look.
         let lift = CGFloat(max(0, cos(phase)) * stride)
         return (
             CGSize(width: swing * 7, height: -lift * 5),
@@ -140,8 +135,6 @@ private struct BigWalker: View {
         )
     }
 
-    // Arms swing fore-aft in the same sagittal plane as the legs, opposite the same-side leg
-    // (contralateral, like real gait), instead of sitting frozen in a fixed carry pose.
     private func armSway(_ phase: Double) -> (elbow: CGSize, hand: CGSize) {
         let swing = CGFloat(gait(phase) * stride)
         return (
@@ -160,7 +153,6 @@ private struct BigWalker: View {
                 ctx.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round))
             }
 
-            // Whole figure faces/leans into +x, the direction it actually walks.
             let hip = CGPoint(x: 64, y: 112)
             let backSway = legSway(legPhase + .pi)
             let frontSway = legSway(legPhase)
@@ -169,8 +161,6 @@ private struct BigWalker: View {
             let frontKnee = CGPoint(x: 67 + frontSway.knee.width, y: 150 + frontSway.knee.height)
             let frontFoot = CGPoint(x: 69 + frontSway.foot.width, y: 184 + frontSway.foot.height)
 
-            // Back arm pairs with the front leg's phase, front arm with the back leg's —
-            // opposite arm/leg forward together, same as the legs' own back/front split.
             let backArmSway = armSway(legPhase)
             let frontArmSway = armSway(legPhase + .pi)
             let backShoulder = CGPoint(x: 60, y: 64)

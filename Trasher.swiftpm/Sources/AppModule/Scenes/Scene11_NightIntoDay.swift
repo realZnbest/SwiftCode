@@ -30,8 +30,6 @@ struct NightIntoDayScene: View {
                             startPoint: .top, endPoint: .bottom
                         )
 
-                        // Moon-to-sun arc: rises from the horizon and warms in color as it climbs,
-                        // giving the passage of time a visible motion to follow.
                         GlowOrb(
                             color: Theme.cleanWhite.mix(with: Theme.neonAmber, amount: eased),
                             size: 90 + 40 * eased

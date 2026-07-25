@@ -178,7 +178,6 @@ struct FishingNetRescueScene: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.32))
             game.sound.impactThud()
-            Haptics.collision()
             withAnimation(.easeOut(duration: 0.2)) { boatDip = 8 }
             withAnimation(.easeInOut(duration: 0.26)) { netProgress = -0.1 }
             try? await Task.sleep(for: .seconds(0.28))
@@ -189,7 +188,6 @@ struct FishingNetRescueScene: View {
             try? await Task.sleep(for: .seconds(1.2))
             withAnimation(.easeOut(duration: 0.2)) { caught = true }
             game.sound.success()
-            Haptics.success()
             withAnimation(.easeOut(duration: 0.1)) { boatDip = -5 }
             withAnimation(.interpolatingSpring(stiffness: 32, damping: 11)) { netProgress = 0 }
             withAnimation(.spring(response: 0.45, dampingFraction: 0.55).delay(0.1)) { boatDip = 0 }
