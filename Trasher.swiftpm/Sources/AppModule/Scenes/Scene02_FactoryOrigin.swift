@@ -24,9 +24,17 @@ struct FactoryOriginScene: View {
             textPosition: UnitPoint(x: 0.5, y: 0.65),
             content: { size in
                 ZStack {
-                    LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                    FactorySilhouetteCanvas().opacity(0.6)
-                    ConveyorBeltCanvas()
+                    LinearGradient(
+                        colors: [Color(red: 0.05, green: 0.07, blue: 0.10), Color(red: 0.11, green: 0.13, blue: 0.17)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    FactoryWindowWall()
+                    FactoryTrussRow()
+                    SmokeCanvas(intensity: 0.18, color: Theme.deepNavy).opacity(0.22)
+                    ConveyorBeltStructure(beltYFrac: 0.9)
+                    HazardStripeBand()
+                        .frame(height: 7)
+                        .frame(maxHeight: .infinity, alignment: .bottom)
 
                     HStack(spacing: 200) {
                         ForEach(0..<12, id: \.self) { _ in
@@ -238,5 +246,141 @@ private struct HazardStripeBand: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 1.5))
+    }
+}
+
+/// Row of tall factory windows near the ceiling, warm-lit from outside, with dark mullions —
+/// gives the background an actual structure to read instead of near-black silhouettes on navy.
+private struct FactoryWindowWall: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let bandTop = size.height * 0.04
+            let bandHeight = size.height * 0.22
+            let wallColor = Color(red: 0.08, green: 0.10, blue: 0.13)
+            ctx.fill(Path(CGRect(x: 0, y: bandTop, width: size.width, height: bandHeight)), with: .color(wallColor))
+
+            let windowCount = 6
+            let margin = size.width * 0.03
+            let gap = size.width * 0.018
+            let windowW = (size.width - margin * 2 - gap * CGFloat(windowCount - 1)) / CGFloat(windowCount)
+            let inset = bandHeight * 0.14
+            let windowTop = bandTop + inset
+
+            for i in 0..<windowCount {
+                let x = margin + CGFloat(i) * (windowW + gap)
+                let rect = CGRect(x: x, y: windowTop, width: windowW, height: bandHeight - inset * 2)
+                let warmth = 0.3 + 0.5 * rnd(i, 3301)
+                let glow = Theme.neonAmber.mix(with: Theme.smokeOrange, amount: warmth)
+
+                ctx.fill(Path(roundedRect: rect, cornerRadius: 3), with: .linearGradient(
+                    Gradient(colors: [glow.opacity(0.8), glow.opacity(0.3)]),
+                    startPoint: CGPoint(x: rect.midX, y: rect.minY), endPoint: CGPoint(x: rect.midX, y: rect.maxY)
+                ))
+
+                var mullion = Path()
+                mullion.move(to: CGPoint(x: rect.midX, y: rect.minY))
+                mullion.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+                mullion.move(to: CGPoint(x: rect.minX, y: rect.midY))
+                mullion.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+                ctx.stroke(mullion, with: .color(wallColor), lineWidth: 2)
+                ctx.stroke(Path(roundedRect: rect, cornerRadius: 3), with: .color(.black.opacity(0.4)), lineWidth: 1.4)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A ceiling beam with hanging industrial lamps, each casting a soft downward glow —
+/// gives the space an actual light source instead of everything reading flat.
+private struct FactoryTrussRow: View {
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                let trussY = size.height * 0.29
+                let beamColor = Color(red: 0.15, green: 0.17, blue: 0.19)
+
+                ctx.fill(Path(CGRect(x: 0, y: trussY, width: size.width, height: 6)), with: .color(beamColor))
+                ctx.stroke(Path(CGRect(x: 0, y: trussY, width: size.width, height: 6)),
+                           with: .color(.white.opacity(0.08)), lineWidth: 1)
+
+                let lampCount = 4
+                for i in 0..<lampCount {
+                    let x = size.width * (CGFloat(i) + 0.5) / CGFloat(lampCount)
+                    let cableTop = trussY + 6
+                    let shadeY = cableTop + size.height * 0.05
+
+                    var cable = Path()
+                    cable.move(to: CGPoint(x: x, y: cableTop))
+                    cable.addLine(to: CGPoint(x: x, y: shadeY))
+                    ctx.stroke(cable, with: .color(beamColor), lineWidth: 1.6)
+
+                    var shade = Path()
+                    shade.move(to: CGPoint(x: x - 4, y: shadeY))
+                    shade.addLine(to: CGPoint(x: x + 4, y: shadeY))
+                    shade.addLine(to: CGPoint(x: x + 13, y: shadeY + 12))
+                    shade.addLine(to: CGPoint(x: x - 13, y: shadeY + 12))
+                    shade.closeSubpath()
+                    ctx.fill(shade, with: .color(beamColor))
+                    ctx.stroke(shade, with: .color(.white.opacity(0.12)), lineWidth: 1)
+
+                    let flicker = 0.75 + 0.25 * sin(t * 2.4 + Double(i) * 1.7)
+                    let bulb = CGPoint(x: x, y: shadeY + 13)
+                    let glowRect = CGRect(x: bulb.x - 20, y: bulb.y - 4, width: 40, height: size.height * 0.24)
+                    ctx.fill(Path(ellipseIn: glowRect), with: .radialGradient(
+                        Gradient(colors: [Theme.cleanCyan.opacity(0.22 * flicker), .clear]),
+                        center: bulb, startRadius: 2, endRadius: 46
+                    ))
+                    ctx.fill(Path(ellipseIn: CGRect(x: bulb.x - 3, y: bulb.y - 3, width: 6, height: 6)),
+                             with: .color(Theme.cleanCyan.opacity(flicker)))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// An actual conveyor belt — rubber band, moving chevron tread, side rails, end rollers —
+/// instead of a single faint dashed line implying "conveyor."
+private struct ConveyorBeltStructure: View {
+    var beltYFrac: CGFloat
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 24)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                let y = size.height * beltYFrac
+                let beltHeight: CGFloat = 14
+                let beltRect = CGRect(x: 0, y: y - beltHeight / 2, width: size.width, height: beltHeight)
+                let rubber = Color(red: 0.08, green: 0.08, blue: 0.09)
+                let rail = Color(red: 0.32, green: 0.34, blue: 0.36)
+
+                ctx.fill(Path(beltRect), with: .color(rubber))
+
+                let chevronW: CGFloat = 26
+                let offset = CGFloat((t * 90).truncatingRemainder(dividingBy: Double(chevronW)))
+                var x = -chevronW + offset
+                while x < size.width {
+                    var chevron = Path()
+                    chevron.move(to: CGPoint(x: x, y: beltRect.minY + 2))
+                    chevron.addLine(to: CGPoint(x: x + chevronW * 0.5, y: beltRect.maxY - 2))
+                    chevron.addLine(to: CGPoint(x: x + chevronW * 0.5 + 4, y: beltRect.maxY - 2))
+                    chevron.addLine(to: CGPoint(x: x + 4, y: beltRect.minY + 2))
+                    chevron.closeSubpath()
+                    ctx.fill(chevron, with: .color(.black.opacity(0.35)))
+                    x += chevronW
+                }
+
+                ctx.fill(Path(CGRect(x: 0, y: beltRect.minY, width: size.width, height: 1.5)), with: .color(rail))
+                ctx.fill(Path(CGRect(x: 0, y: beltRect.maxY - 1.5, width: size.width, height: 1.5)), with: .color(rail))
+
+                for edgeX in [CGFloat(0), size.width] {
+                    let rollerRect = CGRect(x: edgeX - 10, y: y - 10, width: 20, height: 20)
+                    ctx.fill(Path(ellipseIn: rollerRect), with: .color(rail))
+                    ctx.stroke(Path(ellipseIn: rollerRect), with: .color(.black.opacity(0.4)), lineWidth: 1.5)
+                }
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
