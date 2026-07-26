@@ -2,28 +2,59 @@ import SwiftUI
 
 struct CommunityCleanupScene: View {
     @EnvironmentObject var game: GameState
+    @State private var showText = false
 
     var body: some View {
-        VignetteScene(
-            line: "มีมือบางคู่ เลือกที่จะหยุดไม่ให้มันต้องมาเริ่มเส้นทางนี้อีก",
-            showBottle: false,
-            content: { size in CarryBagView(size: size) },
-            onFinish: { game.advanceFromCommunityCleanup() }
-        )
+        GeometryReader { geo in
+            ZStack {
+                CarryBagView(size: geo.size, onComplete: advance)
+
+                if showText {
+                    Text("มีมือบางคู่ เลือกที่จะหยุดไม่ให้มันต้องมาเริ่มเส้นทางนี้อีก")
+                        .font(Theme.line(22))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 26)
+                        .padding(.vertical, 12)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .transition(.opacity)
+                        .position(x: geo.size.width * 0.5, y: geo.size.height * 0.86)
+                }
+
+                Vignette(strength: 0.55)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeIn(duration: 0.5).delay(0.5)) { showText = true }
+        }
+    }
+
+    private func advance() {
+        withAnimation(.easeOut(duration: 0.35)) { showText = false }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.3))
+            game.advanceFromCommunityCleanup()
+        }
     }
 }
 
 private struct CarryBagView: View {
     let size: CGSize
+    var onComplete: () -> Void
 
     @State private var start = Date()
     @State private var impactTriggered = false
+    @State private var tossTriggered = false
+    @State private var tossTriggerElapsed: Double = 0
+    @State private var dragOffset: CGSize = .zero
+    @State private var promptCueScale: CGFloat = 1
+    @State private var swipeGuideProgress: CGFloat = 0
+    @State private var completed = false
 
     private let walkStart: Double = 0.5
     private let walkDuration: Double = 2.4
-    private let tossStart: Double = 3.05
     private let tossDuration: Double = 0.6
-    private let impactAt: Double = 3.53
+    private let impactOffsetInToss: Double = 0.48
 
     private func smoothstep(_ x: Double) -> Double { x * x * (3 - 2 * x) }
 
@@ -35,20 +66,31 @@ private struct CarryBagView: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             let t = context.date.timeIntervalSince(start)
             let walkT = smoothstep(max(0, min(1, (t - walkStart) / walkDuration)))
-            let tossT = smoothstep(max(0, min(1, (t - tossStart) / tossDuration)))
-            let walking = walkT < 0.999 && tossT < 0.01
+            let arrived = walkT >= 0.999
+            let effectiveTossT = tossTriggered
+                ? smoothstep(max(0, min(1, (t - tossTriggerElapsed) / tossDuration)))
+                : 0
+            let walking = !arrived
             let bob = walking ? CGFloat(sin(t * 9)) * 5 : 0
             let legPhase = t * 9
             let strideAmt: Double = walking ? 1 : 0
-            let personX = size.width * (0.24 + 0.44 * CGFloat(walkT))
+            let personX = size.width * (0.24 + 0.30 * CGFloat(walkT))
             let holdX = personX + 34
             let holdY = groundY - 52 + bob
-            let bagX = holdX + (binX - holdX) * CGFloat(tossT)
-            let bagY = holdY + (binRimY - holdY) * CGFloat(tossT) - CGFloat(46 * sin(.pi * tossT))
-            let bagScale = CGFloat(1 - 0.5 * tossT)
-            let bagOpacity = tossT < 0.72 ? 1.0 : max(0, 1 - (tossT - 0.72) / 0.28)
+            let awaitingThrow = arrived && !tossTriggered
 
-            let impactT = t - impactAt
+            let bagX = tossTriggered
+                ? holdX + (binX - holdX) * CGFloat(effectiveTossT)
+                : holdX + (awaitingThrow ? dragOffset.width : 0)
+            let bagY = tossTriggered
+                ? holdY + (binRimY - holdY) * CGFloat(effectiveTossT) - CGFloat(46 * sin(.pi * effectiveTossT))
+                : holdY + (awaitingThrow ? dragOffset.height : 0)
+            let bagScale = tossTriggered ? CGFloat(1 - 0.5 * effectiveTossT) : 1
+            let bagOpacity = !tossTriggered || effectiveTossT < 0.72
+                ? 1.0
+                : max(0, 1 - (effectiveTossT - 0.72) / 0.28)
+
+            let impactT = tossTriggered ? (t - tossTriggerElapsed - impactOffsetInToss) : -1
             let binTilt: Double = (impactT >= 0 && impactT < 0.5)
                 ? cos(impactT * 30) * exp(-impactT * 9) * -6
                 : 0
@@ -98,11 +140,62 @@ private struct CarryBagView: View {
                     .scaleEffect(bagScale)
                     .opacity(bagOpacity)
                     .position(x: bagX, y: bagY)
+
+                if awaitingThrow {
+                    ThrowGuideOverlay(
+                        bagPos: CGPoint(x: bagX, y: bagY),
+                        binPos: CGPoint(x: binX, y: binRimY),
+                        promptCueScale: promptCueScale,
+                        swipeGuideProgress: swipeGuideProgress,
+                        onDragChanged: { dragOffset = $0 },
+                        onDragEnded: { value in
+                            let toBin = CGSize(width: binX - holdX, height: binRimY - holdY)
+                            let toBinMag = (toBin.width * toBin.width + toBin.height * toBin.height).squareRoot()
+                            let dragMag = (value.translation.width * value.translation.width
+                                + value.translation.height * value.translation.height).squareRoot()
+                            let dot = value.translation.width * toBin.width + value.translation.height * toBin.height
+                            let aimedAtBin = toBinMag > 0 && dragMag > 24 && dot > 0
+
+                            if aimedAtBin {
+                                tossTriggered = true
+                                tossTriggerElapsed = t
+                                dragOffset = .zero
+                            } else {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                    dragOffset = .zero
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+            .onChange(of: awaitingThrow) { _, isAwaiting in
+                guard isAwaiting else { return }
+                promptCueScale = 1
+                withAnimation(.easeOut(duration: 0.6).repeatForever(autoreverses: false)) {
+                    promptCueScale = 1.8
+                }
+                swipeGuideProgress = 0
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                    swipeGuideProgress = 0.3
+                }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(8))
+                    guard !tossTriggered else { return }
+                    tossTriggered = true
+                    tossTriggerElapsed = Date().timeIntervalSince(start)
+                }
             }
             .onChange(of: impactT >= 0) { _, crossed in
                 guard crossed, !impactTriggered else { return }
                 impactTriggered = true
                 game.sound.impactThud()
+                guard !completed else { return }
+                completed = true
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.9))
+                    onComplete()
+                }
             }
         }
         .onAppear(perform: run)
@@ -111,9 +204,79 @@ private struct CarryBagView: View {
     private func run() {
         start = Date()
         impactTriggered = false
+        tossTriggered = false
+        dragOffset = .zero
+        swipeGuideProgress = 0
+        completed = false
     }
 
     @EnvironmentObject private var game: GameState
+}
+
+private struct ThrowGuideOverlay: View {
+    var bagPos: CGPoint
+    var binPos: CGPoint
+    var promptCueScale: CGFloat
+    var swipeGuideProgress: CGFloat
+    var onDragChanged: (CGSize) -> Void
+    var onDragEnded: (DragGesture.Value) -> Void
+
+    private var handPos: CGPoint {
+        CGPoint(
+            x: bagPos.x + (binPos.x - bagPos.x) * swipeGuideProgress,
+            y: bagPos.y + (binPos.y - bagPos.y) * swipeGuideProgress
+        )
+    }
+
+    var body: some View {
+        ZStack {
+            guidePath
+            pulseRing
+            ghostHand
+        }
+        .allowsHitTesting(false)
+        .overlay(dragHitArea)
+    }
+
+    private var guidePath: some View {
+        Path { path in
+            path.move(to: bagPos)
+            path.addQuadCurve(
+                to: binPos,
+                control: CGPoint(x: (bagPos.x + binPos.x) / 2, y: min(bagPos.y, binPos.y) - 34)
+            )
+        }
+        .stroke(Theme.freshGreen.opacity(0.4), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [1, 9]))
+    }
+
+    private var pulseRing: some View {
+        Circle()
+            .stroke(Theme.freshGreen, lineWidth: 2.5)
+            .frame(width: 70, height: 70)
+            .scaleEffect(promptCueScale)
+            .opacity(Double(2 - promptCueScale))
+            .position(bagPos)
+    }
+
+    private var ghostHand: some View {
+        Image(systemName: "hand.draw.fill")
+            .font(.system(size: 26, weight: .regular))
+            .foregroundStyle(.white.opacity(0.95))
+            .glow(Theme.freshGreen, radius: 6, opacity: 0.6)
+            .position(handPos)
+    }
+
+    private var dragHitArea: some View {
+        Circle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 110, height: 110)
+            .position(bagPos)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { onDragChanged($0.translation) }
+                    .onEnded(onDragEnded)
+            )
+    }
 }
 
 private struct BigWalker: View {
