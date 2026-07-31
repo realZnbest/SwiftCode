@@ -112,7 +112,7 @@ enum Loc {
     )
     static let fishingNetCollectButton = Entry(th: "เก็บขวด", en: "Reel It In", zh: "捞起它")
     static let sortingLineLine = Entry(
-        th: "มันถูกเข้ากระบวนการคัดแยก",
+        th: "ถึงเวลาที่มันจะถูกคัดแยก",
         en: "Onto the sorting line it goes.",
         zh: "它被送上了分拣的流水线。"
     )
