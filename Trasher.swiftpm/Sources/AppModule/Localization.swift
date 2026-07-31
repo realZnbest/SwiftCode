@@ -1,7 +1,7 @@
 import Foundation
 
 /// The three languages the game supports.
-enum AppLanguage: String, CaseIterable, Codable {
+enum AppLanguage: String, CaseIterable, Codable, Hashable {
     case thai
     case english
     case chinese
