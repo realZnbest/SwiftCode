@@ -118,7 +118,7 @@ struct FishingNetRescueScene: View {
                         .transition(.opacity)
 
                     Button(action: { collect() }) {
-                        Text("เก็บขวด")
+                        Text(game.t(Loc.fishingNetCollectButton))
                             .font(Theme.line(22))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 34)

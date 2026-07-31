@@ -5,7 +5,7 @@ struct TruckDeliveryScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "เส้นทางนี้จะทำให้มันเปลี่ยนไป",
+            line: game.t(Loc.truckDeliveryLine),
             showBottle: false,
             textPosition: UnitPoint(x: 0.5, y: 0.15),
             content: { size in

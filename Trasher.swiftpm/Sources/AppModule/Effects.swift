@@ -297,17 +297,19 @@ enum PathKind {
         }
     }
 
-    var label: String {
+    var labelEntry: Loc.Entry {
         switch self {
-        case .landfill: return "ฝังดิน"
-        case .stormDrain: return "ท่อระบายน้ำ"
-        case .sea: return "ล่องลอยต่อไป"
-        case .recyclingPoint: return "รีไซเคิล"
+        case .landfill: return Loc.pathLandfill
+        case .stormDrain: return Loc.pathStormDrain
+        case .sea: return Loc.pathSea
+        case .recyclingPoint: return Loc.pathRecyclingPoint
         }
     }
 }
 
 struct PathChoiceIndicator: View {
+    @EnvironmentObject var game: GameState
+
     var kind: PathKind
     var bright: Bool
     var dim: Bool = false
@@ -326,7 +328,7 @@ struct PathChoiceIndicator: View {
                 .animation(.easeInOut(duration: 0.4), value: bright)
 
             if showLabel {
-                Text(kind.label)
+                Text(game.t(kind.labelEntry))
                     .font(Theme.line(18))
                     .foregroundStyle(.white.opacity(0.8))
                     .shadow(color: .black.opacity(0.6), radius: 3)

@@ -10,6 +10,8 @@ struct RootView: View {
 
             Group {
                 switch game.phase {
+                case .languageSelect:
+                    LanguageSelectScene()
                 case .title:
                     TitleScene()
                 case .factoryOrigin:

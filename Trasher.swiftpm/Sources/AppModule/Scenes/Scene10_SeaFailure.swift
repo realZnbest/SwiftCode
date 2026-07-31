@@ -40,7 +40,7 @@ struct SeaFailureScene: View {
                         .position(x: bottleX, y: bottleY + CGFloat(yBob))
 
                     if showText {
-                        Text("มันไม่ได้หายไปไหน")
+                        Text(game.t(Loc.seaFailureLine))
                             .font(Theme.line(24))
                             .foregroundStyle(.white.opacity(0.9))
                             .padding(.horizontal, 26)

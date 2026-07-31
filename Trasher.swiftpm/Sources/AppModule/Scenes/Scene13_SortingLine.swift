@@ -5,7 +5,7 @@ struct SortingLineScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "มันถูกเข้ากระบวนการคัดแยก",
+            line: game.t(Loc.sortingLineLine),
             bottlePosition: UnitPoint(x: 0.5, y: 0.8),
             content: { size in
                 ZStack {

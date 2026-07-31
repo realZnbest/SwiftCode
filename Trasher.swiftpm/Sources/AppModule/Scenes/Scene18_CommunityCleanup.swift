@@ -10,7 +10,7 @@ struct CommunityCleanupScene: View {
                 CarryBagView(size: geo.size, onComplete: advance)
 
                 if showText {
-                    Text("มีมือบางคู่ เลือกที่จะหยุดไม่ให้มันต้องมาเริ่มเส้นทางนี้อีก")
+                    Text(game.t(Loc.communityCleanupLine))
                         .font(Theme.line(22))
                         .foregroundStyle(.white.opacity(0.9))
                         .multilineTextAlignment(.center)

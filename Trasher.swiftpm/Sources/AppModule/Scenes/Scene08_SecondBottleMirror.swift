@@ -5,7 +5,7 @@ struct SecondBottleMirrorScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "ไม่ใช่ทุกชิ้นที่จะออกมาได้",
+            line: game.t(Loc.secondBottleMirrorLine),
             bottlePosition: UnitPoint(x: 0.38, y: 0.48),
             bottleShowEyes: true,
             content: { size in

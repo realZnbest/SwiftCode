@@ -5,6 +5,7 @@ import Combine
 final class GameState: ObservableObject {
 
     enum Phase: Int, Equatable, Hashable {
+        case languageSelect
         case title
         case factoryOrigin
         case deliveryTruck
@@ -26,17 +27,19 @@ final class GameState: ObservableObject {
         case ending
     }
 
-    @Published private(set) var phase: Phase = .title
+    @Published private(set) var phase: Phase = .languageSelect
     @Published private(set) var grime: Double = 0
     @Published private(set) var vibrancy: Double = 1
     @Published private(set) var seaAttempts: Int = 0
     @Published private(set) var landfillAttempts: Int = 0
     @Published private(set) var binMisses: Int = 0
     @Published var journeyReplayToken: Int = 0
+    @Published var language: AppLanguage = .thai
 
     let sound = SoundEngine()
 
     private let debugStartPhase: Phase? = nil
+    private var hasStarted = false
 
     var mustRouteToRecycling: Bool { seaAttempts >= 1 }
 
@@ -48,7 +51,17 @@ final class GameState: ObservableObject {
         seaAttempts = 0
         landfillAttempts = 0
         binMisses = 0
-        goTo(debugStartPhase ?? .title)
+        if hasStarted {
+            goTo(debugStartPhase ?? .title)
+        } else {
+            hasStarted = true
+            goTo(debugStartPhase ?? .languageSelect)
+        }
+    }
+
+    func selectLanguage(_ language: AppLanguage) {
+        self.language = language
+        goTo(.title)
     }
 
     func goTo(_ next: Phase) {

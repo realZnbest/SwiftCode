@@ -18,7 +18,7 @@ struct FactoryOriginScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "มันถูกผลิตมา เพื่อใช้เพียงครั้งเดียว",
+            line: game.t(Loc.factoryOriginLine),
             hold: 5.3,
             showBottle: false,
             textPosition: UnitPoint(x: 0.5, y: 0.65),

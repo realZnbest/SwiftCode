@@ -36,7 +36,7 @@ struct RecyclingScene: View {
                 stageContent(size: size)
 
                 if wrongDropFeedback && stage == .choosing {
-                    Label("ถังขยะใบนี้มีแต่จะทำให้มันถูกฝัง ลองเอาไปรีไซเคิลดูสิ!", systemImage: "exclamationmark.triangle.fill")
+                    Label(game.t(Loc.recyclingWrongBinWarning), systemImage: "exclamationmark.triangle.fill")
                         .font(Theme.line(16))
                         .foregroundStyle(Theme.neonAmber)
                         .padding(.horizontal, 18)
@@ -47,7 +47,7 @@ struct RecyclingScene: View {
                 }
 
                 if showBenchCaption && stage == .done {
-                    Text("ดูนี่สิ! ตอนนี้มันกลายเป็นม้านั่งที่ทำจากพลาสติกรีไซเคิลแล้ว")
+                    Text(game.t(Loc.recyclingBenchCaption))
                         .font(Theme.line(20))
                         .foregroundStyle(.white.opacity(0.95))
                         .multilineTextAlignment(.center)
@@ -123,7 +123,7 @@ struct RecyclingScene: View {
         let frame = CGRect(x: rect.minX * size.width, y: rect.minY * size.height,
                             width: rect.width * size.width, height: rect.height * size.height)
         let glowColor = warning ? Theme.neonAmber : (kind == .landfill ? Theme.smokeOrange : Theme.freshGreen)
-        let label = kind == .landfill ? "ถังขยะ" : "รีไซเคิล"
+        let label = kind == .landfill ? game.t(Loc.binLabelTrash) : game.t(Loc.binLabelRecycle)
 
         return VStack(spacing: 6) {
             ZStack {

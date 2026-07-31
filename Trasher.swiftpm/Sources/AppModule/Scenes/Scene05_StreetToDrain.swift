@@ -104,7 +104,7 @@ struct StreetToDrainScene: View {
                     .allowsHitTesting(false)
 
                 if stage == .intro {
-                    Text("มันไร้ค่า เกะกะขวางทางทุกคน")
+                    Text(game.t(Loc.streetIntroLine))
                         .font(Theme.line(26))
                         .foregroundStyle(.white.opacity(0.95))
                         .padding(.horizontal, 28)
@@ -112,7 +112,7 @@ struct StreetToDrainScene: View {
                         .opacity(introCaptionOpacity)
                         .position(x: size.width / 2, y: size.height * 0.35)
 
-                    Text("แม้กระทั่งหมา")
+                    Text(game.t(Loc.streetDogLine))
                         .font(Theme.line(26))
                         .foregroundStyle(.white.opacity(0.95))
                         .padding(.horizontal, 28)
@@ -185,7 +185,7 @@ struct StreetToDrainScene: View {
             .position(x: drainForkRect.midX * size.width, y: drainForkRect.midY * size.height)
 
             if forkWrongFeedback {
-                Label("ไม่มีเสียมให้ขุดแล้ว ลองไปดูที่ท่อระบายน้ำสิ", systemImage: "exclamationmark.triangle.fill")
+                Label(game.t(Loc.streetNoShovelWarning), systemImage: "exclamationmark.triangle.fill")
                     .font(Theme.line(16))
                     .foregroundStyle(Theme.neonAmber)
                     .padding(.horizontal, 18)

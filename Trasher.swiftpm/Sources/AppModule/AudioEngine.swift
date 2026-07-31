@@ -240,6 +240,8 @@ final class SoundEngine {
         var masterVolume: Float = 1.0
 
         switch phase {
+        case .languageSelect:
+            target = [.city: 0.1, .rain: 0, .deepWater: 0, .machinery: 0, .birds: 0]
         case .title:
             target = [.city: 0.22, .rain: 0, .deepWater: 0, .machinery: 0, .birds: 0]
         case .factoryOrigin:

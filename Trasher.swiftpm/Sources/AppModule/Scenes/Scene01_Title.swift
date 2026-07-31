@@ -27,11 +27,11 @@ struct TitleScene: View {
                     .offset(y: appear ? 0 : 16)
 
                 VStack(spacing: 8) {
-                    Text("TRASHER")
+                    Text(game.t(Loc.titleName))
                         .font(.system(size: 52, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .glow(Theme.cleanCyan, radius: 16, opacity: 0.5)
-                    Text("a plastic bottle's journey")
+                    Text(game.t(Loc.titleSubtitle))
                         .font(Theme.line(17))
                         .foregroundStyle(.white.opacity(0.65))
                 }
@@ -52,7 +52,7 @@ struct TitleScene: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             let glow = 0.4 + 0.55 * (0.5 + 0.5 * sin(t * 1.7))
-            Text("แตะเพื่อเริ่ม")
+            Text(game.t(Loc.titleTapToBegin))
                 .font(Theme.line(16))
                 .foregroundStyle(.white.opacity(glow))
                 .padding(.horizontal, 20)

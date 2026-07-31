@@ -29,7 +29,7 @@ struct LandfillFailureScene: View {
                 LandfillGroundCanvas(groundY: groundY)
 
                 if showText {
-                    Text("การฝังไม่ได้ทำให้หายไปไหน")
+                    Text(game.t(Loc.landfillFailureLine))
                         .font(Theme.line(24))
                         .foregroundStyle(.white.opacity(0.9))
                         .padding(.horizontal, 26)

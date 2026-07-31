@@ -5,7 +5,7 @@ struct StormDrainTunnelScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "ดำดิ่งสู่ความมืดมิด จนไม่มีใครมองเห็น",
+            line: game.t(Loc.stormDrainLine),
             vignetteStrength: 0.7,
             showBottle: false,
             content: { size in

@@ -129,7 +129,7 @@ struct VendingAndDiscardScene: View {
                 .scaleEffect(zoomScale, anchor: zoomAnchor)
 
                 if showText {
-                    Text("มันถูกใช้ครั้งเดียว แล้วก็โดนทิ้ง")
+                    Text(game.t(Loc.vendingDiscardLine))
                         .font(Theme.line(24))
                         .foregroundStyle(.white.opacity(0.95))
                         .padding(.horizontal, 26)
@@ -378,8 +378,10 @@ struct VendingAndDiscardScene: View {
 }
 
 private struct BuyButtonLabel: View {
+    @EnvironmentObject var game: GameState
+
     var body: some View {
-        Text("กดน้ำ")
+        Text(game.t(Loc.vendingBuyButton))
             .font(Theme.title(22))
             .foregroundStyle(.white)
             .padding(.horizontal, 32)

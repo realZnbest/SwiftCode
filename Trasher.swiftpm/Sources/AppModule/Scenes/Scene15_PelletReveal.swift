@@ -5,7 +5,7 @@ struct PelletRevealScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "ส่วนชิ้นนี้มันไม่ได้เหมือนเดิม แต่ก็ไม่ได้หายไปไหน",
+            line: game.t(Loc.pelletRevealLine),
             showBottle: false,
             content: { size in
                 ZStack {

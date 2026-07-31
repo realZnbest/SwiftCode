@@ -11,7 +11,7 @@ struct NightIntoDayScene: View {
 
     var body: some View {
         VignetteScene(
-            line: "เมื่อเวลาผ่านไป",
+            line: game.t(Loc.nightIntoDayLine),
             content: { size in
                 TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                     let elapsed = context.date.timeIntervalSince(start)

@@ -108,7 +108,7 @@ struct CanalScene: View {
             .scaleEffect(1 + envelope * 2.1)
 
             if envelope > 0.35 {
-                Text("บางส่วนของมันหลุดออกไปและไม่เคยกลับมา")
+                Text(game.t(Loc.canalLine))
                     .font(Theme.line(21))
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 24)
@@ -152,7 +152,7 @@ struct CanalScene: View {
             .position(x: recyclingForkRect.midX * size.width, y: recyclingForkRect.midY * size.height)
 
             if forkWrongFeedback {
-                Label("ขวดน้ำมันลอยไปแล้ว มาลองรีไซเคิลกันเถอะ", systemImage: "exclamationmark.triangle.fill")
+                Label(game.t(Loc.canalNoRaftWarning), systemImage: "exclamationmark.triangle.fill")
                     .font(Theme.line(16))
                     .foregroundStyle(Theme.neonAmber)
                     .padding(.horizontal, 18)

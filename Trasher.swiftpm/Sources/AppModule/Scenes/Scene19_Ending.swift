@@ -38,7 +38,7 @@ struct EndingScene: View {
                     .glow(Theme.freshGreen, radius: 14, opacity: endingGlow)
 
                 if showBenchCaption {
-                    Text("พลาสติกใหม่ที่ทำจากพลาสติกเดิม")
+                    Text(game.t(Loc.endingBenchCaption))
                         .font(Theme.line(15))
                         .foregroundStyle(.white.opacity(0.9))
                         .padding(.horizontal, 14)
@@ -66,7 +66,7 @@ struct EndingScene: View {
 
                     Spacer()
 
-                    Text("ขยะไม่ได้หายไปไหน\nแต่คุณเลือกได้ว่าจะให้มันไปอยู่ไหน")
+                    Text(game.t(Loc.endingFinalLine))
                         .multilineTextAlignment(.center)
                         .font(Theme.line(24))
                         .foregroundStyle(.white.opacity(0.9))
@@ -75,7 +75,7 @@ struct EndingScene: View {
                     Button {
                         game.playAgain()
                     } label: {
-                        Label("เล่นอีกครั้ง", systemImage: "arrow.counterclockwise")
+                        Label(game.t(Loc.endingPlayAgainButton), systemImage: "arrow.counterclockwise")
                             .font(Theme.line(17))
                             .padding(.horizontal, 22)
                             .padding(.vertical, 12)

@@ -2,16 +2,16 @@ import SwiftUI
 
 private struct MontageVignette {
     let colors: [Color]
-    let label: String
+    let label: Loc.Entry
     let kind: Kind
 
     enum Kind { case city, river, everywhere }
 }
 
 private let montageVignettes: [MontageVignette] = [
-    MontageVignette(colors: [Theme.smokeOrange, Theme.neonPink], label: "ในเมือง", kind: .city),
-    MontageVignette(colors: [Theme.murkGreen, Theme.cleanCyan], label: "ในน้ำ", kind: .river),
-    MontageVignette(colors: [Theme.cleanCyan, Theme.freshGreen], label: "ทุกๆที่", kind: .everywhere)
+    MontageVignette(colors: [Theme.smokeOrange, Theme.neonPink], label: Loc.montageCity, kind: .city),
+    MontageVignette(colors: [Theme.murkGreen, Theme.cleanCyan], label: Loc.montageRiver, kind: .river),
+    MontageVignette(colors: [Theme.cleanCyan, Theme.freshGreen], label: Loc.montageEverywhere, kind: .everywhere)
 ]
 
 struct MontageScene: View {
@@ -60,7 +60,7 @@ struct MontageScene: View {
                     .position(x: size.width / 2, y: size.height * 0.36)
             }
 
-            Text(vignette.label)
+            Text(game.t(vignette.label))
                 .font(Theme.line(26))
                 .foregroundStyle(.white.opacity(0.9))
                 .position(x: size.width / 2, y: size.height * 0.8)
