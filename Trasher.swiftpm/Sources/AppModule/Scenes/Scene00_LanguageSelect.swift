@@ -2,7 +2,6 @@ import SwiftUI
 
 struct LanguageSelectScene: View {
     @EnvironmentObject var game: GameState
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var appear = false
     @State private var pressedLanguage: AppLanguage?
@@ -36,7 +35,7 @@ struct LanguageSelectScene: View {
             }
         }
         .onAppear {
-            withAnimation(.easeIn(duration: reduceMotion ? 0.25 : 0.9).delay(reduceMotion ? 0 : 0.25)) {
+            withAnimation(.easeIn(duration: 0.9).delay(0.25)) {
                 appear = true
             }
         }
@@ -88,19 +87,15 @@ struct LanguageSelectScene: View {
                     .shadow(color: .black.opacity(0.5), radius: 6)
                     .glow(Theme.cleanCyan, radius: 14, opacity: isPressed ? 0.6 : 0)
 
-                BurstRingView(shape: shape, trigger: burstTokens[language] ?? 0, reduceMotion: reduceMotion)
-                if !reduceMotion {
-                    SparkleBurstView(trigger: burstTokens[language] ?? 0)
-                }
+                BurstRingView(shape: shape, trigger: burstTokens[language] ?? 0)
+                SparkleBurstView(trigger: burstTokens[language] ?? 0)
             }
             .frame(width: 340, height: 104)
             .scaleEffect(isPressed ? 0.95 : 1)
             .offset(x: appear ? 0 : fan, y: appear ? 0 : 24)
             .opacity(appear ? 1 : 0)
             .animation(
-                reduceMotion
-                    ? .easeOut(duration: 0.2)
-                    : .spring(response: 0.65, dampingFraction: 0.78).delay(0.08 * Double(index)),
+                .spring(response: 0.65, dampingFraction: 0.78).delay(0.08 * Double(index)),
                 value: appear
             )
         }
@@ -156,76 +151,6 @@ private struct RibbonShape: Shape {
     }
 }
 
-private struct BurstRingView<S: Shape>: View {
-    var shape: S
-    var trigger: Int
-    var reduceMotion: Bool
-
-    @State private var scale: CGFloat = 0.92
-    @State private var opacity: Double = 0
-
-    var body: some View {
-        shape
-            .stroke(Theme.cleanCyan, lineWidth: 3)
-            .scaleEffect(scale)
-            .opacity(opacity)
-            .onChange(of: trigger) { _, _ in fire() }
-    }
-
-    private func fire() {
-        guard !reduceMotion else { return }
-        scale = 0.92
-        opacity = 0.9
-        withAnimation(.easeOut(duration: 0.5)) {
-            scale = 1.4
-            opacity = 0
-        }
-    }
-}
-
-private struct SparkleBurstView: View {
-    var trigger: Int
-
-    @State private var progress: CGFloat = 0
-    @State private var visible = false
-
-    private let count = 10
-
-    var body: some View {
-        GeometryReader { geo in
-            let size = geo.size
-            ZStack {
-                ForEach(0..<count, id: \.self) { i in
-                    let angle = Double(i) / Double(count) * 2 * .pi
-                    let radius = min(size.width, size.height) * 0.7 * progress
-                    Circle()
-                        .fill(Theme.cleanCyan)
-                        .frame(width: 5, height: 5)
-                        .position(
-                            x: size.width / 2 + cos(angle) * radius,
-                            y: size.height / 2 + sin(angle) * radius
-                        )
-                        .opacity(visible ? Double(1 - progress) : 0)
-                }
-            }
-        }
-        .allowsHitTesting(false)
-        .onChange(of: trigger) { _, _ in fire() }
-    }
-
-    private func fire() {
-        progress = 0
-        visible = true
-        withAnimation(.easeOut(duration: 0.5)) {
-            progress = 1
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.5))
-            visible = false
-        }
-    }
-}
-
 private struct ThaiFlagView: View {
     var body: some View {
         GeometryReader { geo in
@@ -254,9 +179,6 @@ private struct UnionJackFlagView: View {
                 let w = s.width, h = s.height
                 ctx.fill(Path(CGRect(x: 0, y: 0, width: w, height: h)), with: .color(navy))
 
-                // Fill the whole ribbon edge to edge. Band thicknesses below are sized off the
-                // *height* (h), not the width — sizing off width made bands balloon over the
-                // short, wide ribbon and swallow the navy background.
                 let fw = w
                 let fh = h
                 let fx: CGFloat = 0
@@ -280,13 +202,10 @@ private struct UnionJackFlagView: View {
 
                 ctx.fill(Path(CGRect(x: fx, y: fy, width: fw, height: fh)), with: .color(navy))
 
-                // White St Andrew's saltire (both diagonals), sized against the flag box.
                 let whiteWidth = fh * 0.34
                 diagonalBand(from: pt(0, 0), to: pt(fw, fh), width: whiteWidth, color: .white, in: &ctx)
                 diagonalBand(from: pt(fw, 0), to: pt(0, fh), width: whiteWidth, color: .white, in: &ctx)
 
-                // Red St Patrick's saltire, counter-changed: offset to opposite sides of the
-                // diagonal in alternating quadrants, the way the real Union Jack is drawn.
                 let redWidth = fh * 0.13
                 let offset = fh * 0.09
 
@@ -322,7 +241,6 @@ private struct UnionJackFlagView: View {
                     diagonalBand(from: pt(fw - offset, offset), to: pt(offset, fh + offset), width: redWidth, color: red, in: &layer)
                 }
 
-                // White St George's cross base, then the red cross on top.
                 let crossW = fw * 0.14
                 let crossH = fh * 0.32
                 ctx.fill(Path(CGRect(x: fx + fw / 2 - crossW / 2, y: fy, width: crossW, height: fh)), with: .color(.white))

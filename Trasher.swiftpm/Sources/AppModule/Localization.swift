@@ -1,12 +1,10 @@
 import Foundation
 
-/// The three languages the game supports.
 enum AppLanguage: String, CaseIterable, Codable, Hashable {
     case thai
     case english
     case chinese
 
-    /// Shown as the button label on the language-select screen (never needs translating).
     var nativeName: String {
         switch self {
         case .thai: return "ไทย"
@@ -16,11 +14,6 @@ enum AppLanguage: String, CaseIterable, Codable, Hashable {
     }
 }
 
-/// -----------------------------------------------------------------------
-/// ALL GAME TEXT LIVES HERE. Thai, English, and Chinese are all filled in.
-/// Want to tweak the wording later? Just edit the strings below; nothing
-/// else needs to change.
-/// -----------------------------------------------------------------------
 enum Loc {
     struct Entry {
         let th: String
@@ -36,13 +29,9 @@ enum Loc {
         }
     }
 
-    // MARK: - Title
-
     static let titleName = Entry(th: "TRASHER", en: "TRASHER", zh: "TRASHER")
     static let titleSubtitle = Entry(th: "a plastic bottle's journey", en: "a plastic bottle's journey", zh: "一颗塑料瓶的旅程")
     static let titleTapToBegin = Entry(th: "แตะเพื่อเริ่ม", en: "Tap to Begin", zh: "轻触，开始这段旅程")
-
-    // MARK: - Scene narration lines
 
     static let factoryOriginLine = Entry(
         th: "มันถูกผลิตมา เพื่อใช้เพียงครั้งเดียว",
@@ -69,6 +58,11 @@ enum Loc {
         th: "แม้กระทั่งหมา",
         en: "Even the dog won't give it a second look.",
         zh: "连狗都懒得多看它一眼。"
+    )
+    static let dragBottleHint = Entry(
+        th: "ลากขวดไปหา",
+        en: "Drag the bottle",
+        zh: "拖动瓶子"
     )
     static let streetNoShovelWarning = Entry(
         th: "ไม่มีเสียมให้ขุดแล้ว ลองไปดูที่ท่อระบายน้ำสิ",
@@ -158,8 +152,6 @@ enum Loc {
     )
     static let endingPlayAgainButton = Entry(th: "เล่นอีกครั้ง", en: "Play Again", zh: "再玩一次")
 
-    // MARK: - Path choice labels (Effects.swift PathKind)
-
     static let pathLandfill = Entry(th: "ฝังดิน", en: "Landfill", zh: "掩埋")
     static let pathStormDrain = Entry(th: "ท่อระบายน้ำ", en: "Storm Drain", zh: "排水道")
     static let pathSea = Entry(th: "ล่องลอยต่อไป", en: "Drift On", zh: "继续漂流")
@@ -167,7 +159,6 @@ enum Loc {
 }
 
 extension GameState {
-    /// Convenience: look up an `Loc.Entry` in the currently selected language.
     func t(_ entry: Loc.Entry) -> String {
         entry.text(for: language)
     }

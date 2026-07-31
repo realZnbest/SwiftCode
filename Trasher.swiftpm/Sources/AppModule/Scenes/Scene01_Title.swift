@@ -4,6 +4,8 @@ struct TitleScene: View {
     @EnvironmentObject var game: GameState
 
     @State private var appear = false
+    @State private var tapped = false
+    @State private var burstToken = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -43,24 +45,53 @@ struct TitleScene: View {
                 Vignette(strength: 0.62)
             }
             .contentShape(Rectangle())
-            .onTapGesture { begin() }
+            .onTapGesture { beginTapped() }
         }
         .onAppear(perform: runSequence)
     }
 
     private func tapToBeginLabel(size: CGSize) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            let glow = 0.4 + 0.55 * (0.5 + 0.5 * sin(t * 1.7))
-            Text(game.t(Loc.titleTapToBegin))
-                .font(Theme.line(16))
-                .foregroundStyle(.white.opacity(glow))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(.ultraThinMaterial, in: Capsule())
+        ZStack {
+            beaconRing
+
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                let t = context.date.timeIntervalSinceReferenceDate
+                let glow = 0.4 + 0.55 * (0.5 + 0.5 * sin(t * 1.7))
+                let breathe = 1 + 0.045 * (0.5 + 0.5 * sin(t * 1.7))
+
+                Text(game.t(Loc.titleTapToBegin))
+                    .font(Theme.line(16))
+                    .foregroundStyle(.white.opacity(glow))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay(Capsule().stroke(Theme.cleanCyan.opacity(0.4), lineWidth: 1.2))
+                    .scaleEffect(breathe)
+            }
+
+            BurstRingView(shape: Capsule(), trigger: burstToken)
+                .frame(width: 132, height: 44)
+            SparkleBurstView(trigger: burstToken, count: 14)
+                .frame(width: 132, height: 44)
         }
+        .scaleEffect(tapped ? 0.9 : 1)
         .position(x: size.width / 2, y: size.height * 0.88)
         .opacity(appear ? 1 : 0)
+        .animation(.spring(response: 0.2, dampingFraction: 0.4), value: tapped)
+    }
+
+    private var beaconRing: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            let period = 1.8
+            let phase = (t.truncatingRemainder(dividingBy: period)) / period
+
+            Capsule()
+                .stroke(Theme.cleanCyan, lineWidth: 1.5)
+                .frame(width: 132, height: 44)
+                .scaleEffect(1 + phase * 0.5)
+                .opacity((1 - phase) * 0.45)
+        }
     }
 
     private func spotlightGlow(size: CGSize) -> some View {
@@ -81,7 +112,14 @@ struct TitleScene: View {
         withAnimation(.easeIn(duration: 1.0).delay(0.3)) { appear = true }
     }
 
-    private func begin() {
-        game.advanceFromTitle()
+    private func beginTapped() {
+        guard !tapped else { return }
+        tapped = true
+        burstToken += 1
+        game.sound.success()
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.22))
+            game.advanceFromTitle()
+        }
     }
 }

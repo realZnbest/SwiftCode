@@ -348,6 +348,97 @@ struct PathChoiceIndicator: View {
     }
 }
 
+struct DragHintView: View {
+    var text: String
+    var active: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            let dx = sin(t * 2.2) * 9
+
+            Label(text, systemImage: "hand.draw")
+                .font(Theme.line(16))
+                .foregroundStyle(.white.opacity(0.9))
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(Theme.nearBlack.opacity(0.72), in: Capsule())
+                .offset(x: dx)
+        }
+        .opacity(active ? 1 : 0)
+        .allowsHitTesting(false)
+        .animation(.easeOut(duration: 0.3), value: active)
+    }
+}
+
+struct BurstRingView<S: Shape>: View {
+    var shape: S
+    var trigger: Int
+
+    @State private var scale: CGFloat = 0.92
+    @State private var opacity: Double = 0
+
+    var body: some View {
+        shape
+            .stroke(Theme.cleanCyan, lineWidth: 3)
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .allowsHitTesting(false)
+            .onChange(of: trigger) { _, _ in fire() }
+    }
+
+    private func fire() {
+        scale = 0.92
+        opacity = 0.9
+        withAnimation(.easeOut(duration: 0.5)) {
+            scale = 1.4
+            opacity = 0
+        }
+    }
+}
+
+struct SparkleBurstView: View {
+    var trigger: Int
+    var count: Int = 10
+
+    @State private var progress: CGFloat = 0
+    @State private var visible = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = geo.size
+            ZStack {
+                ForEach(0..<count, id: \.self) { i in
+                    let angle = Double(i) / Double(count) * 2 * .pi
+                    let radius = min(size.width, size.height) * 0.7 * progress
+                    Circle()
+                        .fill(Theme.cleanCyan)
+                        .frame(width: 5, height: 5)
+                        .position(
+                            x: size.width / 2 + cos(angle) * radius,
+                            y: size.height / 2 + sin(angle) * radius
+                        )
+                        .opacity(visible ? Double(1 - progress) : 0)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .onChange(of: trigger) { _, _ in fire() }
+    }
+
+    private func fire() {
+        progress = 0
+        visible = true
+        withAnimation(.easeOut(duration: 0.5)) {
+            progress = 1
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.5))
+            visible = false
+        }
+    }
+}
+
 private struct LandfillMoundGlyph: View {
     var bright: Bool
     var size: CGFloat
@@ -1170,7 +1261,6 @@ struct GroundShadowView: View {
             .allowsHitTesting(false)
     }
 }
-
 
 struct RecyclingEmblemGlow: View {
     var brighten: Double

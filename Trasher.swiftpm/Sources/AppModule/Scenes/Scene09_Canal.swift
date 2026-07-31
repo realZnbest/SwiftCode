@@ -13,6 +13,7 @@ struct CanalScene: View {
     @State private var forkBottlePos = CGPoint(x: 0.5, y: 0.22)
     @State private var forkDragBase = CGPoint(x: 0.5, y: 0.22)
     @State private var forkWrongFeedback = false
+    @State private var hasDraggedBottle = false
     private let seaForkRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let recyclingForkRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
 
@@ -162,6 +163,9 @@ struct CanalScene: View {
                     .transition(.opacity)
             }
 
+            DragHintView(text: game.t(Loc.dragBottleHint), active: !hasDraggedBottle && !choiceMade)
+                .position(x: size.width * 0.5, y: size.height * 0.36)
+
             BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 62, height: 152)
                 .position(x: forkBottlePos.x * size.width, y: forkBottlePos.y * size.height)
         }
@@ -169,6 +173,7 @@ struct CanalScene: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     guard !choiceMade else { return }
+                    hasDraggedBottle = true
                     forkBottlePos = CGPoint(
                         x: min(0.95, max(0.05, forkDragBase.x + value.translation.width / size.width)),
                         y: min(0.95, max(0.05, forkDragBase.y + value.translation.height / size.height))
@@ -209,6 +214,7 @@ struct CanalScene: View {
         forkBottlePos = CGPoint(x: 0.5, y: 0.22)
         forkDragBase = forkBottlePos
         forkWrongFeedback = false
+        hasDraggedBottle = false
         resolvedToward = nil
         if game.mustRouteToRecycling {
             stage = .fork

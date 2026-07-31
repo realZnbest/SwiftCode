@@ -13,6 +13,7 @@ struct RecyclingScene: View {
     @State private var brighten: Double = 0
     @State private var wrongDropFeedback = false
     @State private var showBenchCaption = false
+    @State private var hasDraggedBottle = false
 
     private let landfillRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let recyclingRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
@@ -46,6 +47,11 @@ struct RecyclingScene: View {
                         .transition(.opacity)
                 }
 
+                if stage == .choosing {
+                    DragHintView(text: game.t(Loc.dragBottleHint), active: !hasDraggedBottle)
+                        .position(x: size.width * 0.5, y: size.height * 0.44)
+                }
+
                 if showBenchCaption && stage == .done {
                     Text(game.t(Loc.recyclingBenchCaption))
                         .font(Theme.line(20))
@@ -66,6 +72,7 @@ struct RecyclingScene: View {
                 stage == .choosing ?
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
+                        hasDraggedBottle = true
                         bottlePos = CGPoint(
                             x: min(0.95, max(0.05, dragBase.x + value.translation.width / size.width)),
                             y: min(0.95, max(0.05, dragBase.y + value.translation.height / size.height))
@@ -266,6 +273,7 @@ struct RecyclingScene: View {
         misses = 0
         wrongDropFeedback = false
         showBenchCaption = false
+        hasDraggedBottle = false
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.6))
             guard stage == .arriving else { return }
