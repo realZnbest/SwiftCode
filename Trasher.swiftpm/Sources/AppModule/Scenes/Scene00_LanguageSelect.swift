@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LanguageSelectScene: View {
     @EnvironmentObject var game: GameState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var appear = false
     @State private var pressedLanguage: AppLanguage?
@@ -13,69 +14,95 @@ struct LanguageSelectScene: View {
 
             ZStack {
                 LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                SkylineCanvas().opacity(0.35)
+                SkylineCanvas().opacity(0.3)
                 NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple])
-                    .opacity(0.45)
-                SparkleCanvas(count: 30, color: .white)
-                    .opacity(0.6)
+                    .opacity(0.35)
+                SparkleCanvas(count: 24, color: .white)
+                    .opacity(0.5)
 
-                Text("เลือกภาษา · Select Language · 选择语言")
-                    .font(Theme.title(32))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                    .glow(Theme.cleanCyan, radius: 12, opacity: 0.35)
-                    .padding(.horizontal, 24)
-                    .position(x: size.width / 2, y: size.height * 0.15)
+                header
+                    .position(x: size.width / 2, y: size.height * 0.16)
                     .opacity(appear ? 1 : 0)
-                    .offset(y: appear ? 0 : -10)
+                    .offset(y: appear ? 0 : -12)
 
-                VStack(spacing: 26) {
-                    ForEach(AppLanguage.allCases, id: \.self) { language in
-                        languageButton(language)
+                VStack(spacing: 30) {
+                    ForEach(Array(AppLanguage.allCases.enumerated()), id: \.element) { i, language in
+                        languageButton(language, index: i)
                     }
                 }
-                .position(x: size.width / 2, y: size.height * 0.6)
+                .position(x: size.width / 2, y: size.height * 0.62)
 
                 Vignette(strength: 0.6)
             }
         }
         .onAppear {
-            withAnimation(.easeIn(duration: 1.0).delay(0.3)) { appear = true }
+            withAnimation(.easeIn(duration: reduceMotion ? 0.25 : 0.9).delay(reduceMotion ? 0 : 0.25)) {
+                appear = true
+            }
         }
     }
 
-    private func languageButton(_ language: AppLanguage) -> some View {
+    private var header: some View {
+        VStack(spacing: 4) {
+            Text("เลือกภาษา")
+                .font(Theme.title(30))
+                .foregroundStyle(.white.opacity(0.92))
+            Text("Select Language")
+                .font(Theme.line(22))
+                .foregroundStyle(.white.opacity(0.6))
+            Text("选择语言")
+                .font(Theme.line(22))
+                .foregroundStyle(.white.opacity(0.6))
+        }
+        .glow(Theme.cleanCyan, radius: 10, opacity: 0.3)
+    }
+
+    private func languageButton(_ language: AppLanguage, index: Int) -> some View {
         let isPressed = pressedLanguage == language
         let shape = RibbonShape()
+        let fan: CGFloat = index == 0 ? -16 : (index == 2 ? 16 : 0)
 
         return Button {
             tap(language)
         } label: {
             ZStack {
                 shape
-                    .fill(.ultraThinMaterial)
+                    .fill(plateColor(for: language))
                     .overlay(
                         flag(for: language)
-                            .opacity(0.34)
+                            .opacity(0.3)
                             .clipShape(shape)
                     )
                     .overlay(
-                        shape.stroke(Theme.cleanCyan.opacity(isPressed ? 1 : 0.55), lineWidth: isPressed ? 3 : 2)
+                        LinearGradient(colors: [.clear, .black.opacity(0.55)], startPoint: .center, endPoint: .bottom)
+                            .clipShape(shape)
                     )
-                    .glow(Theme.cleanCyan, radius: isPressed ? 22 : 9, opacity: isPressed ? 0.55 : 0.2)
+                    .overlay(
+                        shape.stroke(Theme.cleanCyan.opacity(isPressed ? 1 : 0.5), lineWidth: isPressed ? 3 : 1.5)
+                    )
+                    .glow(Theme.cleanCyan, radius: isPressed ? 22 : 7, opacity: isPressed ? 0.55 : 0.16)
 
                 Text(language.nativeName)
                     .font(Theme.title(36))
                     .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 6)
                     .glow(Theme.cleanCyan, radius: 14, opacity: isPressed ? 0.6 : 0)
 
-                BurstRingView(shape: shape, trigger: burstTokens[language] ?? 0)
-                SparkleBurstView(trigger: burstTokens[language] ?? 0)
+                BurstRingView(shape: shape, trigger: burstTokens[language] ?? 0, reduceMotion: reduceMotion)
+                if !reduceMotion {
+                    SparkleBurstView(trigger: burstTokens[language] ?? 0)
+                }
             }
             .frame(width: 340, height: 104)
             .scaleEffect(isPressed ? 0.95 : 1)
+            .offset(x: appear ? 0 : fan, y: appear ? 0 : 24)
             .opacity(appear ? 1 : 0)
+            .animation(
+                reduceMotion
+                    ? .easeOut(duration: 0.2)
+                    : .spring(response: 0.65, dampingFraction: 0.78).delay(0.08 * Double(index)),
+                value: appear
+            )
         }
         .buttonStyle(.plain)
     }
@@ -91,6 +118,14 @@ struct LanguageSelectScene: View {
             withAnimation(.easeOut(duration: 0.2)) { pressedLanguage = nil }
             try? await Task.sleep(for: .seconds(0.2))
             game.selectLanguage(language)
+        }
+    }
+
+    private func plateColor(for language: AppLanguage) -> Color {
+        switch language {
+        case .thai: return Theme.nearBlack.mix(with: Color(red: 0.65, green: 0.13, blue: 0.20), amount: 0.22)
+        case .english: return Theme.nearBlack.mix(with: Color(red: 0.05, green: 0.13, blue: 0.36), amount: 0.3)
+        case .chinese: return Theme.nearBlack.mix(with: Color(red: 0.72, green: 0.05, blue: 0.06), amount: 0.22)
         }
     }
 
@@ -124,6 +159,7 @@ private struct RibbonShape: Shape {
 private struct BurstRingView<S: Shape>: View {
     var shape: S
     var trigger: Int
+    var reduceMotion: Bool
 
     @State private var scale: CGFloat = 0.92
     @State private var opacity: Double = 0
@@ -137,6 +173,7 @@ private struct BurstRingView<S: Shape>: View {
     }
 
     private func fire() {
+        guard !reduceMotion else { return }
         scale = 0.92
         opacity = 0.9
         withAnimation(.easeOut(duration: 0.5)) {
