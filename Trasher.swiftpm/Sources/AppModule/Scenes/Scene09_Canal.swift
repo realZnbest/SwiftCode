@@ -17,7 +17,7 @@ struct CanalScene: View {
     private let seaForkRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let recyclingForkRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
 
-    private let introDuration: Double = 9
+    private let introDuration: Double = 6
     private let macroDuration: Double = 5.5
 
     var body: some View {
