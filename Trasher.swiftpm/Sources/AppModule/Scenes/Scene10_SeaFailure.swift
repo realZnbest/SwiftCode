@@ -61,7 +61,7 @@ struct SeaFailureScene: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.4))
             withAnimation(.easeIn(duration: 0.6)) { showText = true }
-            try? await Task.sleep(for: .seconds(0.4))
+            try? await Task.sleep(for: .seconds(1.6))
             withAnimation(.easeOut(duration: 0.4)) { showText = false }
             try? await Task.sleep(for: .seconds(0.4))
             game.returnToForkFromSea()

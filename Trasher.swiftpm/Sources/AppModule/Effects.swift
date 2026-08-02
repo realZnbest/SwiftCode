@@ -210,7 +210,7 @@ struct BinBodyShape: Shape {
 struct TrashBinView: View {
     var width: CGFloat
     var height: CGFloat
-    var lidOpen: CGFloat = 1
+    var lidOpen: CGFloat = 0
     var lidBob: CGFloat = 0
 
     var body: some View {
@@ -224,7 +224,6 @@ struct TrashBinView: View {
                 }
             }
             .offset(y: -height * 0.32)
-            .opacity(Double(lidOpen))
 
             BinBodyShape()
                 .fill(LinearGradient(colors: [Color(red: 0.32, green: 0.30, blue: 0.28), Color(red: 0.15, green: 0.14, blue: 0.13)],

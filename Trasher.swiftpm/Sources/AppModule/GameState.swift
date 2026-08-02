@@ -38,7 +38,7 @@ final class GameState: ObservableObject {
 
     let sound = SoundEngine()
 
-    private let debugStartPhase: Phase? = .canal
+    private let debugStartPhase: Phase? = nil
     private var hasStarted = false
 
     var mustRouteToRecycling: Bool { seaAttempts >= 1 }
