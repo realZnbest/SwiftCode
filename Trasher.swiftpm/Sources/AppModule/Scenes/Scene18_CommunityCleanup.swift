@@ -50,9 +50,16 @@ private struct CarryBagView: View {
     @State private var promptCueScale: CGFloat = 1
     @State private var swipeGuideProgress: CGFloat = 0
     @State private var completed = false
+    @State private var lidOpened = false
+    @State private var lidOpenProgress: CGFloat = 0
+    @State private var lidPromptCueScale: CGFloat = 1
+    @State private var lidSwipeProgress: CGFloat = 0
+    @State private var joystickOffset: CGSize = .zero
+    @State private var personProgress: CGFloat = 0
+    @State private var isMoving = false
+    @State private var arrowBounce: CGFloat = 0
 
-    private let walkStart: Double = 0.5
-    private let walkDuration: Double = 2.4
+    private let walkSpeed: CGFloat = 0.013
     private let tossDuration: Double = 0.6
     private let impactOffsetInToss: Double = 0.48
 
@@ -65,19 +72,19 @@ private struct CarryBagView: View {
 
         TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             let t = context.date.timeIntervalSince(start)
-            let walkT = smoothstep(max(0, min(1, (t - walkStart) / walkDuration)))
-            let arrived = walkT >= 0.999
+            let arrived = personProgress >= 0.999
             let effectiveTossT = tossTriggered
                 ? smoothstep(max(0, min(1, (t - tossTriggerElapsed) / tossDuration)))
                 : 0
-            let walking = !arrived
-            let bob = walking ? CGFloat(sin(t * 9)) * 5 : 0
+            let bob = isMoving ? CGFloat(sin(t * 9)) * 5 : 0
             let legPhase = t * 9
-            let strideAmt: Double = walking ? 1 : 0
-            let personX = size.width * (0.24 + 0.30 * CGFloat(walkT))
+            let strideAmt: Double = isMoving ? 1 : 0
+            let personX = size.width * (0.24 + 0.30 * personProgress)
             let holdX = personX + 34
             let holdY = groundY - 52 + bob
-            let awaitingThrow = arrived && !tossTriggered
+            let awaitingLidOpen = arrived && !lidOpened && !tossTriggered
+            let awaitingThrow = arrived && lidOpened && !tossTriggered
+            let lidBob = lidOpened ? CGFloat(sin(t * 2.2) * 4) : 0
 
             let bagX = tossTriggered
                 ? holdX + (binX - holdX) * CGFloat(effectiveTossT)
@@ -127,7 +134,7 @@ private struct CarryBagView: View {
 
                 GroundShadowView(width: 90)
                     .position(x: binX, y: groundY + 4)
-                TrashBinView(width: 98, height: 122)
+                TrashBinView(width: 98, height: 122, lidOpen: lidOpenProgress, lidBob: lidBob)
                     .rotationEffect(.degrees(binTilt), anchor: .bottom)
                     .position(x: binX, y: groundY - 50)
 
@@ -140,6 +147,38 @@ private struct CarryBagView: View {
                     .scaleEffect(bagScale)
                     .opacity(bagOpacity)
                     .position(x: bagX, y: bagY)
+
+                if !arrived {
+                    Image(systemName: "triangle.fill")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 22, height: 22)
+                        .foregroundColor(Theme.neonAmber)
+                        .rotationEffect(.degrees(180))
+                        .offset(y: arrowBounce)
+                        .position(x: binX, y: groundY - 190)
+                        .onAppear {
+                            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                                arrowBounce = -12
+                            }
+                        }
+
+                    WalkJoystickView(offset: $joystickOffset)
+                        .position(x: size.width * 0.16, y: size.height * 0.85)
+                }
+
+                if awaitingLidOpen {
+                    LidOpenGuideOverlay(
+                        lidPos: CGPoint(x: binX, y: binRimY),
+                        promptCueScale: lidPromptCueScale,
+                        swipeProgress: lidSwipeProgress,
+                        onDragEnded: { value in
+                            if value.translation.height < -30 {
+                                openLid()
+                            }
+                        }
+                    )
+                }
 
                 if awaitingThrow {
                     ThrowGuideOverlay(
@@ -167,6 +206,17 @@ private struct CarryBagView: View {
                             }
                         }
                     )
+                }
+            }
+            .onChange(of: awaitingLidOpen) { _, isAwaiting in
+                guard isAwaiting else { return }
+                lidPromptCueScale = 1
+                withAnimation(.easeOut(duration: 0.6).repeatForever(autoreverses: false)) {
+                    lidPromptCueScale = 1.6
+                }
+                lidSwipeProgress = 0
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                    lidSwipeProgress = 1
                 }
             }
             .onChange(of: awaitingThrow) { _, isAwaiting in
@@ -198,6 +248,19 @@ private struct CarryBagView: View {
                 }
             }
         }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(0.02))
+                guard personProgress < 1 else { isMoving = false; continue }
+                if joystickOffset.width != 0 {
+                    isMoving = true
+                    let direction: CGFloat = joystickOffset.width > 0 ? 1 : -1
+                    personProgress = max(0, min(1, personProgress + direction * walkSpeed))
+                } else {
+                    isMoving = false
+                }
+            }
+        }
         .onAppear(perform: run)
     }
 
@@ -208,9 +271,102 @@ private struct CarryBagView: View {
         dragOffset = .zero
         swipeGuideProgress = 0
         completed = false
+        lidOpened = false
+        lidOpenProgress = 0
+        lidPromptCueScale = 1
+        lidSwipeProgress = 0
+        joystickOffset = .zero
+        personProgress = 0
+        isMoving = false
+        arrowBounce = 0
+    }
+
+    private func openLid() {
+        guard !lidOpened else { return }
+        lidOpened = true
+        game.sound.chomp()
+        withAnimation(.easeOut(duration: 0.35)) { lidOpenProgress = 1 }
     }
 
     @EnvironmentObject private var game: GameState
+}
+
+private struct WalkJoystickView: View {
+    @Binding var offset: CGSize
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.black.opacity(0.35))
+                .overlay(Circle().stroke(Color.white.opacity(0.8), lineWidth: 2.5))
+                .frame(width: 128, height: 128)
+            Circle()
+                .fill(Color.white.opacity(0.9))
+                .frame(width: 60, height: 60)
+                .offset(offset)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let maxDist: CGFloat = 46
+                            let dx = value.translation.width
+                            let dist = min(abs(dx), maxDist)
+                            let sign: CGFloat = dx > 0 ? 1 : -1
+                            offset = CGSize(width: sign * dist, height: 0)
+                        }
+                        .onEnded { _ in
+                            withAnimation(.interactiveSpring) { offset = .zero }
+                        }
+                )
+        }
+    }
+}
+
+private struct LidOpenGuideOverlay: View {
+    var lidPos: CGPoint
+    var promptCueScale: CGFloat
+    var swipeProgress: CGFloat
+    var onDragEnded: (DragGesture.Value) -> Void
+
+    private var handPos: CGPoint {
+        CGPoint(x: lidPos.x, y: lidPos.y - 30 * swipeProgress)
+    }
+
+    var body: some View {
+        ZStack {
+            pulseRing
+            ghostHand
+        }
+        .allowsHitTesting(false)
+        .overlay(dragHitArea)
+    }
+
+    private var pulseRing: some View {
+        Circle()
+            .stroke(Theme.freshGreen, lineWidth: 2.5)
+            .frame(width: 56, height: 56)
+            .scaleEffect(promptCueScale)
+            .opacity(Double(2 - promptCueScale))
+            .position(lidPos)
+    }
+
+    private var ghostHand: some View {
+        Image(systemName: "hand.draw.fill")
+            .font(.system(size: 24, weight: .regular))
+            .foregroundStyle(.white.opacity(0.95))
+            .glow(Theme.freshGreen, radius: 6, opacity: 0.6)
+            .position(handPos)
+    }
+
+    private var dragHitArea: some View {
+        Circle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 100, height: 100)
+            .position(lidPos)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onEnded(onDragEnded)
+            )
+    }
 }
 
 private struct ThrowGuideOverlay: View {

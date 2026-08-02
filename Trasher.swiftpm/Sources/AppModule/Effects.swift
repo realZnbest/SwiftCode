@@ -210,6 +210,8 @@ struct BinBodyShape: Shape {
 struct TrashBinView: View {
     var width: CGFloat
     var height: CGFloat
+    var lidOpen: CGFloat = 1
+    var lidBob: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -222,6 +224,7 @@ struct TrashBinView: View {
                 }
             }
             .offset(y: -height * 0.32)
+            .opacity(Double(lidOpen))
 
             BinBodyShape()
                 .fill(LinearGradient(colors: [Color(red: 0.32, green: 0.30, blue: 0.28), Color(red: 0.15, green: 0.14, blue: 0.13)],
@@ -230,15 +233,20 @@ struct TrashBinView: View {
                 .frame(width: width, height: height * 0.62)
                 .offset(y: height * 0.19)
 
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color(red: 0.22, green: 0.20, blue: 0.19))
-                .frame(width: width * 1.05, height: height * 0.07)
-                .offset(y: -height * 0.12)
-
             Image(systemName: "trash.fill")
                 .font(.system(size: width * 0.26, weight: .medium))
                 .foregroundStyle(.white.opacity(0.3))
                 .offset(y: height * 0.2)
+
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color(red: 0.22, green: 0.20, blue: 0.19))
+                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.black.opacity(0.35), lineWidth: 1))
+                .frame(width: width * 1.05, height: height * 0.07)
+                .rotationEffect(.degrees(-7 * lidOpen))
+                .offset(
+                    x: width * 0.32 * lidOpen,
+                    y: -height * 0.12 - height * 0.5 * lidOpen + lidBob * lidOpen
+                )
         }
         .frame(width: width, height: height)
     }
