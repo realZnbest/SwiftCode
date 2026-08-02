@@ -19,7 +19,7 @@ struct FactoryOriginScene: View {
     var body: some View {
         VignetteScene(
             line: game.t(Loc.factoryOriginLine),
-            hold: 5.3,
+            hold: 4.3,
             showBottle: false,
             textPosition: UnitPoint(x: 0.5, y: 0.65),
             content: { size in

@@ -49,7 +49,7 @@ struct LandfillFailureScene: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.4))
             withAnimation(.easeIn(duration: 0.6)) { showText = true }
-            try? await Task.sleep(for: .seconds(3.4))
+            try? await Task.sleep(for: .seconds(2.4))
             withAnimation(.easeOut(duration: 0.4)) { showText = false }
             try? await Task.sleep(for: .seconds(0.4))
             game.returnToForkFromLandfill()

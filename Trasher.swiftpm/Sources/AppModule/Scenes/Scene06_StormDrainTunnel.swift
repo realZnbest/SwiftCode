@@ -6,6 +6,7 @@ struct StormDrainTunnelScene: View {
     var body: some View {
         VignetteScene(
             line: game.t(Loc.stormDrainLine),
+            hold: 3.25,
             vignetteStrength: 0.7,
             showBottle: false,
             content: { size in

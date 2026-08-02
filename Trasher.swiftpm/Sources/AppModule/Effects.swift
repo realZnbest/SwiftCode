@@ -867,7 +867,7 @@ struct VignetteScene<Content: View>: View {
     @EnvironmentObject var game: GameState
 
     var line: String
-    var hold: Double = 5.0
+    var hold: Double = 4.0
     var vignetteStrength: Double = 0.55
     var showBottle: Bool = true
     var bottleWidth: CGFloat = 60
