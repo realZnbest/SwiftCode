@@ -753,6 +753,13 @@ struct TreeLineCanvas: View {
                 let trunkW = max(3, canopyR * 0.16)
                 let canopyCenterY = baseY - trunkH - canopyR * 0.6
 
+                let shW = canopyR * 1.5
+                ctx.fill(
+                    Path(ellipseIn: CGRect(x: x - shW / 2, y: baseY - shW * 0.10,
+                                           width: shW, height: shW * 0.22)),
+                    with: .color(shadowGreen.mix(with: .black, amount: 0.4).opacity(0.28))
+                )
+
                 drawTree(in: &ctx, seedBase: i, x: x, baseY: baseY, canopyCenterY: canopyCenterY,
                          canopyR: canopyR, trunkH: trunkH, trunkW: trunkW, trunkColor: trunkColor,
                          shadow: shadowGreen, mid: midGreen, highlight: highlightGreen,
@@ -1163,35 +1170,87 @@ struct BushClusterView: View {
     private let bushMid = Color(red: 0.32, green: 0.54, blue: 0.26)
     private let bushLight = Color(red: 0.48, green: 0.70, blue: 0.36)
 
+    private let lobes: [(scale: CGFloat, dx: CGFloat, dy: CGFloat, tone: Int)] = [
+        (0.62, -0.30, 0.10, 0),
+        (0.72, 0.28, 0.14, 0),
+        (0.85, 0.00, 0.00, 1),
+        (0.50, -0.08, -0.22, 2)
+    ]
+
     var body: some View {
         let h = width * 0.62
-        ZStack {
-            lobe(scale: 0.62, dx: -0.30, dy: 0.10, color: bushDark)
-            lobe(scale: 0.72, dx: 0.28, dy: 0.14, color: bushDark)
-            lobe(scale: 0.85, dx: 0, dy: 0, color: bushMid)
-            lobe(scale: 0.5, dx: -0.08, dy: -0.22, color: bushLight.opacity(0.85))
+        let padX = width * 0.24
+        let padY = h * 0.32
 
-            ForEach(Array(flowerColors.enumerated()), id: \.offset) { i, color in
-                Circle()
-                    .fill(color)
-                    .frame(width: width * 0.09, height: width * 0.09)
-                    .offset(
-                        x: width * (rnd(i, seed + 910) - 0.5) * 0.7,
-                        y: h * (rnd(i, seed + 911) - 0.5) * 0.5 - h * 0.1
+        // The outer lobes and their leaves reach past the layout box. A Canvas clips
+        // to its own frame, so it draws into a padded one and spills over; the second
+        // frame keeps the original layout size for .position().
+        Canvas { ctx, size in
+            let w = width
+            let cx = size.width / 2
+            let cy = size.height / 2
+            let palette = [bushDark, bushMid, bushLight.opacity(0.85)]
+
+            ctx.fill(
+                Path(ellipseIn: CGRect(x: cx - w * 0.44, y: cy + h * 0.35,
+                                       width: w * 0.88, height: h * 0.20)),
+                with: .color(.black.opacity(0.20))
+            )
+
+            for (li, lobe) in lobes.enumerated() {
+                let lw = w * lobe.scale
+                let lh = w * lobe.scale * 0.72
+                let lx = cx + w * lobe.dx
+                let ly = cy + lh * lobe.dy
+                let color = palette[lobe.tone]
+
+                ctx.fill(Path(ellipseIn: CGRect(x: lx - lw / 2, y: ly - lh / 2,
+                                                width: lw, height: lh)),
+                         with: .color(color))
+
+                let leaves = 16
+                for k in 0..<leaves {
+                    let s = li * 97 + k
+                    let a = Double(rnd(s, seed + 920)) * 2 * .pi
+                    let d = rnd(s, seed + 921)
+                    let px = lx + CGFloat(cos(a)) * (lw / 2) * d * 0.86
+                    let py = ly + CGFloat(sin(a)) * (lh / 2) * d * 0.86
+                    let pr = w * (0.045 + rnd(s, seed + 922) * 0.055)
+                    let up = py < ly
+                    let tone = up
+                        ? color.mix(with: bushLight, amount: 0.45 + Double(rnd(s, seed + 923)) * 0.35)
+                        : color.mix(with: .black, amount: 0.18 + Double(rnd(s, seed + 924)) * 0.22)
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: px - pr, y: py - pr * 0.8,
+                                               width: pr * 2, height: pr * 1.6)),
+                        with: .color(tone.opacity(up ? 0.55 : 0.42))
                     )
+                }
+            }
+
+            for (i, color) in flowerColors.enumerated() {
+                let fx = cx + w * (rnd(i, seed + 910) - 0.5) * 0.7
+                let fy = cy + h * (rnd(i, seed + 911) - 0.5) * 0.5 - h * 0.1
+                let pr = w * 0.030
+                for p in 0..<5 {
+                    let a = Double(p) / 5 * 2 * .pi
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: fx + CGFloat(cos(a)) * pr - pr * 0.72,
+                                               y: fy + CGFloat(sin(a)) * pr - pr * 0.72,
+                                               width: pr * 1.44, height: pr * 1.44)),
+                        with: .color(color.opacity(0.95))
+                    )
+                }
+                ctx.fill(
+                    Path(ellipseIn: CGRect(x: fx - pr * 0.5, y: fy - pr * 0.5,
+                                           width: pr, height: pr)),
+                    with: .color(Color(red: 1.0, green: 0.86, blue: 0.42))
+                )
             }
         }
+        .frame(width: width + padX * 2, height: h + padY * 2)
         .frame(width: width, height: h)
     }
-
-    private func lobe(scale: CGFloat, dx: CGFloat, dy: CGFloat, color: Color) -> some View {
-        Ellipse()
-            .fill(color)
-            .frame(width: width * scale, height: width * scale * 0.72)
-            .offset(x: width * dx, y: h(for: scale) * dy)
-    }
-
-    private func h(for scale: CGFloat) -> CGFloat { width * scale * 0.72 }
 }
 
 struct ParkLampPostView: View {
@@ -1255,25 +1314,76 @@ struct ParkGroundCanvas: View {
 
             ctx.clip(to: ground)
 
-            let patchRect = CGRect(x: size.width * 0.12, y: groundY + 6,
-                                    width: size.width * 0.42, height: (bottomY - groundY) * 0.55)
-            ctx.fill(Path(ellipseIn: patchRect), with: .color(litColor.opacity(0.22)))
+            let span = max(bottomY - groundY, 1)
+            let shade = baseColor.mix(with: .black, amount: 0.26)
 
-            let shadeRect = CGRect(x: size.width * 0.58, y: groundY + (bottomY - groundY) * 0.35,
-                                    width: size.width * 0.5, height: (bottomY - groundY) * 0.75)
-            ctx.fill(Path(ellipseIn: shadeRect), with: .color(baseColor.mix(with: .black, amount: 0.3).opacity(0.16)))
+            var bandY = groundY
+            var band = 0
+            while bandY < bottomY {
+                let bandH = span * (0.045 + (bandY - groundY) / span * 0.10)
+                if band.isMultiple(of: 2) {
+                    ctx.fill(Path(CGRect(x: 0, y: bandY, width: size.width, height: bandH)),
+                             with: .color(shade.opacity(0.09)))
+                }
+                bandY += bandH
+                band += 1
+            }
 
-            let tuftColor = baseColor.mix(with: .black, amount: 0.3)
-            let tuftCount = Int(size.width / 24)
-            for i in 0..<tuftCount {
-                let x = size.width * rnd(i, 501)
-                let y = groundY + (bottomY - groundY) * (0.12 + rnd(i, 502) * 0.82)
-                guard y > groundY else { continue }
-                let h: CGFloat = 5 + rnd(i, 503) * 6
-                var blade = Path()
-                blade.move(to: CGPoint(x: x, y: y))
-                blade.addLine(to: CGPoint(x: x + (rnd(i, 504) - 0.5) * 5, y: y - h))
-                ctx.stroke(blade, with: .color(tuftColor.opacity(0.35)), lineWidth: 1.2)
+            for i in 0..<7 {
+                let cx = rnd(i, 780) * size.width
+                let cy = groundY + span * (0.15 + rnd(i, 781) * 0.8)
+                let r = span * (0.16 + rnd(i, 782) * 0.26)
+                let cool = i.isMultiple(of: 3)
+                softBlob(in: ctx, center: CGPoint(x: cx, y: cy),
+                         radiusX: r * 1.9, radiusY: r * 0.72,
+                         color: cool ? shade : litColor,
+                         peakOpacity: cool ? 0.13 : 0.16)
+            }
+
+            ctx.fill(
+                Path(CGRect(x: 0, y: groundY - 2, width: size.width, height: span * 0.14)),
+                with: .linearGradient(
+                    Gradient(colors: [shade.opacity(0.32), .clear]),
+                    startPoint: CGPoint(x: 0, y: groundY - 2),
+                    endPoint: CGPoint(x: 0, y: groundY + span * 0.14)
+                )
+            )
+
+            let dark = baseColor.mix(with: .black, amount: 0.34)
+            let bright = litColor.mix(with: .white, amount: 0.18)
+            for i in 0..<Int(size.width / 7) {
+                let x = rnd(i, 501) * size.width
+                let depth = rnd(i, 502)
+                let y = groundY + span * (0.05 + depth * 0.95)
+                let scale = 0.34 + depth * 1.2
+                for k in 0..<3 {
+                    let spread = (CGFloat(k) - 1) * 2.1 * scale
+                    let h = (4.5 + rnd(i &* 7 &+ k, 503) * 5.5) * scale
+                    let lean = (rnd(i &* 7 &+ k, 504) - 0.5) * 4 * scale
+                    var blade = Path()
+                    blade.move(to: CGPoint(x: x + spread, y: y))
+                    blade.addQuadCurve(
+                        to: CGPoint(x: x + spread + lean, y: y - h),
+                        control: CGPoint(x: x + spread + lean * 0.3, y: y - h * 0.55)
+                    )
+                    let tone = rnd(i &* 3 &+ k, 505) > 0.7 ? bright : dark
+                    ctx.stroke(blade, with: .color(tone.opacity(0.16 + Double(depth) * 0.36)),
+                               style: StrokeStyle(lineWidth: max(0.8, 1.1 * scale), lineCap: .round))
+                }
+            }
+
+            let petals: [Color] = [
+                Color(red: 0.98, green: 0.95, blue: 0.72),
+                Color(red: 0.98, green: 0.78, blue: 0.86),
+                Color(red: 0.86, green: 0.92, blue: 1.0)
+            ]
+            for i in 0..<Int(size.width / 42) {
+                let x = rnd(i, 520) * size.width
+                let depth = 0.2 + rnd(i, 521) * 0.8
+                let y = groundY + span * depth
+                let r = (1.1 + rnd(i, 522) * 1.4) * (0.5 + depth)
+                ctx.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
+                         with: .color(petals[i % petals.count].opacity(0.5 + Double(depth) * 0.32)))
             }
         }
         .allowsHitTesting(false)
