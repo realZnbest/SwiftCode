@@ -10,16 +10,15 @@ struct StormDrainTunnelScene: View {
             vignetteStrength: 0.7,
             showBottle: false,
             content: { size in
-                ZStack {
-                    Theme.nearBlack
-                    VanishingLightGlow()
-                    TunnelRingsCanvas()
-                    TunnelWallStreakCanvas()
-                    BubbleCanvas(count: 26, color: .white).opacity(0.55)
-                    SmokeCanvas(intensity: 0.6, color: Theme.murkGreen)
+                SceneClock(fps: 30) { t in
+                    ZStack {
+                        Theme.nearBlack
+                        VanishingLightGlow(t: clockStep(t, 15))
+                        TunnelRingsCanvas(t: clockStep(t, 20))
+                        TunnelWallStreakCanvas(t: clockStep(t, 15))
+                        BubbleCanvas(count: 26, color: .white, t: clockStep(t, 18)).opacity(0.55)
+                        SmokeCanvas(intensity: 0.6, color: Theme.murkGreen, t: clockStep(t, 12))
 
-                    TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
-                        let t = context.date.timeIntervalSinceReferenceDate
                         BottleView(
                             vibrancy: game.vibrancy, dirt: game.grime, showEyes: false,
                             width: 56, height: 138, tilt: .degrees(t * 65)
@@ -35,9 +34,10 @@ struct StormDrainTunnelScene: View {
 }
 
 private struct VanishingLightGlow: View {
+    var t: Double? = nil
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
+        Clocked(t: t, fps: 15) { t in
             let pulse = 0.6 + 0.4 * sin(t * 0.55)
             Circle()
                 .fill(RadialGradient(
@@ -52,9 +52,10 @@ private struct VanishingLightGlow: View {
 }
 
 private struct TunnelRingsCanvas: View {
+    var t: Double? = nil
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
+        Clocked(t: t, fps: 20) { t in
             Canvas { ctx, size in
                 let center = CGPoint(x: size.width / 2, y: size.height / 2)
                 let maxR = max(size.width, size.height) * 0.75
@@ -76,9 +77,10 @@ private struct TunnelRingsCanvas: View {
 }
 
 private struct TunnelWallStreakCanvas: View {
+    var t: Double? = nil
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
+        Clocked(t: t, fps: 15) { t in
             Canvas { ctx, size in
                 let center = CGPoint(x: size.width / 2, y: size.height / 2)
                 let streakColor = Theme.murkGreen.mix(with: Theme.cleanCyan, amount: 0.4)

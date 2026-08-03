@@ -2,6 +2,64 @@ import SwiftUI
 
 func rnd(_ i: Int, _ salt: Int = 0) -> CGFloat { CGFloat(Theme.hash(i, salt)) }
 
+func softBlob(
+    in ctx: GraphicsContext,
+    center: CGPoint,
+    radiusX: CGFloat,
+    radiusY: CGFloat,
+    color: Color,
+    peakOpacity: Double
+) {
+    guard radiusX > 0, radiusY > 0, peakOpacity > 0 else { return }
+    var layer = ctx
+    layer.translateBy(x: center.x, y: center.y)
+    layer.scaleBy(x: 1, y: radiusY / radiusX)
+    let r = radiusX
+    layer.fill(
+        Path(ellipseIn: CGRect(x: -r, y: -r, width: r * 2, height: r * 2)),
+        with: .radialGradient(
+            Gradient(stops: [
+                .init(color: color.opacity(peakOpacity), location: 0),
+                .init(color: color.opacity(peakOpacity * 0.62), location: 0.42),
+                .init(color: color.opacity(peakOpacity * 0.20), location: 0.72),
+                .init(color: color.opacity(0), location: 1)
+            ]),
+            center: .zero, startRadius: 0, endRadius: r
+        )
+    )
+}
+
+struct SceneClock<Content: View>: View {
+    var fps: Double = 30
+    @ViewBuilder var content: (Double) -> Content
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / fps)) { context in
+            content(context.date.timeIntervalSinceReferenceDate)
+        }
+    }
+}
+
+func clockStep(_ t: Double, _ fps: Double) -> Double {
+    (t * fps).rounded(.down) / fps
+}
+
+struct Clocked<Content: View>: View {
+    var t: Double?
+    var fps: Double
+    @ViewBuilder var content: (Double) -> Content
+
+    var body: some View {
+        if let t {
+            content(t)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / fps)) { context in
+                content(context.date.timeIntervalSinceReferenceDate)
+            }
+        }
+    }
+}
+
 struct RainCanvas: View {
     var intensity: Double = 1
 
@@ -29,11 +87,11 @@ struct RainCanvas: View {
 
 struct NeonStreakField: View {
     var colors: [Color]
+    var t: Double? = nil
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
+        Clocked(t: t, fps: 15) { t in
             Canvas { ctx, size in
-                let t = context.date.timeIntervalSinceReferenceDate
                 let count = 10
                 for i in 0..<count {
                     let color = colors[i % colors.count]
@@ -42,11 +100,15 @@ struct NeonStreakField: View {
                     let w: CGFloat = 30 + rnd(i, 21) * 70
                     let h = size.height * (0.3 + rnd(i, 22) * 0.5)
                     let rect = CGRect(x: x + drift, y: size.height - h, width: w, height: h)
-                    ctx.opacity = 0.18 + rnd(i, 23) * 0.16
-                    ctx.fill(Path(roundedRect: rect, cornerRadius: w / 2), with: .color(color))
+                    let peak = (0.18 + rnd(i, 23) * 0.16) * min(1, Double(w / 2) / 24)
+                    let spread: CGFloat = 34
+                    let top = rect.minY - spread
+                    let bottom = rect.maxY + h * 0.16 + spread
+                    softBlob(in: ctx, center: CGPoint(x: rect.midX, y: (top + bottom) / 2),
+                             radiusX: w / 2 + spread, radiusY: (bottom - top) / 2,
+                             color: color, peakOpacity: peak)
                 }
             }
-            .blur(radius: 34)
         }
         .allowsHitTesting(false)
     }
@@ -55,11 +117,11 @@ struct NeonStreakField: View {
 struct BubbleCanvas: View {
     var count: Int = 18
     var color: Color = .white
+    var t: Double? = nil
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 18)) { context in
+        Clocked(t: t, fps: 18) { t in
             Canvas { ctx, size in
-                let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
                     let x = rnd(i, 30) * size.width + sin(t * 0.6 + Double(i)) * 8
                     let span = size.height + 40
@@ -112,23 +174,23 @@ struct FishSilhouettesCanvas: View {
 struct SmokeCanvas: View {
     var intensity: Double
     var color: Color
+    var t: Double? = nil
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12)) { context in
+        Clocked(t: t, fps: 12) { t in
             Canvas { ctx, size in
-                let t = context.date.timeIntervalSinceReferenceDate
                 let count = Int(6 * intensity) + 2
                 for i in 0..<count {
                     let baseX = rnd(i, 50) * size.width
                     let drift = sin(t * 0.2 + Double(i) * 1.3) * 30
                     let y = size.height * (0.5 + rnd(i, 51) * 0.4)
                     let r = 40 + rnd(i, 52) * 60
-                    ctx.opacity = 0.10 * intensity + rnd(i, 53) * 0.05
-                    ctx.fill(Path(ellipseIn: CGRect(x: baseX + drift - r / 2, y: y - r / 2, width: r, height: r * 0.6)),
-                             with: .color(color))
+                    let peak = (0.10 * intensity + rnd(i, 53) * 0.05) * 0.85
+                    softBlob(in: ctx, center: CGPoint(x: baseX + drift, y: y),
+                             radiusX: r / 2 + 24, radiusY: r * 0.3 + 24,
+                             color: color, peakOpacity: peak)
                 }
             }
-            .blur(radius: 24)
         }
         .allowsHitTesting(false)
     }
@@ -161,11 +223,11 @@ struct MicroplasticDrift: View {
 struct SparkleCanvas: View {
     var count: Int = 40
     var color: Color = .white
+    var t: Double? = nil
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
+        Clocked(t: t, fps: 15) { t in
             Canvas { ctx, size in
-                let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
                     let x = rnd(i, 60) * size.width
                     let y = rnd(i, 61) * size.height
@@ -604,32 +666,39 @@ struct GlowOrb: View {
 struct LightRaysCanvas: View {
     var color: Color
     var count: Int = 4
+    var t: Double? = nil
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
+        Clocked(t: t, fps: 15) { t in
             Canvas { ctx, size in
-                let t = context.date.timeIntervalSinceReferenceDate
                 for i in 0..<count {
                     let baseX = (rnd(i, 300) * 0.8 + 0.1) * size.width
                     let sway = sin(t * 0.18 + Double(i) * 1.7) * 24
                     let width: CGFloat = 46 + rnd(i, 301) * 60
                     let tilt: CGFloat = 26 + rnd(i, 302) * 22
 
-                    var path = Path()
-                    path.move(to: CGPoint(x: baseX + sway, y: -20))
-                    path.addLine(to: CGPoint(x: baseX + sway + width, y: -20))
-                    path.addLine(to: CGPoint(x: baseX + sway + width - tilt, y: size.height))
-                    path.addLine(to: CGPoint(x: baseX + sway - tilt, y: size.height))
-                    path.closeSubpath()
+                    let peak = Double(0.14 + rnd(i, 303) * 0.08)
+                    let layers = 3
+                    let layerAlpha = 1 - pow(1 - peak, 1 / Double(layers))
+                    for k in 0..<layers {
+                        let f = CGFloat(k) / CGFloat(layers - 1)
+                        let grow = 10 * (1 - f)
 
-                    ctx.fill(path, with: .linearGradient(
-                        Gradient(colors: [color.opacity(0.14 + rnd(i, 303) * 0.08), .clear]),
-                        startPoint: CGPoint(x: baseX, y: -20),
-                        endPoint: CGPoint(x: baseX, y: size.height * 0.85)
-                    ))
+                        var path = Path()
+                        path.move(to: CGPoint(x: baseX + sway - grow, y: -20))
+                        path.addLine(to: CGPoint(x: baseX + sway + width + grow, y: -20))
+                        path.addLine(to: CGPoint(x: baseX + sway + width - tilt + grow, y: size.height))
+                        path.addLine(to: CGPoint(x: baseX + sway - tilt - grow, y: size.height))
+                        path.closeSubpath()
+
+                        ctx.fill(path, with: .linearGradient(
+                            Gradient(colors: [color.opacity(layerAlpha), .clear]),
+                            startPoint: CGPoint(x: baseX, y: -20),
+                            endPoint: CGPoint(x: baseX, y: size.height * 0.85)
+                        ))
+                    }
                 }
             }
-            .blur(radius: 10)
         }
         .allowsHitTesting(false)
     }
@@ -1342,10 +1411,10 @@ struct RecyclingGreenhouseRoof: View {
 
 struct SortingBeltStructure: View {
     var beltYFrac: CGFloat
+    var t: Double? = nil
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
+        Clocked(t: t, fps: 24) { t in
             Canvas { ctx, size in
                 let y = size.height * beltYFrac
                 let beltHeight: CGFloat = 14

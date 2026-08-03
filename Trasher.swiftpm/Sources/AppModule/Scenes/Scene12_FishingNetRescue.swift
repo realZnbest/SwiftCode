@@ -61,10 +61,12 @@ struct FishingNetRescueScene: View {
                         .frame(maxHeight: .infinity, alignment: .bottom)
 
                         ZStack {
-                            LightRaysCanvas(color: Theme.cleanCyan, count: 6)
+                            CausticBands(color: Theme.cleanCyan, intensity: 0.9, reach: 0.55,
+                                         t: clockStep(t, 15))
+                            LightRaysCanvas(color: Theme.cleanCyan, count: 6, t: clockStep(t, 15))
                             FishSilhouettesCanvas(darkness: 0.22)
                             OceanFloorCanvas()
-                            BubbleCanvas(count: 22, color: .white)
+                            BubbleCanvas(count: 22, color: .white, t: clockStep(t, 18))
                         }
                         .frame(width: size.width, height: underwaterH)
                         .position(x: size.width / 2, y: surfaceY + underwaterH / 2)
@@ -88,7 +90,7 @@ struct FishingNetRescueScene: View {
                             .frame(maxHeight: .infinity, alignment: .top)
                             .opacity(0.75)
 
-                        WaterlineCanvas(surfaceY: surfaceY, elapsed: t)
+                        MeniscusWaterline(surfaceY: surfaceY, tint: Theme.cleanCyan, t: clockStep(t, 20))
 
                         BottleView(
                             vibrancy: game.vibrancy, dirt: game.grime, showEyes: true,
@@ -267,26 +269,6 @@ private struct Joystick: View {
                 )
         }
         .frame(width: radius * 2, height: radius * 2)
-    }
-}
-
-private struct WaterlineCanvas: View {
-    let surfaceY: CGFloat
-    let elapsed: Double
-
-    var body: some View {
-        Canvas { ctx, size in
-            var wave = Path()
-            let steps = 46
-            for i in 0...steps {
-                let x = size.width * CGFloat(i) / CGFloat(steps)
-                let y = surfaceY + sin(CGFloat(i) * 0.55 + CGFloat(elapsed) * 1.6) * 3
-                if i == 0 { wave.move(to: CGPoint(x: x, y: y)) } else { wave.addLine(to: CGPoint(x: x, y: y)) }
-            }
-            ctx.stroke(wave, with: .color(.white.opacity(0.55)), lineWidth: 2.5)
-            ctx.stroke(wave, with: .color(Theme.cleanCyan.opacity(0.4)), lineWidth: 6)
-        }
-        .allowsHitTesting(false)
     }
 }
 

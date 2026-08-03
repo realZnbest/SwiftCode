@@ -14,6 +14,10 @@ struct RecyclingScene: View {
     @State private var wrongDropFeedback = false
     @State private var showBenchCaption = false
     @State private var hasDraggedBottle = false
+    @State private var motion = DragMotion()
+    @State private var impactToken = 0
+    @State private var impactAt = CGPoint(x: 0.5, y: 0.5)
+    @State private var impactColor = Theme.freshGreen
 
     private let landfillRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let recyclingRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
@@ -23,9 +27,12 @@ struct RecyclingScene: View {
             let size = geo.size
 
             ZStack {
-                background(brighten: brighten)
-
-                machineryGlow(size: size)
+                SceneClock(fps: 24) { t in
+                    ZStack {
+                        background(brighten: brighten, t: t)
+                        machineryGlow(t: clockStep(t, 15))
+                    }
+                }
 
                 if stage == .choosing || stage == .arriving {
                     let hoveringLandfill = stage == .choosing && landfillRect.contains(bottlePos)
@@ -65,6 +72,10 @@ struct RecyclingScene: View {
                         .transition(.opacity)
                 }
 
+                DropImpact(trigger: impactToken, color: impactColor)
+                    .frame(width: size.width * 0.30, height: size.width * 0.30)
+                    .position(x: impactAt.x * size.width, y: impactAt.y * size.height)
+
                 Vignette(strength: 0.55 - brighten * 0.25)
             }
             .contentShape(Rectangle())
@@ -77,15 +88,19 @@ struct RecyclingScene: View {
                             x: min(0.95, max(0.05, dragBase.x + value.translation.width / size.width)),
                             y: min(0.95, max(0.05, dragBase.y + value.translation.height / size.height))
                         )
+                        motion.sample(CGPoint(x: bottlePos.x * size.width, y: bottlePos.y * size.height))
                     }
-                    .onEnded { _ in evaluateDrop() }
+                    .onEnded { _ in
+                        withAnimation(.easeOut(duration: 0.25)) { motion.reset() }
+                        evaluateDrop()
+                    }
                 : nil
             )
         }
         .onAppear(perform: setup)
     }
 
-    private func background(brighten: Double) -> some View {
+    private func background(brighten: Double, t: Double) -> some View {
         ZStack {
             LinearGradient(
                 colors: [
@@ -96,29 +111,26 @@ struct RecyclingScene: View {
             )
             RecyclingEmblemGlow(brighten: brighten)
             RecyclingGreenhouseRoof()
-            LightRaysCanvas(color: Theme.freshGreen, count: 3)
+            LightRaysCanvas(color: Theme.freshGreen, count: 3, t: clockStep(t, 15))
                 .opacity(0.5 + brighten * 0.2)
-            NeonStreakField(colors: [Theme.freshGreen, Theme.cleanCyan])
+            NeonStreakField(colors: [Theme.freshGreen, Theme.cleanCyan], t: clockStep(t, 15))
                 .opacity(0.4 + brighten * 0.3)
-            SortingBeltStructure(beltYFrac: 0.9)
+            SortingBeltStructure(beltYFrac: 0.9, t: clockStep(t, 24))
             SortingFloorGlow()
-            SparkleCanvas(count: Int(20 + brighten * 40), color: Theme.cleanWhite)
+            SparkleCanvas(count: Int(20 + brighten * 40), color: Theme.cleanWhite, t: clockStep(t, 15))
                 .opacity(0.3 + brighten * 0.5)
         }
     }
 
-    private func machineryGlow(size: CGSize) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 15)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            Canvas { ctx, canvasSize in
-                for i in 0..<4 {
-                    let y = canvasSize.height * (0.15 + CGFloat(i) * 0.22)
-                    let pulse = 0.4 + 0.3 * sin(t * 1.4 + Double(i))
-                    var path = Path()
-                    path.move(to: CGPoint(x: 0, y: y))
-                    path.addLine(to: CGPoint(x: canvasSize.width, y: y))
-                    ctx.stroke(path, with: .color(Theme.freshGreen.opacity(0.12 * pulse)), lineWidth: 3)
-                }
+    private func machineryGlow(t: Double) -> some View {
+        Canvas { ctx, canvasSize in
+            for i in 0..<4 {
+                let y = canvasSize.height * (0.15 + CGFloat(i) * 0.22)
+                let pulse = 0.4 + 0.3 * sin(t * 1.4 + Double(i))
+                var path = Path()
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: canvasSize.width, y: y))
+                ctx.stroke(path, with: .color(Theme.freshGreen.opacity(0.12 * pulse)), lineWidth: 3)
             }
         }
         .allowsHitTesting(false)
@@ -199,8 +211,14 @@ struct RecyclingScene: View {
     private func stageContent(size: CGSize) -> some View {
         switch stage {
         case .arriving, .choosing:
-            BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 64, height: 156)
-                .position(x: bottlePos.x * size.width, y: bottlePos.y * size.height)
+            let shown = magnetised(bottlePos, into: [landfillRect, recyclingRect])
+            ZStack {
+                BottleTrail(points: motion.trail, width: 64, height: 156, tilt: motion.tilt,
+                            strength: motion.trailStrength)
+                BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 64, height: 156)
+                    .rotationEffect(motion.tilt)
+                    .position(x: shown.x * size.width, y: shown.y * size.height)
+            }
 
         case .cleaning:
             let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
@@ -281,11 +299,19 @@ struct RecyclingScene: View {
         }
     }
 
+    private func fireImpact(in rect: CGRect, color: Color) {
+        impactAt = CGPoint(x: rect.midX, y: rect.midY)
+        impactColor = color
+        impactToken += 1
+    }
+
     private func evaluateDrop() {
         dragBase = bottlePos
         if recyclingRect.contains(bottlePos) {
+            fireImpact(in: recyclingRect, color: Theme.freshGreen)
             succeed()
         } else if landfillRect.contains(bottlePos) {
+            fireImpact(in: landfillRect, color: Theme.neonAmber)
             misses += 1
             game.registerBinMiss()
             withAnimation(.easeOut(duration: 0.35)) {

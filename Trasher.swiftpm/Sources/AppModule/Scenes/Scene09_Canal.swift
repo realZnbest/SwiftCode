@@ -14,6 +14,10 @@ struct CanalScene: View {
     @State private var forkDragBase = CGPoint(x: 0.5, y: 0.22)
     @State private var forkWrongFeedback = false
     @State private var hasDraggedBottle = false
+    @State private var motion = DragMotion()
+    @State private var impactToken = 0
+    @State private var impactAt = CGPoint(x: 0.5, y: 0.5)
+    @State private var impactColor = Theme.freshGreen
     private let seaForkRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let recyclingForkRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
 
@@ -26,6 +30,7 @@ struct CanalScene: View {
 
             TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                 let elapsed = context.date.timeIntervalSince(sceneStart)
+                let clock = context.date.timeIntervalSinceReferenceDate
                 let darkness: Double = {
                     switch stage {
                     case .floating: return min(1, elapsed / introDuration) * 0.7
@@ -35,17 +40,21 @@ struct CanalScene: View {
                 }()
 
                 ZStack {
-                    waterBackground(darkness: darkness)
+                    waterBackground(darkness: darkness, clock: clock)
 
-                    LightRaysCanvas(color: Theme.cleanCyan, count: 4)
+                    CausticBands(color: Theme.cleanCyan,
+                                 intensity: 0.75 * (1 - darkness * 0.7),
+                                 t: clockStep(clock, 15))
+
+                    LightRaysCanvas(color: Theme.cleanCyan, count: 4, t: clockStep(clock, 15))
                         .opacity(1 - darkness * 0.75)
 
-                    BubbleCanvas(count: 14, color: Theme.murkBrown)
+                    BubbleCanvas(count: 14, color: Theme.murkBrown, t: clockStep(clock, 18))
                         .opacity(0.4 + darkness * 0.4)
 
                     FishSilhouettesCanvas(darkness: darkness)
 
-                    SmokeCanvas(intensity: darkness, color: Theme.murkGreen)
+                    SmokeCanvas(intensity: darkness, color: Theme.murkGreen, t: clockStep(clock, 12))
 
                     if stage == .floating {
                         let xDrift = 0.15 + 0.35 * min(1, elapsed / introDuration)
@@ -121,13 +130,12 @@ struct CanalScene: View {
         }
     }
 
-    private func waterBackground(darkness: Double) -> some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.05, green: 0.18, blue: 0.24).mix(with: Theme.murkGreen, amount: darkness),
-                Color(red: 0.02, green: 0.05, blue: 0.08).mix(with: Theme.murkBrown, amount: darkness)
-            ],
-            startPoint: .top, endPoint: .bottom
+    private func waterBackground(darkness: Double, clock: Double) -> some View {
+        UnderwaterBackdrop(
+            surface: Color(red: 0.05, green: 0.18, blue: 0.24).mix(with: Theme.murkGreen, amount: darkness),
+            deep: Color(red: 0.02, green: 0.05, blue: 0.08).mix(with: Theme.murkBrown, amount: darkness),
+            murk: 0.2 + darkness * 0.65,
+            t: clockStep(clock, 12)
         )
     }
 
@@ -166,8 +174,16 @@ struct CanalScene: View {
             DragHintView(text: game.t(Loc.dragBottleHint), active: !hasDraggedBottle && !choiceMade)
                 .position(x: size.width * 0.5, y: size.height * 0.36)
 
+            let shown = magnetised(forkBottlePos, into: [seaForkRect, recyclingForkRect])
+            BottleTrail(points: motion.trail, width: 62, height: 152, tilt: motion.tilt,
+                            strength: motion.trailStrength)
             BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 62, height: 152)
-                .position(x: forkBottlePos.x * size.width, y: forkBottlePos.y * size.height)
+                .rotationEffect(motion.tilt)
+                .position(x: shown.x * size.width, y: shown.y * size.height)
+
+            DropImpact(trigger: impactToken, color: impactColor)
+                .frame(width: size.width * 0.30, height: size.width * 0.30)
+                .position(x: impactAt.x * size.width, y: impactAt.y * size.height)
         }
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -178,19 +194,29 @@ struct CanalScene: View {
                         x: min(0.95, max(0.05, forkDragBase.x + value.translation.width / size.width)),
                         y: min(0.95, max(0.05, forkDragBase.y + value.translation.height / size.height))
                     )
+                    motion.sample(CGPoint(x: forkBottlePos.x * size.width, y: forkBottlePos.y * size.height))
                 }
                 .onEnded { _ in
                     guard !choiceMade else { return }
+                    withAnimation(.easeOut(duration: 0.25)) { motion.reset() }
                     evaluateForkDrop(seaBlocked: seaBlocked)
                 }
         )
     }
 
+    private func fireImpact(in rect: CGRect, color: Color) {
+        impactAt = CGPoint(x: rect.midX, y: rect.midY)
+        impactColor = color
+        impactToken += 1
+    }
+
     private func evaluateForkDrop(seaBlocked: Bool) {
         forkDragBase = forkBottlePos
         if recyclingForkRect.contains(forkBottlePos) {
+            fireImpact(in: recyclingForkRect, color: Theme.freshGreen)
             resolve(towardRecycling: true)
         } else if seaForkRect.contains(forkBottlePos) {
+            fireImpact(in: seaForkRect, color: seaBlocked ? Theme.neonAmber : Theme.mutedSeaTeal)
             if seaBlocked {
                 withAnimation(.easeOut(duration: 0.35)) {
                     forkBottlePos = CGPoint(x: 0.5, y: 0.22)
