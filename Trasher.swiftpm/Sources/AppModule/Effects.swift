@@ -1546,3 +1546,218 @@ struct SortingFloorGlow: View {
         .allowsHitTesting(false)
     }
 }
+
+// MARK: - Truck
+
+/// Cab-over profile (flat face, roof overhanging the glass, snub-nose bumper) —
+/// matches a box-truck silhouette like a Canter/Elf, not a hood-and-fender pickup.
+private struct TruckCabShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+        }
+        var p = Path()
+        p.move(to: pt(0.0, 1.0))
+        p.addLine(to: pt(0.0, 0.06))
+        p.addLine(to: pt(0.82, 0.0))
+        p.addQuadCurve(to: pt(0.98, 0.20), control: pt(0.98, 0.02))
+        p.addLine(to: pt(0.90, 0.60))
+        p.addQuadCurve(to: pt(0.96, 0.78), control: pt(1.0, 0.68))
+        p.addQuadCurve(to: pt(0.86, 1.0), control: pt(0.98, 0.96))
+        p.closeSubpath()
+        return p
+    }
+}
+
+private struct TruckCabWindow: Shape {
+    func path(in rect: CGRect) -> Path {
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+        }
+        var p = Path()
+        p.move(to: pt(0.06, 0.50))
+        p.addLine(to: pt(0.06, 0.14))
+        p.addLine(to: pt(0.80, 0.06))
+        p.addLine(to: pt(0.86, 0.54))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Shared box-truck silhouette (sloped windshield, wheel arches, contact
+/// shadow, badge decal) used by both the delivery truck and the recycling
+/// truck backgrounds — only livery and badge icon differ between them.
+struct TruckBody: View {
+    var cargoWidth: CGFloat
+    var cargoHeight: CGFloat
+    var cargoColors: [Color]
+    var cabColors: [Color]
+    var badgeIcon: String
+    var badgeColor: Color
+    var windowTint: Color
+
+    // Cab-over trucks read as short and squarish (cab roof sits well below the
+    // cargo roof) and sit almost flush against the box — no hood-truck gap.
+    private var cabWidth: CGFloat { cargoHeight * 0.60 }
+    private var cabHeight: CGFloat { cargoHeight * 0.72 }
+    private var wheelR: CGFloat { cargoHeight * 0.21 }
+
+    // All positions are relative to the ZStack's own center (0, 0), matching
+    // how .offset() works — everything below is expressed as a delta from
+    // there so the numbers stay checkable against each other.
+    private var cargoCenterX: CGFloat { -cargoWidth * 0.24 }
+    private var cabCenterX: CGFloat { cargoCenterX + cargoWidth / 2 + cabWidth * 0.51 }
+    private let groundY: CGFloat = 41
+    private var bodyBottomY: CGFloat { groundY - wheelR * 0.55 }
+    private var cargoCenterY: CGFloat { bodyBottomY - cargoHeight / 2 }
+    private var cabCenterY: CGFloat { bodyBottomY - cabHeight / 2 }
+    private var totalWidth: CGFloat { cargoWidth + cabWidth * 1.15 }
+
+    var body: some View {
+        ZStack {
+            // A dark ground shadow doesn't read against this scene's near-black road
+            // (measured delta against the road colour: ~5/255, invisible) — a soft
+            // light contact pool, like the ambient glow a vehicle picks up under
+            // streetlamps at night, is what actually grounds it here.
+            Ellipse()
+                .fill(RadialGradient(colors: [Color.white.opacity(0.10), .clear],
+                                     center: .center, startRadius: 0, endRadius: totalWidth * 0.32))
+                .frame(width: totalWidth * 0.75, height: cargoHeight * 0.16)
+                .blur(radius: 5)
+                .offset(y: groundY + wheelR * 0.7)
+
+            fenderSkirt
+
+            cargoBox.offset(x: cargoCenterX, y: cargoCenterY)
+            cab.offset(x: cabCenterX, y: cabCenterY)
+
+            // Two wheels, not three: in a side profile, dual wheels on one rear
+            // axle sit side-by-side into the screen, not as separate circles
+            // front-to-back — drawing two there was wrong. Positions below are
+            // measured off the reference photo (grid overlay), not guessed: the
+            // rear wheel sits ~69% back along the box from its front edge (~31%
+            // overhang behind it), and the front wheel sits close to the cab's
+            // rear/box-side edge, well behind the bumper — cab-overs hang a lot
+            // of nose out in front of the front axle.
+            wheelView.offset(x: cargoCenterX - cargoWidth * 0.19, y: groundY)
+            wheelView.offset(x: cabCenterX - cabWidth * 0.28, y: groundY)
+
+            headlight
+            taillight
+        }
+    }
+
+    // Only the rear (away from the cab) corners are rounded — the front pair
+    // stays square so the box flushes flat against the cab's rear wall
+    // instead of leaving a rounded notch at the seam.
+    private var cargoShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(topLeadingRadius: 7, bottomLeadingRadius: 7, bottomTrailingRadius: 0, topTrailingRadius: 0)
+    }
+
+    private var cargoBox: some View {
+        cargoShape
+            .fill(LinearGradient(colors: cargoColors, startPoint: .top, endPoint: .bottom))
+            .overlay(
+                VStack(spacing: cargoHeight * 0.24) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        Rectangle().fill(Color.black.opacity(0.10)).frame(height: 1.3)
+                    }
+                }
+                .padding(.vertical, cargoHeight * 0.16)
+            )
+            .overlay(
+                HStack {
+                    Rectangle().fill(Color.black.opacity(0.16)).frame(width: cargoWidth * 0.05)
+                    Spacer()
+                    Rectangle().fill(Color.white.opacity(0.18)).frame(width: cargoWidth * 0.05)
+                }
+            )
+            .overlay(
+                // Rear double-door seam, set back from the rear edge.
+                HStack(spacing: cargoWidth * 0.03) {
+                    Rectangle().fill(Color.black.opacity(0.14)).frame(width: 1)
+                    Rectangle().fill(Color.black.opacity(0.14)).frame(width: 1)
+                }
+                .offset(x: -cargoWidth * 0.37)
+            )
+            .overlay(
+                // Centered wrap decal — this is the truck's main livery, so it
+                // reads dead-center on the panel, not tucked into a corner.
+                ZStack {
+                    Circle().fill(Color.white.opacity(0.90)).frame(width: cargoHeight * 0.58, height: cargoHeight * 0.58)
+                    Circle().stroke(badgeColor.opacity(0.5), lineWidth: 1.6).frame(width: cargoHeight * 0.58, height: cargoHeight * 0.58)
+                    Image(systemName: badgeIcon)
+                        .font(.system(size: cargoHeight * 0.28, weight: .semibold))
+                        .foregroundStyle(badgeColor)
+                }
+            )
+            .overlay(cargoShape.stroke(Color.white.opacity(0.28), lineWidth: 1.2))
+            .frame(width: cargoWidth, height: cargoHeight)
+    }
+
+    private var cab: some View {
+        ZStack {
+            TruckCabShape()
+                .fill(LinearGradient(colors: cabColors, startPoint: .top, endPoint: .bottom))
+                .overlay(TruckCabShape().stroke(Color.white.opacity(0.3), lineWidth: 1.2))
+
+            TruckCabWindow()
+                .fill(LinearGradient(
+                    colors: [windowTint.opacity(0.55), Theme.nearBlack.opacity(0.75)],
+                    startPoint: .top, endPoint: .bottom
+                ))
+                .overlay(TruckCabWindow().stroke(Color.white.opacity(0.35), lineWidth: 1))
+
+            Rectangle()
+                .fill(Color.black.opacity(0.18))
+                .frame(width: 1.1, height: cabHeight * 0.86)
+                .offset(x: -cabWidth * 0.16, y: cabHeight * 0.05)
+
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color(white: 0.3))
+                .frame(width: cabWidth * 0.16, height: cabHeight * 0.07)
+                .offset(x: cabWidth * 0.24, y: -cabHeight * 0.34)
+        }
+        .frame(width: cabWidth, height: cabHeight)
+    }
+
+    private var fenderSkirt: some View {
+        RoundedRectangle(cornerRadius: 3)
+            .fill(
+                LinearGradient(colors: [Color.black.opacity(0), Color.black.opacity(0.55), Color.black.opacity(0)],
+                               startPoint: .leading, endPoint: .trailing)
+            )
+            .frame(width: totalWidth * 0.86, height: cargoHeight * 0.09)
+            .offset(x: (cargoCenterX + cabCenterX) / 2, y: bodyBottomY)
+    }
+
+    private var wheelView: some View {
+        ZStack {
+            Circle()
+                .fill(RadialGradient(colors: [Color(white: 0.32), .black], center: .center, startRadius: 0, endRadius: wheelR))
+                .frame(width: wheelR * 2, height: wheelR * 2)
+            Circle().stroke(Color.white.opacity(0.22), lineWidth: 1.2).frame(width: wheelR * 1.86, height: wheelR * 1.86)
+            Circle().fill(Color(white: 0.62)).frame(width: wheelR * 0.62, height: wheelR * 0.62)
+            ForEach(0..<4, id: \.self) { i in
+                Circle().fill(Color(white: 0.25)).frame(width: wheelR * 0.14, height: wheelR * 0.14)
+                    .offset(x: cos(Double(i) * .pi / 2) * wheelR * 0.3, y: sin(Double(i) * .pi / 2) * wheelR * 0.3)
+            }
+        }
+    }
+
+    private var headlight: some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(Theme.neonAmber.opacity(0.95))
+            .frame(width: cabWidth * 0.16, height: cabHeight * 0.11)
+            .glow(Theme.neonAmber, radius: 7, opacity: 0.75)
+            .offset(x: cabCenterX + cabWidth * 0.46, y: bodyBottomY - cabHeight * 0.16)
+    }
+
+    private var taillight: some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(Color.red.opacity(0.85))
+            .frame(width: cargoWidth * 0.045, height: cargoHeight * 0.16)
+            .glow(.red, radius: 5, opacity: 0.5)
+            .offset(x: cargoCenterX - cargoWidth * 0.47, y: bodyBottomY - cargoHeight * 0.14)
+    }
+}

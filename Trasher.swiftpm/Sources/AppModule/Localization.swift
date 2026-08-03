@@ -32,6 +32,7 @@ enum Loc {
     static let titleName = Entry(th: "TRASHER", en: "TRASHER", zh: "TRASHER")
     static let titleSubtitle = Entry(th: "a plastic bottle's journey", en: "a plastic bottle's journey", zh: "一颗塑料瓶的旅程")
     static let titleTapToBegin = Entry(th: "แตะเพื่อเริ่ม", en: "Tap to Begin", zh: "轻触，开始这段旅程")
+    static let titleBackToLanguage = Entry(th: "ย้อนกลับ", en: "Back", zh: "返回")
 
     static let factoryOriginLine = Entry(
         th: "มันถูกผลิตมา เพื่อใช้เพียงครั้งเดียว",

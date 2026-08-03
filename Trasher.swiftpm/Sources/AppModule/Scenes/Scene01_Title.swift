@@ -12,42 +12,73 @@ struct TitleScene: View {
             let size = geo.size
 
             ZStack {
-                LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                SkylineCanvas().opacity(0.35)
-                NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple])
-                    .opacity(0.45)
+                // The whole scene is a tap target via a real Button (not .onTapGesture).
+                // A bare .onTapGesture on this background raced with the back-text Button
+                // below: both could fire on the same tap, so "back" would land on
+                // languageSelect and then beginTapped()'s queued advanceFromTitle() would
+                // stomp it 0.22s later. Two sibling Buttons hit-test exclusively against
+                // each other in SwiftUI, so this removes the race instead of papering over it.
+                Button {
+                    beginTapped()
+                } label: {
+                    ZStack {
+                        LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
+                        SkylineCanvas().opacity(0.35)
+                        NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple])
+                            .opacity(0.45)
 
-                spotlightGlow(size: size)
+                        spotlightGlow(size: size)
 
-                SparkleCanvas(count: 30, color: .white)
-                    .opacity(0.6)
-                    .mask(spotlightMask(size: size))
+                        SparkleCanvas(count: 30, color: .white)
+                            .opacity(0.6)
+                            .mask(spotlightMask(size: size))
 
-                BottleView(vibrancy: 1, dirt: 0, showEyes: true, width: 46, height: 112)
-                    .position(x: size.width / 2, y: size.height * 0.66)
-                    .opacity(appear ? 1 : 0)
-                    .offset(y: appear ? 0 : 16)
+                        BottleView(vibrancy: 1, dirt: 0, showEyes: true, width: 46, height: 112)
+                            .position(x: size.width / 2, y: size.height * 0.66)
+                            .opacity(appear ? 1 : 0)
+                            .offset(y: appear ? 0 : 16)
 
-                VStack(spacing: 8) {
-                    Text(game.t(Loc.titleName))
-                        .font(.system(size: 52, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .glow(Theme.cleanCyan, radius: 16, opacity: 0.5)
-                    Text(game.t(Loc.titleSubtitle))
-                        .font(Theme.line(17))
-                        .foregroundStyle(.white.opacity(0.65))
+                        VStack(spacing: 8) {
+                            Text(game.t(Loc.titleName))
+                                .font(.system(size: 52, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                                .glow(Theme.cleanCyan, radius: 16, opacity: 0.5)
+                            Text(game.t(Loc.titleSubtitle))
+                                .font(Theme.line(17))
+                                .foregroundStyle(.white.opacity(0.65))
+                        }
+                        .position(x: size.width / 2, y: size.height * 0.26)
+                        .opacity(appear ? 1 : 0)
+
+                        tapToBeginLabel(size: size)
+
+                        Vignette(strength: 0.62)
+                    }
+                    .contentShape(Rectangle())
                 }
-                .position(x: size.width / 2, y: size.height * 0.26)
-                .opacity(appear ? 1 : 0)
+                .buttonStyle(.plain)
+                .disabled(tapped)
 
-                tapToBeginLabel(size: size)
-
-                Vignette(strength: 0.62)
+                backToLanguageButton(size: size)
             }
-            .contentShape(Rectangle())
-            .onTapGesture { beginTapped() }
         }
         .onAppear(perform: runSequence)
+    }
+
+    private func backToLanguageButton(size: CGSize) -> some View {
+        Button {
+            guard !tapped else { return }
+            game.goTo(.languageSelect)
+        } label: {
+            Text(game.t(Loc.titleBackToLanguage))
+                .font(Theme.line(14))
+                .foregroundStyle(.white.opacity(0.55))
+        }
+        .buttonStyle(.plain)
+        .position(x: size.width / 2, y: size.height * 0.945)
+        .opacity(appear && !tapped ? 1 : 0)
+        .disabled(!appear || tapped)
+        .animation(.easeOut(duration: 0.25), value: tapped)
     }
 
     private func tapToBeginLabel(size: CGSize) -> some View {

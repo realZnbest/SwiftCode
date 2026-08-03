@@ -42,49 +42,13 @@ struct TruckDeliveryScene: View {
 
 private struct RecyclingTruckShape: View {
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(LinearGradient(colors: [Theme.cleanCyan, Theme.cleanCyan.opacity(0.55)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 108, height: 76)
-                .overlay(
-                    Image(systemName: "arrow.3.trianglepath")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.92))
-                )
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.25), lineWidth: 1.5))
-                .offset(x: -28, y: -6)
-
-            RoundedRectangle(cornerRadius: 8)
-                .fill(LinearGradient(colors: [Color(white: 0.8), Color(white: 0.5)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 54, height: 52)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Theme.cleanCyan.opacity(0.55))
-                        .frame(width: 30, height: 22)
-                        .offset(y: -11)
-                )
-                .offset(x: 52, y: 4)
-
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color.black.opacity(0.55))
-                .frame(width: 168, height: 8)
-                .offset(y: 33)
-
-            wheel.offset(x: -34, y: 40)
-            wheel.offset(x: 44, y: 40)
-
-            Circle().fill(Theme.neonAmber.opacity(0.9)).frame(width: 8, height: 8)
-                .glow(Theme.neonAmber, radius: 6, opacity: 0.6)
-                .offset(x: 78, y: 10)
-        }
-    }
-
-    private var wheel: some View {
-        ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [Color(white: 0.3), .black], center: .center, startRadius: 0, endRadius: 15))
-                .frame(width: 28, height: 28)
-            Circle().fill(Color(white: 0.6)).frame(width: 9, height: 9)
-        }
+        TruckBody(
+            cargoWidth: 108, cargoHeight: 78,
+            cargoColors: [Theme.cleanCyan, Theme.cleanCyan.opacity(0.5)],
+            cabColors: [Color(white: 0.86), Color(white: 0.58)],
+            badgeIcon: "arrow.3.trianglepath",
+            badgeColor: Theme.freshGreen,
+            windowTint: Theme.cleanCyan
+        )
     }
 }
