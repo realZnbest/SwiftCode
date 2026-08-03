@@ -105,6 +105,77 @@ struct DropImpact: View {
     }
 }
 
+struct DragTarget {
+    var rect: CGRect
+    var color: Color
+
+    init(_ rect: CGRect, _ color: Color) {
+        self.rect = rect
+        self.color = color
+    }
+}
+
+struct DraggableBottle: View {
+    @Binding var position: CGPoint
+    @Binding var dragBase: CGPoint
+    @Binding var hasDragged: Bool
+
+    var targets: [DragTarget]
+    var containerSize: CGSize
+    var width: CGFloat
+    var height: CGFloat
+    var vibrancy: Double
+    var dirt: Double
+    var active: Bool
+    var onDrop: () -> Void
+
+    @State private var motion = DragMotion()
+    @State private var impactToken = 0
+    @State private var impactAt = CGPoint(x: 0.5, y: 0.5)
+    @State private var impactColor = Color.white
+
+    var body: some View {
+        let shown = magnetised(position, into: targets.map(\.rect))
+
+        ZStack {
+            BottleTrail(points: motion.trail, width: width, height: height,
+                        tilt: motion.tilt, strength: motion.trailStrength)
+
+            BottleView(vibrancy: vibrancy, dirt: dirt, showEyes: false, width: width, height: height)
+                .rotationEffect(motion.tilt)
+                .position(x: shown.x * containerSize.width, y: shown.y * containerSize.height)
+
+            DropImpact(trigger: impactToken, color: impactColor)
+                .frame(width: containerSize.width * 0.30, height: containerSize.width * 0.30)
+                .position(x: impactAt.x * containerSize.width, y: impactAt.y * containerSize.height)
+        }
+        .contentShape(Rectangle())
+        .gesture(drag, including: active ? .all : .none)
+    }
+
+    private var drag: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                hasDragged = true
+                let p = CGPoint(
+                    x: min(0.95, max(0.05, dragBase.x + value.translation.width / containerSize.width)),
+                    y: min(0.95, max(0.05, dragBase.y + value.translation.height / containerSize.height))
+                )
+                position = p
+                motion.sample(CGPoint(x: p.x * containerSize.width, y: p.y * containerSize.height))
+            }
+            .onEnded { _ in
+                if let hit = targets.first(where: { $0.rect.contains(position) }) {
+                    impactAt = CGPoint(x: hit.rect.midX, y: hit.rect.midY)
+                    impactColor = hit.color
+                    impactToken += 1
+                }
+                withAnimation(.easeOut(duration: 0.25)) { motion.reset() }
+                onDrop()
+            }
+    }
+}
+
 func magnetised(_ p: CGPoint, into rects: [CGRect], maxPull: CGFloat = 0.45) -> CGPoint {
     for rect in rects where rect.contains(p) {
         let c = CGPoint(x: rect.midX, y: rect.midY)

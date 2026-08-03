@@ -14,10 +14,6 @@ struct CanalScene: View {
     @State private var forkDragBase = CGPoint(x: 0.5, y: 0.22)
     @State private var forkWrongFeedback = false
     @State private var hasDraggedBottle = false
-    @State private var motion = DragMotion()
-    @State private var impactToken = 0
-    @State private var impactAt = CGPoint(x: 0.5, y: 0.5)
-    @State private var impactColor = Theme.freshGreen
     private let seaForkRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let recyclingForkRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
 
@@ -174,49 +170,28 @@ struct CanalScene: View {
             DragHintView(text: game.t(Loc.dragBottleHint), active: !hasDraggedBottle && !choiceMade)
                 .position(x: size.width * 0.5, y: size.height * 0.36)
 
-            let shown = magnetised(forkBottlePos, into: [seaForkRect, recyclingForkRect])
-            BottleTrail(points: motion.trail, width: 62, height: 152, tilt: motion.tilt,
-                            strength: motion.trailStrength)
-            BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 62, height: 152)
-                .rotationEffect(motion.tilt)
-                .position(x: shown.x * size.width, y: shown.y * size.height)
-
-            DropImpact(trigger: impactToken, color: impactColor)
-                .frame(width: size.width * 0.30, height: size.width * 0.30)
-                .position(x: impactAt.x * size.width, y: impactAt.y * size.height)
+            DraggableBottle(
+                position: $forkBottlePos,
+                dragBase: $forkDragBase,
+                hasDragged: $hasDraggedBottle,
+                targets: [
+                    DragTarget(seaForkRect, seaBlocked ? Theme.neonAmber : Theme.mutedSeaTeal),
+                    DragTarget(recyclingForkRect, Theme.freshGreen)
+                ],
+                containerSize: size,
+                width: 62, height: 152,
+                vibrancy: game.vibrancy, dirt: game.grime,
+                active: !choiceMade,
+                onDrop: { evaluateForkDrop(seaBlocked: seaBlocked) }
+            )
         }
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    guard !choiceMade else { return }
-                    hasDraggedBottle = true
-                    forkBottlePos = CGPoint(
-                        x: min(0.95, max(0.05, forkDragBase.x + value.translation.width / size.width)),
-                        y: min(0.95, max(0.05, forkDragBase.y + value.translation.height / size.height))
-                    )
-                    motion.sample(CGPoint(x: forkBottlePos.x * size.width, y: forkBottlePos.y * size.height))
-                }
-                .onEnded { _ in
-                    guard !choiceMade else { return }
-                    withAnimation(.easeOut(duration: 0.25)) { motion.reset() }
-                    evaluateForkDrop(seaBlocked: seaBlocked)
-                }
-        )
-    }
-
-    private func fireImpact(in rect: CGRect, color: Color) {
-        impactAt = CGPoint(x: rect.midX, y: rect.midY)
-        impactColor = color
-        impactToken += 1
     }
 
     private func evaluateForkDrop(seaBlocked: Bool) {
         forkDragBase = forkBottlePos
         if recyclingForkRect.contains(forkBottlePos) {
-            fireImpact(in: recyclingForkRect, color: Theme.freshGreen)
             resolve(towardRecycling: true)
         } else if seaForkRect.contains(forkBottlePos) {
-            fireImpact(in: seaForkRect, color: seaBlocked ? Theme.neonAmber : Theme.mutedSeaTeal)
             if seaBlocked {
                 withAnimation(.easeOut(duration: 0.35)) {
                     forkBottlePos = CGPoint(x: 0.5, y: 0.22)

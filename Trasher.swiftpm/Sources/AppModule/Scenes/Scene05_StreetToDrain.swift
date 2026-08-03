@@ -199,24 +199,21 @@ struct StreetToDrainScene: View {
             DragHintView(text: game.t(Loc.dragBottleHint), active: !hasDraggedBottle && !choiceMade)
                 .position(x: size.width * 0.5, y: size.height * 0.36)
 
-            BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 62, height: 152)
-                .position(x: forkBottlePos.x * size.width, y: forkBottlePos.y * size.height)
+            DraggableBottle(
+                position: $forkBottlePos,
+                dragBase: $forkDragBase,
+                hasDragged: $hasDraggedBottle,
+                targets: [
+                    DragTarget(landfillForkRect, landfillBlocked ? Theme.neonAmber : Theme.smokeOrange),
+                    DragTarget(drainForkRect, Theme.neonCyan)
+                ],
+                containerSize: size,
+                width: 62, height: 152,
+                vibrancy: game.vibrancy, dirt: game.grime,
+                active: !choiceMade,
+                onDrop: { evaluateForkDrop(landfillBlocked: landfillBlocked) }
+            )
         }
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    guard !choiceMade else { return }
-                    hasDraggedBottle = true
-                    forkBottlePos = CGPoint(
-                        x: min(0.95, max(0.05, forkDragBase.x + value.translation.width / size.width)),
-                        y: min(0.95, max(0.05, forkDragBase.y + value.translation.height / size.height))
-                    )
-                }
-                .onEnded { _ in
-                    guard !choiceMade else { return }
-                    evaluateForkDrop(landfillBlocked: landfillBlocked)
-                }
-        )
     }
 
     private func evaluateForkDrop(landfillBlocked: Bool) {

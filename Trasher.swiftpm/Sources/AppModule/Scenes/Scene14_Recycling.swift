@@ -14,10 +14,6 @@ struct RecyclingScene: View {
     @State private var wrongDropFeedback = false
     @State private var showBenchCaption = false
     @State private var hasDraggedBottle = false
-    @State private var motion = DragMotion()
-    @State private var impactToken = 0
-    @State private var impactAt = CGPoint(x: 0.5, y: 0.5)
-    @State private var impactColor = Theme.freshGreen
 
     private let landfillRect = CGRect(x: 0.08, y: 0.55, width: 0.30, height: 0.3)
     private let recyclingRect = CGRect(x: 0.62, y: 0.55, width: 0.30, height: 0.3)
@@ -72,30 +68,8 @@ struct RecyclingScene: View {
                         .transition(.opacity)
                 }
 
-                DropImpact(trigger: impactToken, color: impactColor)
-                    .frame(width: size.width * 0.30, height: size.width * 0.30)
-                    .position(x: impactAt.x * size.width, y: impactAt.y * size.height)
-
                 Vignette(strength: 0.55 - brighten * 0.25)
             }
-            .contentShape(Rectangle())
-            .gesture(
-                stage == .choosing ?
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        hasDraggedBottle = true
-                        bottlePos = CGPoint(
-                            x: min(0.95, max(0.05, dragBase.x + value.translation.width / size.width)),
-                            y: min(0.95, max(0.05, dragBase.y + value.translation.height / size.height))
-                        )
-                        motion.sample(CGPoint(x: bottlePos.x * size.width, y: bottlePos.y * size.height))
-                    }
-                    .onEnded { _ in
-                        withAnimation(.easeOut(duration: 0.25)) { motion.reset() }
-                        evaluateDrop()
-                    }
-                : nil
-            )
         }
         .onAppear(perform: setup)
     }
@@ -211,14 +185,20 @@ struct RecyclingScene: View {
     private func stageContent(size: CGSize) -> some View {
         switch stage {
         case .arriving, .choosing:
-            let shown = magnetised(bottlePos, into: [landfillRect, recyclingRect])
-            ZStack {
-                BottleTrail(points: motion.trail, width: 64, height: 156, tilt: motion.tilt,
-                            strength: motion.trailStrength)
-                BottleView(vibrancy: game.vibrancy, dirt: game.grime, showEyes: false, width: 64, height: 156)
-                    .rotationEffect(motion.tilt)
-                    .position(x: shown.x * size.width, y: shown.y * size.height)
-            }
+            DraggableBottle(
+                position: $bottlePos,
+                dragBase: $dragBase,
+                hasDragged: $hasDraggedBottle,
+                targets: [
+                    DragTarget(landfillRect, Theme.neonAmber),
+                    DragTarget(recyclingRect, Theme.freshGreen)
+                ],
+                containerSize: size,
+                width: 64, height: 156,
+                vibrancy: game.vibrancy, dirt: game.grime,
+                active: stage == .choosing,
+                onDrop: evaluateDrop
+            )
 
         case .cleaning:
             let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
@@ -299,19 +279,11 @@ struct RecyclingScene: View {
         }
     }
 
-    private func fireImpact(in rect: CGRect, color: Color) {
-        impactAt = CGPoint(x: rect.midX, y: rect.midY)
-        impactColor = color
-        impactToken += 1
-    }
-
     private func evaluateDrop() {
         dragBase = bottlePos
         if recyclingRect.contains(bottlePos) {
-            fireImpact(in: recyclingRect, color: Theme.freshGreen)
             succeed()
         } else if landfillRect.contains(bottlePos) {
-            fireImpact(in: landfillRect, color: Theme.neonAmber)
             misses += 1
             game.registerBinMiss()
             withAnimation(.easeOut(duration: 0.35)) {
