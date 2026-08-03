@@ -148,14 +148,11 @@ private struct CappingMachineView: View {
 
     private let housingCenterY: CGFloat = -8
     private let housingHeight: CGFloat = 34
-    private let cylinderHeight: CGFloat = 96
     private let headHeight: CGFloat = 26
 
     var body: some View {
         let housingBottom = housingCenterY + housingHeight / 2
-        let cylinderCenterY = housingBottom + cylinderHeight / 2
-        let cylinderBottom = housingBottom + cylinderHeight
-        let rodTop = cylinderBottom - 16
+        let rodTop = housingBottom - 16
         let rodBottom = headY - headHeight / 2 + 4
         let rodLen = max(6, rodBottom - rodTop)
         let rodCenterY = rodTop + rodLen / 2
@@ -174,19 +171,6 @@ private struct CappingMachineView: View {
                     }
                 )
                 .position(x: midX, y: rodCenterY)
-
-            RoundedRectangle(cornerRadius: 6)
-                .fill(LinearGradient(colors: [Color(white: 0.28), Color(white: 0.1), Color(white: 0.24)],
-                                      startPoint: .leading, endPoint: .trailing))
-                .frame(width: 40, height: cylinderHeight)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.14), lineWidth: 1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color(white: 0.16))
-                        .frame(width: 44, height: 7)
-                        .offset(y: cylinderHeight / 2 - 4)
-                )
-                .position(x: midX, y: cylinderCenterY)
 
             RoundedRectangle(cornerRadius: 6)
                 .fill(LinearGradient(colors: [Color(white: 0.44), Color(white: 0.18)], startPoint: .top, endPoint: .bottom))
