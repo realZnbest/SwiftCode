@@ -130,9 +130,8 @@ struct StreetToDrainScene: View {
     private func background(size: CGSize) -> some View {
         let groundY = size.height * bottleRowFrac
         return ZStack {
-            LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [Theme.citySkyDark, Theme.citySkyMid, Theme.citySkyDark], startPoint: .top, endPoint: .bottom)
             SkylineCanvas()
-                .opacity(0.55)
             NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple, Theme.neonPink])
                 .opacity(0.85)
 

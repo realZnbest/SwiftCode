@@ -109,15 +109,11 @@ private func windowTint(_ b: CityBuilding, row: Int, col: Int) -> Color {
     return base.mix(with: Color(red: 1.0, green: 0.93, blue: 0.78), amount: Double(warmth) * 0.5)
 }
 
-private func hasBeacon(_ b: CityBuilding) -> Bool {
-    b.layer == 2 && rnd(b.seed, 8400) > 0.45
-}
-
 struct SkylineCanvas: View {
     var t: Double? = nil
 
-    private let deepBase = Color(red: 0.035, green: 0.05, blue: 0.10)
-    private let hazeColor = Color(red: 0.22, green: 0.31, blue: 0.46)
+    private let deepBase = Color(red: 0.06, green: 0.08, blue: 0.13)
+    private let hazeColor = Color(red: 0.28, green: 0.36, blue: 0.50)
 
     var body: some View {
         ZStack {
@@ -129,25 +125,20 @@ struct SkylineCanvas: View {
                     with: .linearGradient(
                         Gradient(stops: [
                             .init(color: .clear, location: 0),
-                            .init(color: hazeColor.opacity(0.14), location: 0.55),
-                            .init(color: Theme.neonAmber.mix(with: hazeColor, amount: 0.55).opacity(0.22),
-                                  location: 1)
+                            .init(color: hazeColor.opacity(0.16), location: 0.55),
+                            .init(color: hazeColor.opacity(0.30), location: 1)
                         ]),
                         startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)
                     )
                 )
 
+                // A single soft break of light in the cloud ceiling — the one
+                // "touch of brightness" against an otherwise dark, flat overcast sky.
                 softBlob(in: ctx,
-                         center: CGPoint(x: size.width * 0.42, y: size.height * 0.74),
-                         radiusX: size.width * 0.62, radiusY: size.height * 0.46,
-                         color: Theme.neonAmber.mix(with: Theme.neonPink, amount: 0.3),
-                         peakOpacity: 0.20)
-
-                softBlob(in: ctx,
-                         center: CGPoint(x: size.width * 0.78, y: size.height * 0.80),
-                         radiusX: size.width * 0.40, radiusY: size.height * 0.34,
-                         color: Theme.neonCyan,
-                         peakOpacity: 0.13)
+                         center: CGPoint(x: size.width * 0.66, y: size.height * 0.20),
+                         radiusX: size.width * 0.34, radiusY: size.height * 0.24,
+                         color: Color(red: 0.90, green: 0.89, blue: 0.85),
+                         peakOpacity: 0.18)
 
                 for (li, spec) in cityLayers.enumerated() {
                     let fill = deepBase.mix(with: hazeColor, amount: spec.haze)
@@ -245,16 +236,6 @@ private struct SkylineLifeCanvas: View {
                         }
                     }
 
-                    guard hasBeacon(b) else { continue }
-                    let phase = Double(rnd(b.seed, 8401)) * 6.28
-                    let on = sin(t * 1.9 + phase) > 0.45
-                    guard on else { continue }
-                    let mastH = rnd(b.seed, 8500) > 0.66 ? b.w * (0.28 + rnd(b.seed, 8501) * 0.34) : 0
-                    let p = CGPoint(x: b.x + b.w * 0.5, y: b.topY - mastH - 2)
-                    softBlob(in: ctx, center: p, radiusX: 9, radiusY: 9,
-                             color: Theme.neonPink, peakOpacity: 0.7)
-                    ctx.fill(Path(ellipseIn: CGRect(x: p.x - 1.5, y: p.y - 1.5, width: 3, height: 3)),
-                             with: .color(Color(red: 1, green: 0.55, blue: 0.6)))
                 }
             }
         }

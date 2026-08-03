@@ -220,7 +220,7 @@ struct VendingAndDiscardScene: View {
 
     private var cityBackground: some View {
         ZStack {
-            LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [Theme.citySkyDark, Theme.citySkyMid, Theme.citySkyDark], startPoint: .top, endPoint: .bottom)
             NeonStreakField(colors: [Theme.neonPink, Theme.neonCyan, Theme.neonPurple])
             SkylineCanvas()
             SparkleCanvas(count: 20, color: .white).opacity(0.35)

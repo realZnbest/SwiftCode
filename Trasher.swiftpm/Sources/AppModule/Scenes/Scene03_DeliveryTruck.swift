@@ -11,8 +11,8 @@ struct DeliveryTruckScene: View {
             content: { size in
                 let roadTopY = size.height * 0.86
                 return ZStack {
-                    LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                    SkylineCanvas().opacity(0.3)
+                    LinearGradient(colors: [Theme.citySkyDark, Theme.citySkyMid, Theme.citySkyDark], startPoint: .top, endPoint: .bottom)
+                    SkylineCanvas()
                     NeonStreakField(colors: [Theme.neonAmber, Theme.neonPink, Theme.neonCyan])
 
                     RoadsideTreesCanvas(roadTopY: roadTopY)

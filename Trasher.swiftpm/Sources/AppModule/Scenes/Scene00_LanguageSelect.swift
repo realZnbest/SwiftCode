@@ -12,8 +12,8 @@ struct LanguageSelectScene: View {
             let size = geo.size
 
             ZStack {
-                LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                SkylineCanvas().opacity(0.3)
+                LinearGradient(colors: [Theme.citySkyDark, Theme.citySkyMid, Theme.citySkyDark], startPoint: .top, endPoint: .bottom)
+                SkylineCanvas()
                 NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple])
                     .opacity(0.35)
                 SparkleCanvas(count: 24, color: .white)

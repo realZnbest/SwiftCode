@@ -46,7 +46,7 @@ struct MontageScene: View {
 
             switch vignette.kind {
             case .city:
-                SkylineCanvas().opacity(0.7)
+                SkylineCanvas()
                 NeonStreakField(colors: [Theme.neonAmber, Theme.neonPink])
             case .river:
                 FishSilhouettesCanvas(darkness: 0.3)

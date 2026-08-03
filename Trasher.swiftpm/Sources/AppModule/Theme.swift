@@ -6,6 +6,11 @@ enum Theme {
     static let deepNavy = Color(red: 0.02, green: 0.03, blue: 0.07)
     static let nearBlack = Color(red: 0.01, green: 0.01, blue: 0.02)
 
+    // Overcast city sky — dark, cloud-covered daytime with a soft break of
+    // light in the mid-sky, not the night-black used elsewhere in the game.
+    static let citySkyDark = Color(red: 0.14, green: 0.16, blue: 0.19)
+    static let citySkyMid = Color(red: 0.36, green: 0.38, blue: 0.40)
+
     static let bottleBlue = Color(red: 0.35, green: 0.72, blue: 0.95)
     static let bottleBlueDeep = Color(red: 0.10, green: 0.32, blue: 0.55)
     static let bottleHighlight = Color.white

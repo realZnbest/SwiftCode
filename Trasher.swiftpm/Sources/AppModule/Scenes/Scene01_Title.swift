@@ -22,8 +22,8 @@ struct TitleScene: View {
                     beginTapped()
                 } label: {
                     ZStack {
-                        LinearGradient(colors: [Theme.deepNavy, Theme.nearBlack], startPoint: .top, endPoint: .bottom)
-                        SkylineCanvas().opacity(0.35)
+                        LinearGradient(colors: [Theme.citySkyDark, Theme.citySkyMid, Theme.citySkyDark], startPoint: .top, endPoint: .bottom)
+                        SkylineCanvas()
                         NeonStreakField(colors: [Theme.neonCyan, Theme.neonPurple])
                             .opacity(0.45)
 
