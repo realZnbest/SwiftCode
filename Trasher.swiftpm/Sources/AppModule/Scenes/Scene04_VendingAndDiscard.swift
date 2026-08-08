@@ -242,8 +242,21 @@ struct VendingAndDiscardScene: View {
 
     private func personView(size: CGSize) -> some View {
         let skin = Color(red: 0.55, green: 0.4, blue: 0.3)
-        let shirt = Theme.neonCyan.opacity(0.7)
+        let skinLight = skin.mix(with: .white, amount: 0.22)
+        let skinShade = skin.mix(with: .black, amount: 0.30)
+        let skinGradient = LinearGradient(colors: [skinLight, skinShade], startPoint: .leading, endPoint: .trailing)
+
+        let shirtBase = Theme.neonCyan
+        let shirt = shirtBase.opacity(0.7)
+        let shirtShade = shirtBase.mix(with: .black, amount: 0.32).opacity(0.7)
+
         let pants = Color(red: 0.2, green: 0.16, blue: 0.14)
+        let pantsLight = pants.mix(with: .white, amount: 0.16)
+        let pantsGradient = LinearGradient(colors: [pantsLight, pants], startPoint: .leading, endPoint: .trailing)
+
+        let hair = Color(red: 0.14, green: 0.09, blue: 0.07)
+        let shoe = Color(red: 0.08, green: 0.08, blue: 0.09)
+
         let legAngle = (stage == .personEnters && isMoving) || stage == .exiting
             ? sin(legTimer * 15) * 22 : 0.0
 
@@ -270,30 +283,59 @@ struct VendingAndDiscardScene: View {
             backArmAngle = 0.0
         }
 
+        // Arm/leg frame sizes and the .position()/.top-anchor rotation calls below are
+        // load-bearing: the parent view's shoulderX/shoulderY (used to place the bottle
+        // in-hand while drinking) are hardcoded against this exact geometry. Only fills
+        // and overlays (hands, shoes) change here — no size, anchor, or position moves.
         return ZStack(alignment: .topLeading) {
-            Capsule().fill(skin).frame(width: 14, height: 60)
+            Capsule().fill(skinGradient).frame(width: 14, height: 60)
+                .overlay(Circle().fill(skin).frame(width: 15, height: 15), alignment: .bottom)
                 .rotationEffect(.degrees(backArmAngle), anchor: .top)
                 .position(x: 109, y: 86)
 
             Ellipse()
-                .fill(Color.black.opacity(0.35))
+                .fill(RadialGradient(colors: [Color.black.opacity(0.4), Color.black.opacity(0)],
+                                     center: .center, startRadius: 0, endRadius: 45))
                 .frame(width: 90, height: 20)
                 .position(x: 80, y: 250)
 
-            Capsule().fill(pants).frame(width: 20, height: 110)
+            Capsule().fill(pantsGradient).frame(width: 20, height: 110)
+                .overlay(Capsule().fill(shoe).frame(width: 25, height: 13), alignment: .bottom)
                 .rotationEffect(.degrees(legAngle), anchor: .top)
                 .position(x: 64, y: 195)
-            Capsule().fill(pants).frame(width: 20, height: 110)
+            Capsule().fill(pantsGradient).frame(width: 20, height: 110)
+                .overlay(Capsule().fill(shoe).frame(width: 25, height: 13), alignment: .bottom)
                 .rotationEffect(.degrees(-legAngle), anchor: .top)
                 .position(x: 96, y: 195)
 
-            Circle().fill(skin).frame(width: 50, height: 50)
+            // back-shoulder sleeve cap, mostly hidden behind the torso
+            Circle().fill(shirtShade).frame(width: 20, height: 20)
+                .position(x: 109, y: 58)
+
+            Ellipse().fill(hair).frame(width: 52, height: 26)
+                .position(x: 80, y: 6)
+            Circle()
+                .fill(RadialGradient(colors: [skinLight, skin, skinShade],
+                                     center: UnitPoint(x: 0.35, y: 0.3), startRadius: 2, endRadius: 32))
+                .frame(width: 50, height: 50)
                 .position(x: 80, y: 25)
-            RoundedRectangle(cornerRadius: 10).fill(shirt)
+
+            PersonTorsoShape()
+                .fill(LinearGradient(colors: [shirt, shirtShade], startPoint: .top, endPoint: .bottom))
+                .overlay(PersonTorsoShape().stroke(Color.black.opacity(0.15), lineWidth: 1))
                 .frame(width: 58, height: 86)
                 .position(x: 80, y: 99)
+            Capsule().fill(Color.black.opacity(0.18)).frame(width: 20, height: 5)
+                .position(x: 80, y: 59)
+            Rectangle().fill(Color.black.opacity(0.15)).frame(width: 50, height: 3)
+                .position(x: 80, y: 141)
 
-            Capsule().fill(skin).frame(width: 14, height: 60)
+            // front-shoulder sleeve cap, in front of the torso
+            Circle().fill(shirt).frame(width: 20, height: 20)
+                .position(x: 51, y: 58)
+
+            Capsule().fill(skinGradient).frame(width: 14, height: 60)
+                .overlay(Circle().fill(skin).frame(width: 15, height: 15), alignment: .bottom)
                 .rotationEffect(.degrees(frontArmAngle), anchor: .top)
                 .position(x: 51, y: 86)
         }
@@ -374,6 +416,28 @@ struct VendingAndDiscardScene: View {
             try? await Task.sleep(for: .seconds(2.8))
             game.advanceFromVendingAndDiscard()
         }
+    }
+}
+
+/// A shoulders-tapered-to-hem torso silhouette, used in place of a plain
+/// rounded rectangle so the vending-machine character reads as a body rather
+/// than a sign board.
+private struct PersonTorsoShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+        }
+        var p = Path()
+        p.move(to: pt(0.0, 0.06))
+        p.addQuadCurve(to: pt(0.10, 0.0), control: pt(0.0, 0.0))
+        p.addLine(to: pt(0.90, 0.0))
+        p.addQuadCurve(to: pt(1.0, 0.06), control: pt(1.0, 0.0))
+        p.addLine(to: pt(0.84, 0.88))
+        p.addLine(to: pt(0.84, 1.0))
+        p.addLine(to: pt(0.16, 1.0))
+        p.addLine(to: pt(0.16, 0.88))
+        p.closeSubpath()
+        return p
     }
 }
 
